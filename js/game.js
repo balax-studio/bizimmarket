@@ -611,7 +611,7 @@ class MiniMartGame {
       roughness: 0.9
     });
     const baseTerrain = new THREE.Mesh(baseTerrainGeo, baseTerrainMat);
-    baseTerrain.position.set(0, -0.06, 0);
+    baseTerrain.position.set(0, -0.02, 0);
     baseTerrain.receiveShadow = true;
     this.scene.add(baseTerrain);
 
@@ -623,7 +623,7 @@ class MiniMartGame {
       roughness: 0.85
     });
     const innerLawn = new THREE.Mesh(innerLawnGeo, innerLawnMat);
-    innerLawn.position.set(0, -0.03, 0);
+    innerLawn.position.set(0, -0.01, 0);
     innerLawn.receiveShadow = true;
     this.scene.add(innerLawn);
 
@@ -637,14 +637,14 @@ class MiniMartGame {
     const patchMat1 = new THREE.MeshStandardMaterial({ color: 0x2ed573, roughness: 0.9 });
     const patchMat2 = new THREE.MeshStandardMaterial({ color: 0x7bed9f, roughness: 0.9 });
     const patchPositions = [
-      [-14, 0.005, 5, 8, 8, patchMat1],
-      [-14, 0.006, 17, 8, 12, patchMat2],
-      [14, 0.005, 5, 8, 8, patchMat1],
-      [14, 0.006, 17, 8, 12, patchMat2],
-      [-5.5, 0.005, 6.5, 4.5, 4.5, patchMat2],
-      [5.5, 0.005, 6.5, 4.5, 4.5, patchMat1],
-      [-28, -0.01, 12, 16, 24, patchMat1],
-      [28, -0.01, 12, 16, 24, patchMat2]
+      [-14, -0.005, 5, 8, 8, patchMat1],
+      [-14, -0.005, 17, 8, 12, patchMat2],
+      [14, -0.005, 5, 8, 8, patchMat1],
+      [14, -0.005, 17, 8, 12, patchMat2],
+      [-5.5, -0.005, 6.5, 4.5, 4.5, patchMat2],
+      [5.5, -0.005, 6.5, 4.5, 4.5, patchMat1],
+      [-28, -0.008, 12, 16, 24, patchMat1],
+      [28, -0.008, 12, 16, 24, patchMat2]
     ];
     patchPositions.forEach(([px, py, pz, pw, pd, pmat]) => {
       const pGeo = new THREE.PlaneGeometry(pw, pd);
@@ -658,21 +658,24 @@ class MiniMartGame {
     // 2. Central Sandstone Cobblestone Promenade (Connecting Garden to Supermarket)
     const pathMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, roughness: 0.6 });
     const mainPath = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 28).rotateX(-Math.PI / 2), pathMat);
-    mainPath.position.set(0, 0.01, 11.5);
+    mainPath.position.set(0, 0.015, 11.5);
     mainPath.receiveShadow = true;
     this.scene.add(mainPath);
 
-    // Lateral Connecting Walkways
-    const latPath1 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.8).rotateX(-Math.PI / 2), pathMat);
-    latPath1.position.set(0, 0.012, 6.5);
+    // Lateral Connecting Walkways (Situated in Open Aisle Corridors between Production Rows)
+    const latPath1 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.4).rotateX(-Math.PI / 2), pathMat);
+    latPath1.position.set(0, 0.015, 3.5); // Corridor 1: Market Entrance to Row 1
     latPath1.receiveShadow = true;
-    const latPath2 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.8).rotateX(-Math.PI / 2), pathMat);
-    latPath2.position.set(0, 0.012, 12.5);
+    const latPath2 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.4).rotateX(-Math.PI / 2), pathMat);
+    latPath2.position.set(0, 0.015, 9.5); // Corridor 2: Row 1 to Row 2
     latPath2.receiveShadow = true;
-    const latPath3 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.8).rotateX(-Math.PI / 2), pathMat);
-    latPath3.position.set(0, 0.012, 18.5);
+    const latPath3 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.4).rotateX(-Math.PI / 2), pathMat);
+    latPath3.position.set(0, 0.015, 15.5); // Corridor 3: Row 2 to Row 3
     latPath3.receiveShadow = true;
-    this.scene.add(latPath1, latPath2, latPath3);
+    const latPath4 = new THREE.Mesh(new THREE.PlaneGeometry(36, 2.4).rotateX(-Math.PI / 2), pathMat);
+    latPath4.position.set(0, 0.015, 21.5); // Corridor 4: Row 3 to South Boundary
+    latPath4.receiveShadow = true;
+    this.scene.add(latPath1, latPath2, latPath3, latPath4);
 
     // 3. Supermarket Floor (Width 38: X: -19 to +19, Depth 23: Z: -24 to -1)
     const storeFloorGeo = new THREE.PlaneGeometry(38, 23);
@@ -684,34 +687,34 @@ class MiniMartGame {
     });
     this.storeFloorMat = storeFloorMat;
     const storeFloor = new THREE.Mesh(storeFloorGeo, storeFloorMat);
-    storeFloor.position.set(0, 0.01, -12.5);
+    storeFloor.position.set(0, 0.00, -12.5);
     storeFloor.receiveShadow = true;
     this.scene.add(storeFloor);
 
     // High-Contrast Polish Checkerboard Grid Lines on Supermarket Floor
     const tileLineMat = new THREE.MeshBasicMaterial({ color: 0xa0cfff, transparent: true, opacity: 0.65 });
     for (let x = -19; x <= 19; x += 2) {
-      const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 23), tileLineMat);
-      line.position.set(x, 0.02, -12.5);
+      const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.015, 23), tileLineMat);
+      line.position.set(x, 0.022, -12.5);
       this.scene.add(line);
     }
     for (let z = -24; z <= -1; z += 2) {
-      const line = new THREE.Mesh(new THREE.BoxGeometry(38, 0.02, 0.04), tileLineMat);
-      line.position.set(0, 0.02, z);
+      const line = new THREE.Mesh(new THREE.BoxGeometry(38, 0.015, 0.04), tileLineMat);
+      line.position.set(0, 0.022, z);
       this.scene.add(line);
     }
 
     // Parquet Wood Floor Inlay under Checkout Counter
     const parquetMat = new THREE.MeshStandardMaterial({ color: 0xd35400, roughness: 0.4 });
-    const chkFloor = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.025, 6.0), parquetMat);
-    chkFloor.position.set(8.5, 0.02, -4.5);
+    const chkFloor = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.02, 6.0), parquetMat);
+    chkFloor.position.set(8.5, 0.022, -4.5);
     chkFloor.receiveShadow = true;
     this.scene.add(chkFloor);
 
     // Entrance Yellow/Black Safety Strip
     const hazardMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
-    const hazardBar = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.03, 0.6), hazardMat);
-    hazardBar.position.set(0, 0.02, -1.0);
+    const hazardBar = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.025, 0.6), hazardMat);
+    hazardBar.position.set(0, 0.025, -1.0);
     this.scene.add(hazardBar);
     this.createDepartmentFloorZones();
 
@@ -721,30 +724,30 @@ class MiniMartGame {
     const roadGeo = new THREE.PlaneGeometry(160, 6.0);
     roadGeo.rotateX(-Math.PI / 2);
     const road = new THREE.Mesh(roadGeo, roadMat);
-    road.position.set(0, -0.01, -34.0);
+    road.position.set(0, 0.00, -34.0);
     road.receiveShadow = true;
     this.scene.add(road);
 
     // Yellow Dashed Center Divider Line (Extended across 160 units)
     const dashMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
     for (let dx = -76; dx <= 76; dx += 3.2) {
-      const dash = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.02, 0.16), dashMat);
-      dash.position.set(dx, 0.005, -34.0);
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.015, 0.16), dashMat);
+      dash.position.set(dx, 0.008, -34.0);
       this.scene.add(dash);
     }
 
     // White Outer Road Edge Lines
     const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const edgeN = new THREE.Mesh(new THREE.BoxGeometry(160, 0.02, 0.14), edgeMat);
-    edgeN.position.set(0, 0.005, -36.85);
-    const edgeS = new THREE.Mesh(new THREE.BoxGeometry(160, 0.02, 0.14), edgeMat);
-    edgeS.position.set(0, 0.005, -31.15);
+    const edgeN = new THREE.Mesh(new THREE.BoxGeometry(160, 0.015, 0.14), edgeMat);
+    edgeN.position.set(0, 0.008, -36.85);
+    const edgeS = new THREE.Mesh(new THREE.BoxGeometry(160, 0.015, 0.14), edgeMat);
+    edgeS.position.set(0, 0.008, -31.15);
     this.scene.add(edgeN, edgeS);
 
     // Painted Zebra Pedestrian Crosswalk (X: -3.0 to +3.0, Z: -37.0 to -31.0)
     for (let zx = -2.6; zx <= 2.6; zx += 0.9) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 5.6), edgeMat);
-      stripe.position.set(zx, 0.006, -34.0);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.015, 5.6), edgeMat);
+      stripe.position.set(zx, 0.009, -34.0);
       this.scene.add(stripe);
     }
 
@@ -1170,20 +1173,20 @@ class MiniMartGame {
       opacity: 0.72
     });
     const zone = new THREE.Mesh(new THREE.PlaneGeometry(width, depth).rotateX(-Math.PI / 2), zoneMat);
-    zone.position.set(x, 0.028, z);
+    zone.position.set(x, 0.020, z);
     zone.receiveShadow = true;
     zone.userData.departmentLabel = label;
     this.scene.add(zone);
 
     const borderMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.55 });
-    const top = new THREE.Mesh(new THREE.BoxGeometry(width, 0.035, 0.08), borderMat);
-    const bottom = new THREE.Mesh(new THREE.BoxGeometry(width, 0.035, 0.08), borderMat);
-    const left = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.035, depth), borderMat);
-    const right = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.035, depth), borderMat);
-    top.position.set(x, 0.045, z - depth / 2);
-    bottom.position.set(x, 0.045, z + depth / 2);
-    left.position.set(x - width / 2, 0.045, z);
-    right.position.set(x + width / 2, 0.045, z);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(width, 0.025, 0.08), borderMat);
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(width, 0.025, 0.08), borderMat);
+    const left = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, depth), borderMat);
+    const right = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, depth), borderMat);
+    top.position.set(x, 0.030, z - depth / 2);
+    bottom.position.set(x, 0.030, z + depth / 2);
+    left.position.set(x - width / 2, 0.030, z);
+    right.position.set(x + width / 2, 0.030, z);
     this.scene.add(top, bottom, left, right);
 
     const signGroup = new THREE.Group();
@@ -1201,10 +1204,15 @@ class MiniMartGame {
 
   createDepartmentFloorZones() {
     [
+      // Row 1 (Z = -9.5): West Manav & East Şarküteri
       { x: -8.5, z: -9.5, width: 10.4, depth: 2.7, color: 0x10ac84, label: 'MANAV' },
-      { x: -3.8, z: -15.0, width: 16.2, depth: 2.7, color: 0xd35400, label: 'FIRIN' },
-      { x: 7.0, z: -9.5, width: 8.8, depth: 2.7, color: 0x0984e3, label: 'SOĞUK' },
-      { x: 5.0, z: -20.5, width: 22.4, depth: 2.7, color: 0x8e44ad, label: 'GURME' }
+      { x: 7.0, z: -9.5, width: 8.8, depth: 2.7, color: 0x0984e3, label: 'ŞARKÜTERİ' },
+      // Row 2 (Z = -15.0): West Fırın & East Büfe & Pizza
+      { x: -8.5, z: -15.0, width: 10.4, depth: 2.7, color: 0xd35400, label: 'FIRIN' },
+      { x: 9.75, z: -15.0, width: 14.5, depth: 2.7, color: 0xf39c12, label: 'BÜFE & PİZZA' },
+      // Row 3 (Z = -20.5): West Organik & East Gurme & Şarküteri
+      { x: -8.5, z: -20.5, width: 10.4, depth: 2.7, color: 0x27ae60, label: 'ORGANİK' },
+      { x: 9.75, z: -20.5, width: 14.5, depth: 2.7, color: 0x8e44ad, label: 'GURME & DELİ' }
     ].forEach(zone => this.createDepartmentZone(zone));
   }
 
@@ -5260,15 +5268,15 @@ class MiniMartGame {
 
     let meshInstance = null;
     if (buildingId === 'bus_stop') {
-      meshInstance = new VoxelBusStop(this.scene, -24.0, -31.0);
+      meshInstance = new VoxelBusStop(this.scene, -24.0, -28.5);
     } else if (buildingId === 'park') {
-      meshInstance = new VoxelPark(this.scene, -24.0, -37.0);
+      meshInstance = new VoxelPark(this.scene, -24.0, -39.5);
     } else if (buildingId === 'cafe') {
-      meshInstance = new VoxelCafe(this.scene, 24.0, -31.0);
+      meshInstance = new VoxelCafe(this.scene, 24.0, -28.5);
     } else if (buildingId === 'school') {
-      meshInstance = new VoxelSchool(this.scene, 24.0, -37.0);
+      meshInstance = new VoxelSchool(this.scene, 24.0, -39.5);
     } else if (buildingId === 'gym') {
-      meshInstance = new VoxelGym(this.scene, 0.0, -37.0);
+      meshInstance = new VoxelGym(this.scene, 0.0, -39.5);
     }
 
     if (meshInstance) {

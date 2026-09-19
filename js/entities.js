@@ -112,7 +112,7 @@ function createProductionFloorKit(machineGroup, accentColor = 0xffe600) {
         new THREE.BoxGeometry(1.08, 0.025, 1.08),
         (row + col) % 2 === 0 ? darkTile : lightTile
       );
-      tile.position.set(-1.62 + col * 1.08, 0.012, -1.08 + row * 1.08);
+      tile.position.set(-1.62 + col * 1.08, 0.030, -1.08 + row * 1.08);
       tile.receiveShadow = true;
       floorKit.add(tile);
     }
@@ -124,7 +124,7 @@ function createProductionFloorKit(machineGroup, accentColor = 0xffe600) {
   const addStripeRow = (z) => {
     for (let i = 0; i < 12; i++) {
       const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.035, 0.18), i % 2 === 0 ? yellow : black);
-      stripe.position.set(-1.98 + i * 0.36, 0.035, z);
+      stripe.position.set(-1.98 + i * 0.36, 0.042, z);
       hazardStripe.add(stripe);
     }
   };
@@ -4273,7 +4273,7 @@ class UnlockPad {
     this.isUnlocked = false;
 
     this.group = new THREE.Group();
-    this.group.position.set(x, 0.02, z);
+    this.group.position.set(x, 0.035, z);
 
     this.initMesh();
     this.scene.add(this.group);
@@ -4296,11 +4296,11 @@ class UnlockPad {
 
     corners.forEach(([cx, cz, dx, dz]) => {
       // Horizontal segment bar
-      const hBar = new THREE.Mesh(new THREE.BoxGeometry(armLength, 0.03, thickness), bracketMat);
-      hBar.position.set(cx + dx * (armLength / 2), 0.015, cz);
+      const hBar = new THREE.Mesh(new THREE.BoxGeometry(armLength, 0.02, thickness), bracketMat);
+      hBar.position.set(cx + dx * (armLength / 2), 0.005, cz);
       // Vertical segment bar
-      const vBar = new THREE.Mesh(new THREE.BoxGeometry(thickness, 0.03, armLength), bracketMat);
-      vBar.position.set(cx, 0.015, cz + dz * (armLength / 2));
+      const vBar = new THREE.Mesh(new THREE.BoxGeometry(thickness, 0.02, armLength), bracketMat);
+      vBar.position.set(cx, 0.005, cz + dz * (armLength / 2));
 
       this.bracketGroup.add(hBar, vBar);
     });
@@ -4317,7 +4317,7 @@ class UnlockPad {
       })
     );
     centerPad.rotateX(-Math.PI / 2);
-    centerPad.position.y = 0.005;
+    centerPad.position.y = 0.002;
     this.group.add(centerPad);
 
     // 2. Floating 3D Voxel Dollar Bill Block
@@ -4811,8 +4811,8 @@ class SupermarketNavGraph {
     // 5. South Door & Outdoor Farm
     this.addNode('S_IN_DOOR', 0.0, -2.2);
 
-    const farmZ = [1.8, 6.5, 9.5, 12.5, 15.5, 18.5];
-    const farmX = [-12.5, -5.5, 0.0, 5.5, 12.5];
+    const farmZ = [1.8, 3.5, 9.5, 15.5, 21.5];
+    const farmX = [-15.5, -9.0, 0.0, 9.0, 15.5];
 
     for (let zi = 0; zi < farmZ.length; zi++) {
       for (let xi = 0; xi < farmX.length; xi++) {
@@ -4906,8 +4906,8 @@ class SupermarketNavGraph {
     // South Door Transit to Farm
     this.addEdge('S_IN_DOOR', 'F_Z0_X2');
 
-    // Farm Grid Connections
-    const farmZCount = 6;
+    // Farm Grid Connections (5 x 5 Corridor Network)
+    const farmZCount = 5;
     const farmXCount = 5;
     for (let zi = 0; zi < farmZCount; zi++) {
       for (let xi = 0; xi < farmXCount; xi++) {
