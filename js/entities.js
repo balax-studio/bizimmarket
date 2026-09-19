@@ -4819,6 +4819,13 @@ class SupermarketNavGraph {
         this.addNode(`F_Z${zi}_X${xi}`, farmX[xi], farmZ[zi]);
       }
     }
+
+    // 6. Logistics Warehouse (West Wing: X: -19.2 to -27.5, Z: -24.0 to -1.0)
+    this.addNode('W_IN_DOOR', -19.2, -12.2);   // Warehouse double-swing doors threshold
+    this.addNode('W_CENTER', -22.5, -12.2);    // Central warehouse forklift corridor
+    this.addNode('W_DOCK', -24.0, -10.0);      // Wholesale delivery loading bay
+    this.addNode('W_RACKS_N', -22.5, -18.0);   // North high-bay pallet rack staging
+    this.addNode('W_RACKS_S', -22.5, -6.0);    // South pallet staging & receiving desk
   }
 
   initEdges() {
@@ -4922,6 +4929,14 @@ class SupermarketNavGraph {
         }
       }
     }
+
+    // Logistics Warehouse Connections (Connecting Store West Crossway to Warehouse Corridor)
+    this.addEdge('M_Z2_X0', 'W_IN_DOOR');
+    this.addEdge('W_IN_DOOR', 'W_CENTER');
+    this.addEdge('W_CENTER', 'W_DOCK');
+    this.addEdge('W_CENTER', 'W_RACKS_N');
+    this.addEdge('W_CENTER', 'W_RACKS_S');
+    this.addEdge('W_DOCK', 'W_RACKS_S');
   }
 
   getNearestNode(pos, filterZone = null) {
@@ -4930,10 +4945,11 @@ class SupermarketNavGraph {
 
     for (const [id, node] of this.nodes) {
       if (filterZone) {
-        if (filterZone === 'OUTSIDE_NORTH' && (node.z > -23.5 || id.startsWith('F_') || id.startsWith('OFFICE_'))) continue;
-        if (filterZone === 'STORE' && (node.z < -23.5 || node.z > -1.0 || id.startsWith('F_'))) continue;
+        if (filterZone === 'OUTSIDE_NORTH' && (node.z > -23.5 || id.startsWith('F_') || id.startsWith('OFFICE_') || id.startsWith('W_'))) continue;
+        if (filterZone === 'STORE' && (node.z < -23.5 || node.z > -1.0 || id.startsWith('F_') || id.startsWith('W_'))) continue;
         if (filterZone === 'FARM' && !id.startsWith('F_')) continue;
         if (filterZone === 'OFFICE' && !id.startsWith('OFFICE_')) continue;
+        if (filterZone === 'WAREHOUSE' && !id.startsWith('W_')) continue;
       }
 
       const dx = pos.x - node.x;
@@ -4951,6 +4967,7 @@ class SupermarketNavGraph {
   getZone(pos) {
     if (pos.z < -24.0) return 'OUTSIDE_NORTH';
     if (pos.z > 0.0) return 'FARM';
+    if (pos.x < -19.2 && pos.z >= -24.0 && pos.z <= -1.0) return 'WAREHOUSE';
     if (pos.x < -12.5 && pos.z > -8.0 && pos.z < -1.0) return 'OFFICE';
     return 'STORE';
   }
@@ -10767,6 +10784,862 @@ class VoxelNeonSign {
   }
 }
 
+// --- Supermarket Neo-Brutalist Label Texture Generator & Sign Helper ---
+const _supermarketLabelTextureCache = {};
+
+function getSupermarketLabelTexture(label, bgColor = '#FFE600', textColor = '#111111', width = 512, height = 128) {
+  const key = `${label}-${bgColor}-${textColor}-${width}-${height}`;
+  if (_supermarketLabelTextureCache[key]) return _supermarketLabelTextureCache[key];
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, width, height);
+  const borderW = Math.max(6, Math.floor(height * 0.08));
+  ctx.lineWidth = borderW;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeRect(borderW / 2, borderW / 2, width - borderW, height - borderW);
+  ctx.font = `900 ${Math.floor(height * 0.38)}px "Arial Black", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = textColor;
+  ctx.fillText(label, width / 2, height / 2, width - borderW * 2.5);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  _supermarketLabelTextureCache[key] = tex;
+  return tex;
+}
+
+function createVoxelNeoSign(label, bgColor = '#FFE600', textColor = '#111111', width = 2.4, height = 0.6, depth = 0.08) {
+  const signGroup = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, depth), frameMat);
+  signGroup.add(frame);
+
+  const tex = getSupermarketLabelTexture(label, bgColor, textColor, 512, 128);
+  const faceMat = tex
+    ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
+    : new THREE.MeshStandardMaterial({ color: parseInt(bgColor.replace('#', '0x'), 16), roughness: 0.3 });
+
+  const frontFace = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.02), faceMat);
+  frontFace.position.z = depth / 2 + 0.01;
+  signGroup.add(frontFace);
+
+  const backFace = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.02), faceMat);
+  backFace.position.z = -(depth / 2 + 0.01);
+  backFace.rotation.y = Math.PI;
+  signGroup.add(backFace);
+
+  return signGroup;
+}
+
+// --- Supermarket Visual System (Architectural Ceiling, Refrigeration, Welcome, Checkout & Safety) ---
+class SupermarketVisualSystem {
+  constructor(scene) {
+    this.scene = scene;
+    this.group = new THREE.Group();
+
+    // Reusable Materials
+    this.steelMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, roughness: 0.5 });
+    this.enamelMat = new THREE.MeshStandardMaterial({ color: 0xecf0f1, roughness: 0.3 });
+    this.ledMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.85 });
+    this.hvacMat = new THREE.MeshStandardMaterial({ color: 0xb2bec3, metalness: 0.35, roughness: 0.4 });
+    this.chromeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.85, roughness: 0.2 });
+    this.blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
+    this.hazardMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
+    this.glassMat = new THREE.MeshStandardMaterial({ color: 0x81ecec, transparent: true, opacity: 0.45, roughness: 0.1 });
+    this.frostedGlassMat = new THREE.MeshStandardMaterial({ color: 0xa0e6ff, transparent: true, opacity: 0.55, roughness: 0.2 });
+    this.redMat = new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.4 });
+    this.blueMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.4 });
+    this.woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.7 });
+
+    this.buildCeilingRiggingAndLighting();
+    this.buildOverheadCategoryBanners();
+    this.buildHVACDuctsAndDiffusers();
+    this.buildSecurityMirrorsAndCCTV();
+    this.buildRefrigerationAndFreezers();
+    this.buildEntranceAndWelcomeZone();
+    this.buildCheckoutAccessories();
+    this.buildInAisleMerchandisingAndScales();
+    this.buildSafetyAndHygiene();
+
+    this.scene.add(this.group);
+  }
+
+  // Category A.1: Ceiling Truss System & Linear Suspended LEDs
+  buildCeilingRiggingAndLighting() {
+    const trussY = 3.82;
+    // 5 Longitudinal Truss Beams (Z: -24 to -1)
+    [-18.5, -9.0, 0.0, 9.0, 18.5].forEach(tx => {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 23.0), this.steelMat);
+      beam.position.set(tx, trussY, -12.5);
+      this.group.add(beam);
+    });
+
+    // 5 Transverse Cross Truss Beams (X: -18.5 to +18.5)
+    [-22.5, -17.0, -12.5, -7.0, -2.0].forEach(tz => {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(37.0, 0.16, 0.16), this.steelMat);
+      beam.position.set(0, trussY, tz);
+      this.group.add(beam);
+    });
+
+    // 4 Long Suspended Linear LED Light Rows along Aisles
+    [-11.5, -4.0, 4.0, 11.5].forEach(lx => {
+      [-20.5, -15.0, -9.5, -4.5].forEach(lz => {
+        // Wire hangers
+        [-1.8, 1.8].forEach(hx => {
+          const wire = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.03), this.steelMat);
+          wire.position.set(lx, trussY - 0.11, lz + hx);
+          this.group.add(wire);
+        });
+
+        // Enamel Housing
+        const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.10, 4.2), this.enamelMat);
+        fixture.position.set(lx, trussY - 0.22, lz);
+        // Diffuser Face
+        const led = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 4.1), this.ledMat);
+        led.position.set(lx, trussY - 0.27, lz);
+        this.group.add(fixture, led);
+      });
+    });
+  }
+
+  // Category A.2: Overhead Aisle Category Hanging Signs
+  buildOverheadCategoryBanners() {
+    const banners = [
+      { x: -8.5, z: -9.5, label: '[1. REYON: TEMEL GIDA & MANAV]', bg: '#2ECC71', color: '#111111' },
+      { x: 8.5, z: -9.5, label: '[2. REYON: ŞARKÜTERİ & SÜT]', bg: '#0984E3', color: '#FFFFFF' },
+      { x: 0.0, z: -15.0, label: '[3. REYON: ORGANİK & FIRIN]', bg: '#E67E22', color: '#111111' }
+    ];
+
+    banners.forEach(b => {
+      const sign = createVoxelNeoSign(b.label, b.bg, b.color, 3.4, 0.65, 0.08);
+      sign.position.set(b.x, 3.15, b.z);
+
+      // Hanging steel wires
+      [-1.4, 1.4].forEach(wx => {
+        const wire = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.65, 0.025), this.steelMat);
+        wire.position.set(b.x + wx, 3.50, b.z);
+        this.group.add(wire);
+      });
+      this.group.add(sign);
+    });
+  }
+
+  // Category A.3: Galvanized HVAC Ventilation Ducts & Diffusers
+  buildHVACDuctsAndDiffusers() {
+    const ductY = 3.90;
+    // Main supply trunk duct running East-West
+    const mainDuct = new THREE.Mesh(new THREE.BoxGeometry(33.0, 0.42, 0.65), this.hvacMat);
+    mainDuct.position.set(0, ductY, -12.5);
+    this.group.add(mainDuct);
+
+    // Flange Joint Rings
+    for (let fx = -16.0; fx <= 16.0; fx += 4.0) {
+      const ring = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.48, 0.72), this.steelMat);
+      ring.position.set(fx, ductY, -12.5);
+      this.group.add(ring);
+    }
+
+    // Branch ducts North & South
+    [-8.0, 8.0].forEach(bx => {
+      const branchN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.36, 9.0), this.hvacMat);
+      branchN.position.set(bx, ductY, -17.5);
+      const branchS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.36, 9.0), this.hvacMat);
+      branchS.position.set(bx, ductY, -7.5);
+      this.group.add(branchN, branchS);
+
+      // Downward Air Supply Diffusers
+      [-17.0, -8.0].forEach(dz => {
+        const diff = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.12, 0.65), this.enamelMat);
+        diff.position.set(bx, ductY - 0.24, dz);
+        const grill = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.02, 0.52), this.blackMat);
+        grill.position.set(bx, ductY - 0.30, dz);
+        this.group.add(diff, grill);
+      });
+    });
+  }
+
+  // Category A.4: Convex Security Mirrors & CCTV Cameras
+  buildSecurityMirrorsAndCCTV() {
+    // Corner Convex Mirrors
+    const makeConvexMirror = (x, z, rotY) => {
+      const mirrorGroup = new THREE.Group();
+      mirrorGroup.position.set(x, 2.85, z);
+      mirrorGroup.rotation.y = rotY;
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.70, 0.06), this.hazardMat);
+      const face = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.04), this.chromeMat);
+      face.position.z = 0.02;
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.25, 0.25), this.steelMat);
+      bracket.position.set(0, -0.35, -0.10);
+      mirrorGroup.add(rim, face, bracket);
+      return mirrorGroup;
+    };
+
+    this.group.add(makeConvexMirror(-18.5, -23.2, Math.PI / 4));
+    this.group.add(makeConvexMirror(18.5, -23.2, -Math.PI / 4));
+
+    // 3 Voxel CCTV Cameras
+    const makeCCTV = (x, y, z, rotY) => {
+      const cam = new THREE.Group();
+      cam.position.set(x, y, z);
+      cam.rotation.y = rotY;
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.20, 0.20), this.steelMat);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.25), this.blackMat);
+      arm.position.set(0, -0.05, 0.12);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.30), this.enamelMat);
+      body.position.set(0, -0.10, 0.28);
+      const lens = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.06), this.blackMat);
+      lens.position.set(0, -0.10, 0.44);
+      const led = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x2ecc71 }));
+      led.position.set(0.06, -0.04, 0.44);
+      cam.add(bracket, arm, body, lens, led);
+      return cam;
+    };
+
+    this.group.add(makeCCTV(0.0, 3.25, -23.6, 0));
+    this.group.add(makeCCTV(8.0, 3.25, -3.2, Math.PI));
+    this.group.add(makeCCTV(-18.5, 3.25, -12.5, Math.PI / 2));
+  }
+
+  // Category B: Open Air-Curtain Chiller, Beverage Cooler & Island Freezer
+  buildRefrigerationAndFreezers() {
+    // 1. Open Air-Curtain Dairy Multideck Chiller (Along East Wall: X = 18.2, Z = -21.0)
+    const chiller = new THREE.Group();
+    chiller.position.set(18.2, 0, -21.0);
+    const chillBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 3.6), this.enamelMat);
+    chillBody.position.set(0, 1.1, 0);
+    // Honeycomb cold air curtain vent
+    const airGrill = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.12, 3.5), this.steelMat);
+    airGrill.position.set(-0.02, 2.14, 0);
+    // Cold cyan LED lighting strip
+    const chillLed = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 3.4),
+      new THREE.MeshBasicMaterial({ color: 0xdff9fb }));
+    chillLed.position.set(-0.45, 2.05, 0);
+    // Bumper rail
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.26, 0.12, 3.65), this.blackMat);
+    bumper.position.set(0, 0.22, 0);
+    // Shelves with milk, cheese, yogurt cartons
+    chiller.add(chillBody, airGrill, chillLed, bumper);
+    [-0.8, 0.0, 0.8].forEach(sz => {
+      const milk = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.35, 0.20),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
+      milk.position.set(-0.35, 1.25, sz - 0.2);
+      const cheese = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.15, 0.24),
+        new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.4 }));
+      cheese.position.set(-0.35, 0.75, sz + 0.2);
+      chiller.add(milk, cheese);
+    });
+    this.group.add(chiller);
+
+    // 2. Glass-Door Beverage Cooler (Along East Wall: X = 18.2, Z = -15.5)
+    const cooler = new THREE.Group();
+    cooler.position.set(18.2, 0, -15.5);
+    const coolerBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 2.8), this.steelMat);
+    coolerBody.position.set(0, 1.1, 0);
+    // Glass double doors
+    const glassL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.8, 1.3), this.glassMat);
+    glassL.position.set(-0.55, 1.05, -0.68);
+    const glassR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.8, 1.3), this.glassMat);
+    glassR.position.set(-0.55, 1.05, 0.68);
+    // Black vertical handles
+    const handleL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.45, 0.05), this.blackMat);
+    handleL.position.set(-0.62, 1.05, -0.10);
+    const handleR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.45, 0.05), this.blackMat);
+    handleR.position.set(-0.62, 1.05, 0.10);
+    // Digital thermostat display [+3°C]
+    const thermoSign = createVoxelNeoSign('[+3°C]', '#00CEC9', '#111111', 0.9, 0.28, 0.06);
+    thermoSign.position.set(-0.56, 2.05, 0);
+    thermoSign.rotation.y = -Math.PI / 2;
+
+    cooler.add(coolerBody, glassL, glassR, handleL, handleR, thermoSign);
+    this.group.add(cooler);
+
+    // 3. Island Chest Freezer (Central East Aisle: X = 7.0, Z = -17.7)
+    const freezer = new THREE.Group();
+    freezer.position.set(7.0, 0, -17.7);
+    const fBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.92, 2.6), this.enamelMat);
+    fBody.position.set(0, 0.46, 0);
+    const fTrim = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.10, 2.68), this.blackMat);
+    fTrim.position.set(0, 0.15, 0);
+    // Frosted sliding glass lids
+    const fLidL = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.04, 2.4), this.frostedGlassMat);
+    fLidL.position.set(-0.38, 0.93, 0);
+    const fLidR = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.04, 2.4), this.frostedGlassMat);
+    fLidR.position.set(0.38, 0.94, 0);
+    // Temperature display [-18°C]
+    const fTemp = createVoxelNeoSign('[-18°C]', '#0984E3', '#FFFFFF', 0.8, 0.24, 0.06);
+    fTemp.position.set(0, 0.72, 1.34);
+
+    freezer.add(fBody, fTrim, fLidL, fLidR, fTemp);
+    this.group.add(freezer);
+  }
+
+  // Category C: Entrance Hand Baskets, Trolley Corral, Lockers & Turnstile
+  buildEntranceAndWelcomeZone() {
+    // 1. Hand Basket Stacks [SEPETLER] (X = 2.6, Z = -22.5)
+    const basketGroup = new THREE.Group();
+    basketGroup.position.set(2.6, 0, -22.5);
+    const standPole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.4, 0.08), this.chromeMat);
+    standPole.position.set(0, 0.7, 0);
+    const standBase = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.7), this.blackMat);
+    standBase.position.set(0, 0.04, 0);
+
+    const bSign = createVoxelNeoSign('[SEPETLER]', '#FFE600', '#111111', 1.3, 0.35, 0.06);
+    bSign.position.set(0, 1.45, 0);
+
+    // Nested baskets stack (Alternating red and blue)
+    for (let i = 0; i < 6; i++) {
+      const bColor = i % 2 === 0 ? this.redMat : this.blueMat;
+      const basket = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.38), bColor);
+      basket.position.set(0, 0.18 + i * 0.14, 0);
+      const bHandle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.04), this.blackMat);
+      bHandle.position.set(0, 0.28 + i * 0.14, 0);
+      basketGroup.add(basket, bHandle);
+    }
+    basketGroup.add(standPole, standBase, bSign);
+    this.group.add(basketGroup);
+
+    // 2. Shopping Trolley Corral [ARABALAR] (X = -3.2, Z = -22.5)
+    const corral = new THREE.Group();
+    corral.position.set(-3.2, 0, -22.5);
+    // Chrome tubular guide rails
+    const railL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.85, 2.4), this.chromeMat);
+    railL.position.set(-0.55, 0.42, 0);
+    const railR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.85, 2.4), this.chromeMat);
+    railR.position.set(0.55, 0.42, 0);
+    const cSign = createVoxelNeoSign('[ARABALAR]', '#FFE600', '#111111', 1.3, 0.35, 0.06);
+    cSign.position.set(0, 1.15, 1.15);
+
+    // 3 Nested Shopping Carts
+    for (let i = 0; i < 3; i++) {
+      const cart = new THREE.Group();
+      cart.position.set(0, 0, -0.6 + i * 0.6);
+      const basket = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.45, 0.65), this.chromeMat);
+      basket.position.set(0, 0.55, 0);
+      const childSeat = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.15), this.hazardMat);
+      childSeat.position.set(0, 0.65, 0.20);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.06, 0.06), this.redMat);
+      handle.position.set(0, 0.85, 0.38);
+      cart.add(basket, childSeat, handle);
+      corral.add(cart);
+    }
+    corral.add(railL, railR, cSign);
+    this.group.add(corral);
+
+    // 3. Customer Storage Lockers (X = 3.6, Z = -23.4)
+    const lockers = new THREE.Group();
+    lockers.position.set(3.6, 0, -23.4);
+    const lockerBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.9, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x747d8c, roughness: 0.5 }));
+    lockerBody.position.set(0, 0.95, 0);
+    // 6 locker doors
+    for (let c = 0; c < 3; c++) {
+      for (let r = 0; r < 2; r++) {
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.82, 0.04),
+          new THREE.MeshStandardMaterial({ color: 0x57606f, roughness: 0.4 }));
+        door.position.set(-0.55 + c * 0.55, 0.50 + r * 0.90, 0.29);
+        const lock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.03), this.chromeMat);
+        lock.position.set(-0.35 + c * 0.55, 0.50 + r * 0.90, 0.32);
+        lockers.add(door, lock);
+      }
+    }
+    lockers.add(lockerBody);
+    this.group.add(lockers);
+
+    // 4. Sanitizer Stand & Chrome Mechanical Turnstile
+    const sanitizer = new THREE.Group();
+    sanitizer.position.set(-0.5, 0, -23.0);
+    const sPole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), this.steelMat);
+    sPole.position.set(0, 0.6, 0);
+    const sHead = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 0.18), this.enamelMat);
+    sHead.position.set(0, 1.2, 0);
+    const sDrip = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.20), this.blackMat);
+    sDrip.position.set(0, 0.98, 0.06);
+    sanitizer.add(sPole, sHead, sDrip);
+
+    // Turnstile at Inbound Portal X = -1.2, Z = -22.8
+    const turnstile = new THREE.Group();
+    turnstile.position.set(-1.2, 0, -22.8);
+    const tPost = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.05, 0.22), this.chromeMat);
+    tPost.position.set(0, 0.525, 0);
+    const tArm = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.06), this.chromeMat);
+    tArm.position.set(0.38, 0.85, 0);
+    turnstile.add(tPost, tArm);
+
+    this.group.add(sanitizer, turnstile);
+  }
+
+  // Category D: Checkout Lane Light, Impulse Merchandising, Receipts & Dividers
+  buildCheckoutAccessories() {
+    // 1. Overhead Lane Indicator Pole Light [KASA 1: AÇIK] (X = 8.0, Z = -4.5)
+    const poleLight = new THREE.Group();
+    poleLight.position.set(8.0, 0, -4.5);
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 0.08), this.chromeMat);
+    pole.position.set(0, 1.25, 0);
+    const lantern = createVoxelNeoSign('[KASA 1: AÇIK]', '#2ECC71', '#111111', 1.6, 0.45, 0.30);
+    lantern.position.set(0, 2.45, 0);
+    poleLight.add(pole, lantern);
+    this.group.add(poleLight);
+
+    // 2. Conveyor Impulse Merchandising Rack (X = 6.9, Z = -4.5)
+    const impulse = new THREE.Group();
+    impulse.position.set(6.9, 0, -4.5);
+    const rackFrame = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.95, 1.4), this.blackMat);
+    rackFrame.position.set(0, 0.70, 0);
+    // 3 shelves of impulse candy/batteries
+    for (let i = 0; i < 3; i++) {
+      const items = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 1.3),
+        new THREE.MeshStandardMaterial({ color: i === 0 ? 0xf1c40f : (i === 1 ? 0xe74c3c : 0x3498db) }));
+      items.position.set(0, 0.45 + i * 0.25, 0);
+      impulse.add(items);
+    }
+    impulse.add(rackFrame);
+    this.group.add(impulse);
+
+    // 3. Receipt Printer, Bag Dispenser & Divider Sticks
+    const posDesk = new THREE.Group();
+    posDesk.position.set(8.5, 0.95, -4.5);
+    // Thermal Receipt Printer
+    const printer = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.28), this.blackMat);
+    printer.position.set(0, 0.09, 0);
+    const paperRoll = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.16), this.enamelMat);
+    paperRoll.position.set(0, 0.19, 0.04);
+    // Reusable Bag Dispenser
+    const bagHook = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.35, 0.04), this.chromeMat);
+    bagHook.position.set(0.40, 0.15, -0.40);
+    const bags = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.30, 0.15), this.hazardMat);
+    bags.position.set(0.40, 0.05, -0.40);
+    posDesk.add(printer, paperRoll, bagHook, bags);
+    this.group.add(posDesk);
+
+    // Customer Divider Rods on Conveyor (X = 7.3, Z = -4.5)
+    [-0.35, 0.35].forEach(dz => {
+      const rod = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.45), this.redMat);
+      rod.position.set(7.3, 0.92, -4.5 + dz);
+      this.group.add(rod);
+    });
+
+    // Newspaper & Magazine Display Stand (X = 9.8, Z = -5.8)
+    const newsStand = new THREE.Group();
+    newsStand.position.set(9.8, 0, -5.8);
+    const nFrame = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, 0.9), this.blackMat);
+    nFrame.position.set(0, 0.60, 0);
+    for (let i = 0; i < 3; i++) {
+      const mag = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.8),
+        new THREE.MeshStandardMaterial({ color: i === 0 ? 0xff4757 : (i === 1 ? 0x2ed573 : 0x1e90ff) }));
+      mag.position.set(0, 0.35 + i * 0.30, 0);
+      newsStand.add(mag);
+    }
+    newsStand.add(nFrame);
+    this.group.add(newsStand);
+  }
+
+  // Category E: Digital Produce Scale, End-Cap Promos, Price Checker & Crates
+  buildInAisleMerchandisingAndScales() {
+    // 1. Digital Produce Scale Station [TERAZİ] (X = -8.5, Z = -11.2)
+    const scaleStation = new THREE.Group();
+    scaleStation.position.set(-8.5, 0, -11.2);
+    const sPedestal = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.90, 0.65), this.steelMat);
+    sPedestal.position.set(0, 0.45, 0);
+    const platter = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.05, 0.55), this.chromeMat);
+    platter.position.set(0, 0.925, 0);
+    const displayMast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.65, 0.08), this.steelMat);
+    displayMast.position.set(0.24, 1.25, -0.24);
+    const sScreen = createVoxelNeoSign('[TERAZİ]', '#FFE600', '#111111', 0.9, 0.32, 0.08);
+    sScreen.position.set(0.24, 1.60, -0.24);
+    // Green roll of produce bags
+    const rollHolder = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.12, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0x2ecc71 }));
+    rollHolder.position.set(-0.35, 0.85, 0);
+
+    scaleStation.add(sPedestal, platter, displayMast, sScreen, rollHolder);
+    this.group.add(scaleStation);
+
+    // 2. End-Cap Promotional Signs on Shelf Ends
+    const endCap1 = createVoxelNeoSign('[GÜNÜN FIRSATI]', '#FFE600', '#111111', 2.2, 0.50, 0.08);
+    endCap1.position.set(-3.2, 2.3, -9.5);
+    const endCap2 = createVoxelNeoSign('[HAFTANIN İNDİRİMİ]', '#FF4757', '#FFFFFF', 2.2, 0.50, 0.08);
+    endCap2.position.set(-3.2, 2.3, -15.0);
+    this.group.add(endCap1, endCap2);
+
+    // 3. Wall-Mounted Price Checker Kiosk [FİYAT GÖR] (Mounted at X = -12.5, Z = -12.0)
+    const priceChecker = new THREE.Group();
+    priceChecker.position.set(-12.5, 1.6, -12.0);
+    const pBox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.45, 0.18), this.blueMat);
+    const pLaser = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.02),
+      new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+    pLaser.position.set(0, -0.12, 0.10);
+    const pSign = createVoxelNeoSign('[FİYAT GÖR]', '#FFE600', '#111111', 0.8, 0.22, 0.04);
+    pSign.position.set(0, 0.12, 0.10);
+    priceChecker.add(pBox, pLaser, pSign);
+    this.group.add(priceChecker);
+
+    // 4. Rustic Wooden Bakery Crates (Beside Fırın Department: X = -8.5, Z = -13.5)
+    const crateStack = new THREE.Group();
+    crateStack.position.set(-8.5, 0, -13.5);
+    for (let i = 0; i < 2; i++) {
+      const cMesh = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.35, 0.65), this.woodMat);
+      cMesh.position.set(0, 0.18 + i * 0.35, 0);
+      cMesh.rotation.x = 0.15;
+      // Baguettes inside
+      const bread = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.12, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0xd35400 }));
+      bread.position.set(0, 0.26 + i * 0.35, 0);
+      crateStack.add(cMesh, bread);
+    }
+    this.group.add(crateStack);
+  }
+
+  // Category F: Safety Wet Floor Cone, Fire Extinguisher, Recycling & Corner Guards
+  buildSafetyAndHygiene() {
+    // 1. Caution Wet Floor Cone [DİKKAT] (X = -4.5, Z = -17.5)
+    const cone = new THREE.Group();
+    cone.position.set(-4.5, 0, -17.5);
+    const coneBase = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.55), this.hazardMat);
+    coneBase.position.set(0, 0.06, 0);
+    const coneMid = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.35, 0.38), this.hazardMat);
+    coneMid.position.set(0, 0.28, 0);
+    const coneTop = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.35, 0.22), this.hazardMat);
+    coneTop.position.set(0, 0.58, 0);
+    const cLabel = createVoxelNeoSign('[DİKKAT]', '#111111', '#FFE600', 0.45, 0.16, 0.04);
+    cLabel.position.set(0, 0.35, 0.20);
+    cone.add(coneBase, coneMid, coneTop, cLabel);
+    this.group.add(cone);
+
+    // 2. Fire Extinguisher Station [YANGIN TÜPÜ] (X = -19.0, Z = -18.0)
+    const fe = new THREE.Group();
+    fe.position.set(-19.0, 1.5, -18.0);
+    const feBody = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.65, 0.22), this.redMat);
+    const feHose = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.45, 0.08), this.blackMat);
+    feHose.position.set(0.12, 0, 0);
+    const feGauge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.06), this.chromeMat);
+    feGauge.position.set(0, 0.36, 0.10);
+    const feSign = createVoxelNeoSign('[YANGIN TÜPÜ]', '#FF4757', '#FFFFFF', 0.9, 0.28, 0.06);
+    feSign.position.set(0.15, 0.58, 0);
+    feSign.rotation.y = Math.PI / 2;
+    fe.add(feBody, feHose, feGauge, feSign);
+    this.group.add(fe);
+
+    // 3. 3-Stream Recycling Station (X = -3.5, Z = -21.5)
+    const recGroup = new THREE.Group();
+    recGroup.position.set(-3.5, 0, -21.5);
+    const streams = [
+      { color: 0x0984e3, label: '[KAĞIT]', x: -0.45 },
+      { color: 0xf1c40f, label: '[PLASTİK]', x: 0.0 },
+      { color: 0x2ecc71, label: '[ORGANİK]', x: 0.45 }
+    ];
+    streams.forEach(s => {
+      const bin = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.75, 0.38),
+        new THREE.MeshStandardMaterial({ color: s.color, roughness: 0.4 }));
+      bin.position.set(s.x, 0.375, 0);
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, 0.42), this.blackMat);
+      lid.position.set(s.x, 0.78, 0);
+      const bSign = createVoxelNeoSign(s.label, '#111111', '#FFFFFF', 0.35, 0.14, 0.02);
+      bSign.position.set(s.x, 0.50, 0.20);
+      recGroup.add(bin, lid, bSign);
+    });
+    this.group.add(recGroup);
+
+    // 4. Corner Rubber Wall Guards
+    const guardPositions = [
+      [-19.0, -18.0], [-19.0, -12.0], [-19.0, -6.0],
+      [19.0, -18.0], [19.0, -12.0], [19.0, -6.0]
+    ];
+    guardPositions.forEach(([gx, gz]) => {
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.2, 0.14), this.hazardMat);
+      guard.position.set(gx > 0 ? gx - 0.25 : gx + 0.25, 0.60, gz);
+      this.group.add(guard);
+    });
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+// --- Dedicated Logistics Warehouse Zone (West Wing: X: -19.2 to -27.5, Z: -24.0 to -1.0) ---
+class WarehouseZone {
+  constructor(scene) {
+    this.scene = scene;
+    this.group = new THREE.Group();
+
+    this.concreteMat = new THREE.MeshStandardMaterial({ color: 0x8395a7, roughness: 0.85 });
+    this.wallMat = new THREE.MeshStandardMaterial({ color: 0x2f3640, roughness: 0.4 });
+    this.trimMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.3 });
+    this.hazardMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
+    this.steelMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, roughness: 0.5 });
+    this.blueRackMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.4 });
+    this.orangeBeamMat = new THREE.MeshStandardMaterial({ color: 0xe67e22, roughness: 0.4 });
+    this.woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.7 });
+    this.cardboardMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8 });
+    this.wrapMat = new THREE.MeshStandardMaterial({ color: 0xf1f2f6, transparent: true, opacity: 0.75 });
+    this.chromeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.85, roughness: 0.2 });
+
+    this.buildWarehouseFloor();
+    this.buildEnclosureWalls();
+    this.buildHighBayPalletRacks();
+    this.buildHydraulicPalletJack();
+    this.buildSupervisorDeskAndScale();
+    this.buildDoubleSwingImpactDoors();
+    this.buildLoadingDockShutter();
+
+    this.scene.add(this.group);
+  }
+
+  // Polished Concrete Floor with Painted Hazard Corridors
+  buildWarehouseFloor() {
+    const floorGeo = new THREE.PlaneGeometry(8.3, 23.0);
+    floorGeo.rotateX(-Math.PI / 2);
+    const floor = new THREE.Mesh(floorGeo, this.concreteMat);
+    floor.position.set(-23.35, 0.005, -12.5);
+    floor.receiveShadow = true;
+    this.group.add(floor);
+
+    // Hazard Line Markings
+    const lineMat = this.hazardMat;
+    const perimeterLine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.015, 22.8), lineMat);
+    perimeterLine.position.set(-20.0, 0.015, -12.5);
+    const dockLine = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.015, 0.12), lineMat);
+    dockLine.position.set(-23.5, 0.015, -10.0);
+    this.group.add(perimeterLine, dockLine);
+  }
+
+  // Exterior Perimeter Walls
+  buildEnclosureWalls() {
+    // North Wall (Z = -24.0, X: -19.2 to -27.5)
+    const nWall = new THREE.Mesh(new THREE.BoxGeometry(8.3, 3.2, 0.45), this.wallMat);
+    nWall.position.set(-23.35, 1.6, -24.0);
+    const nTrim = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.25, 0.55), this.trimMat);
+    nTrim.position.set(-23.35, 3.3, -24.0);
+    this.group.add(nWall, nTrim);
+
+    // South Wall (Z = -1.0, X: -19.2 to -27.5)
+    const sWall = new THREE.Mesh(new THREE.BoxGeometry(8.3, 3.2, 0.45), this.wallMat);
+    sWall.position.set(-23.35, 1.6, -1.0);
+    const sTrim = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.25, 0.55), this.trimMat);
+    sTrim.position.set(-23.35, 3.3, -1.0);
+    this.group.add(sWall, sTrim);
+
+    // West Exterior Wall with Loading Shutter Portal
+    // North section (Z: -24.0 to -12.0)
+    const wWallN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 12.0), this.wallMat);
+    wWallN.position.set(-27.5, 1.6, -18.0);
+    // South section (Z: -8.0 to -1.0)
+    const wWallS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 7.0), this.wallMat);
+    wWallS.position.set(-27.5, 1.6, -4.5);
+    // Overhead portal beam above dock shutter (Z: -12.0 to -8.0)
+    const wPortalTop = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 4.2), this.trimMat);
+    wPortalTop.position.set(-27.5, 2.9, -10.0);
+    this.group.add(wWallN, wWallS, wPortalTop);
+  }
+
+  // Heavy-Duty Industrial High-Bay Pallet Racks with Cargo
+  buildHighBayPalletRacks() {
+    const buildRackBay = (rz, length) => {
+      const bay = new THREE.Group();
+      bay.position.set(-26.0, 0, rz);
+
+      // Blue Upright Columns (Height 4.2m)
+      [-0.7, 0.7].forEach(rx => {
+        [-length / 2, 0, length / 2].forEach(cz => {
+          const col = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.2, 0.12), this.blueRackMat);
+          col.position.set(rx, 2.1, cz);
+          bay.add(col);
+        });
+      });
+
+      // Orange Cross Beams at 3 Tiers (Y = 0.25, 1.65, 3.0)
+      [0.25, 1.65, 3.0].forEach(by => {
+        [-0.7, 0.7].forEach(rx => {
+          const beam = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, length), this.orangeBeamMat);
+          beam.position.set(rx, by, 0);
+          bay.add(beam);
+        });
+
+        // Loaded Pallets & Cargo on each tier
+        [-length / 4, length / 4].forEach(pz => {
+          // Wooden Euro Pallet
+          const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.9), this.woodMat);
+          pallet.position.set(0, by + 0.08, pz);
+          // Stocked Boxes / Shrinkwrap
+          const cargoType = Math.random();
+          if (cargoType > 0.5) {
+            const box = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 0.8), this.cardboardMat);
+            box.position.set(0, by + 0.56, pz);
+            bay.add(box);
+          } else {
+            const wrap = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.95, 0.8), this.wrapMat);
+            wrap.position.set(0, by + 0.61, pz);
+            bay.add(wrap);
+          }
+          bay.add(pallet);
+        });
+      });
+
+      return bay;
+    };
+
+    // Bay 1: North Storage Racks (Z = -18.0, length 5.2m)
+    this.group.add(buildRackBay(-18.0, 5.2));
+    // Bay 2: South Storage Racks (Z = -4.5, length 4.5m)
+    this.group.add(buildRackBay(-4.5, 4.5));
+  }
+
+  // Yellow Hydraulic Pallet Jack (Transpalet)
+  buildHydraulicPalletJack() {
+    const jack = new THREE.Group();
+    jack.position.set(-22.5, 0, -15.5);
+
+    const chassisMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.3 });
+    // Main Body Chassis
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.14, 0.35), chassisMat);
+    body.position.set(0, 0.12, 0.45);
+
+    // Dual Fork Tines extending forward
+    [-0.18, 0.18].forEach(fx => {
+      const fork = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 1.15), chassisMat);
+      fork.position.set(fx, 0.08, -0.25);
+      // Front load roller
+      const roller = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.12), this.steelMat);
+      roller.position.set(fx, 0.04, -0.75);
+      jack.add(fork, roller);
+    });
+
+    // Hydraulic pump cylinder & upright steering handle
+    const ram = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 0.12), this.steelMat);
+    ram.position.set(0, 0.30, 0.45);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.75, 0.06), this.steelMat);
+    handle.position.set(0, 0.72, 0.55);
+    handle.rotation.x = 0.25;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.06, 0.06), chassisMat);
+    grip.position.set(0, 1.05, 0.65);
+
+    jack.add(body, ram, handle, grip);
+    this.group.add(jack);
+  }
+
+  // Warehouse Supervisor Desk & Floor Platform Scale
+  buildSupervisorDeskAndScale() {
+    // Supervisor Metal Desk (X = -21.0, Z = -5.5)
+    const desk = new THREE.Group();
+    desk.position.set(-21.0, 0, -5.5);
+    const dTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.8), this.steelMat);
+    dTop.position.set(0, 0.75, 0);
+    const dLegL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.75, 0.75), this.steelMat);
+    dLegL.position.set(-0.62, 0.375, 0);
+    const dLegR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.75, 0.75), this.steelMat);
+    dLegR.position.set(0.62, 0.375, 0);
+    // Computer terminal & manifest
+    const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.06), this.steelMat);
+    monitor.position.set(0, 1.00, -0.15);
+    const clipboard = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 0.32), this.woodMat);
+    clipboard.position.set(-0.35, 0.80, 0.10);
+    desk.add(dTop, dLegL, dLegR, monitor, clipboard);
+    this.group.add(desk);
+
+    // Floor Platform Scale (X = -23.5, Z = -6.0)
+    const scale = new THREE.Group();
+    scale.position.set(-23.5, 0, -6.0);
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0x718093, metalness: 0.6, roughness: 0.3 }));
+    platform.position.set(0, 0.04, 0);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), this.steelMat);
+    mast.position.set(-0.62, 0.55, -0.62);
+    const weightDisplay = createVoxelNeoSign('[0.00 KG]', '#FFE600', '#111111', 0.85, 0.25, 0.06);
+    weightDisplay.position.set(-0.62, 1.15, -0.62);
+    scale.add(platform, mast, weightDisplay);
+    this.group.add(scale);
+  }
+
+  // Double-Swing Impact Doors (Partition between Store & Warehouse: X = -19.2, Z = -12.5)
+  buildDoubleSwingImpactDoors() {
+    const doorGroup = new THREE.Group();
+    doorGroup.position.set(-19.2, 0, -12.5);
+
+    // Door Portal Frame
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+    const postN = new THREE.Mesh(new THREE.BoxGeometry(0.55, 2.9, 0.25), frameMat);
+    postN.position.set(0, 1.45, -1.25);
+    const postS = new THREE.Mesh(new THREE.BoxGeometry(0.55, 2.9, 0.25), frameMat);
+    postS.position.set(0, 1.45, 1.25);
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 2.75), frameMat);
+    topBar.position.set(0, 2.75, 0);
+
+    // Two Grey Rubber Impact Doors
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x57606f, roughness: 0.7 });
+    [-0.60, 0.60].forEach(dz => {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.45, 1.10), doorMat);
+      door.position.set(0, 1.25, dz);
+      // Safety inspection window
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.80, 0.45),
+        new THREE.MeshStandardMaterial({ color: 0x81ecec, transparent: true, opacity: 0.5 }));
+      win.position.set(0, 1.45, dz);
+      // Black bottom kickplate
+      const kick = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 1.05), this.steelMat);
+      kick.position.set(0, 0.20, dz);
+      doorGroup.add(door, win, kick);
+    });
+
+    // Neo-Brutalist Personnel Warning Header Sign
+    const sign = createVoxelNeoSign('[DEPO - YALNIZCA PERSONEL]', '#FFE600', '#111111', 2.8, 0.45, 0.08);
+    sign.position.set(0.32, 2.75, 0);
+    sign.rotation.y = Math.PI / 2;
+
+    doorGroup.add(postN, postS, topBar, sign);
+    this.group.add(doorGroup);
+  }
+
+  // Loading Dock Roll-Up Shutter (Facing West Wholesale Truck Bay at X = -27.5, Z = -10.0)
+  buildLoadingDockShutter() {
+    const dock = new THREE.Group();
+    dock.position.set(-27.5, 0, -10.0);
+
+    // Hazard Striped Portal Frame
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.55, 2.8, 4.2), this.hazardMat);
+    frame.position.set(0, 1.4, 0);
+
+    // Corrugated Steel Roll-Up Shutter (Partially raised at Y = 1.8m)
+    const shutterMat = new THREE.MeshStandardMaterial({ color: 0x747d8c, metalness: 0.5, roughness: 0.4 });
+    const shutter = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 3.8), shutterMat);
+    shutter.position.set(0, 2.0, 0);
+
+    // Heavy-duty rubber dock bumpers
+    [-2.0, 2.0].forEach(bz => {
+      const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.85, 0.25), this.steelMat);
+      bumper.position.set(-0.35, 0.45, bz);
+      dock.add(bumper);
+    });
+
+    dock.add(frame, shutter);
+    this.group.add(dock);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.MopStation = MopStation;
   window.TrashItem = TrashItem;
@@ -10778,6 +11651,8 @@ if (typeof window !== 'undefined') {
   window.TeaStation = TeaStation;
   window.VoxelRadio = VoxelRadio;
   window.VoxelNeonSign = VoxelNeonSign;
+  window.SupermarketVisualSystem = SupermarketVisualSystem;
+  window.WarehouseZone = WarehouseZone;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -10792,6 +11667,8 @@ if (typeof module !== 'undefined' && module.exports) {
     WholesaleTruck,
     TeaStation,
     VoxelRadio,
-    VoxelNeonSign
+    VoxelNeonSign,
+    SupermarketVisualSystem,
+    WarehouseZone
   };
 }

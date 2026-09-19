@@ -53,4 +53,31 @@ assert(entitiesSource.includes("const latX = -pushDirZ * 0.45;"), 'Customer floc
 assert(entitiesSource.includes("this.shelfSlotOffset = (Math.random() - 0.5) * 1.4;"), 'Customers must distribute across shelf width to prevent pileups');
 assert(entitiesSource.includes("let exitTarget = new THREE.Vector3(1.2, 0, -25.5);"), 'Departing customers must steer strictly to East exit portal');
 
+// 8. Verify Supermarket Architectural Redesign, Visual Rigging & Logistics Warehouse
+assert(entitiesSource.includes('class SupermarketVisualSystem'), 'entities.js must define SupermarketVisualSystem');
+assert(entitiesSource.includes('class WarehouseZone'), 'entities.js must define WarehouseZone');
+assert(gameSource.includes('this.supermarketVisuals = new SupermarketVisualSystem(this.scene);'), 'game.js must instantiate SupermarketVisualSystem');
+assert(gameSource.includes('this.warehouseZone = new WarehouseZone(this.scene);'), 'game.js must instantiate WarehouseZone');
+
+// Visual Elements Verification (Ceiling, Refrigeration, Welcome, Checkout, Merchandising, Safety)
+assert(entitiesSource.includes('[1. REYON: TEMEL GIDA & MANAV]'), 'Overhead category banner 1 must be present');
+assert(entitiesSource.includes('[2. REYON: ŞARKÜTERİ & SÜT]'), 'Overhead category banner 2 must be present');
+assert(entitiesSource.includes('[3. REYON: ORGANİK & FIRIN]'), 'Overhead category banner 3 must be present');
+assert(entitiesSource.includes('[KASA 1: AÇIK]'), 'Checkout overhead indicator light must be present');
+assert(entitiesSource.includes('[SEPETLER]'), 'Hand basket stack must be present');
+assert(entitiesSource.includes('[ARABALAR]'), 'Shopping trolley corral must be present');
+assert(entitiesSource.includes('[TERAZİ]'), 'Produce weighing scale must be present');
+assert(entitiesSource.includes('[GÜNÜN FIRSATI]'), 'End-cap promotional header must be present');
+assert(entitiesSource.includes('[FİYAT GÖR]'), 'Price checker kiosk must be present');
+assert(entitiesSource.includes('[DİKKAT]'), 'Wet floor cone must be present');
+assert(entitiesSource.includes('[YANGIN TÜPÜ]'), 'Fire extinguisher station must be present');
+assert(entitiesSource.includes('[DEPO - YALNIZCA PERSONEL]'), 'Warehouse double-swing doors must have personnel sign');
+
+// Logistics Warehouse Navigation & Player Geometry Verification
+assert(entitiesSource.includes("this.addNode('W_IN_DOOR', -19.2, -12.2);"), 'NavGraph must include W_IN_DOOR threshold node');
+assert(entitiesSource.includes("this.addNode('W_CENTER', -22.5, -12.2);"), 'NavGraph must include W_CENTER node');
+assert(entitiesSource.includes("this.addNode('W_DOCK', -24.0, -10.0);"), 'NavGraph must include W_DOCK loading bay node');
+assert(entitiesSource.includes("this.addEdge('M_Z2_X0', 'W_IN_DOOR');"), 'NavGraph must link store concourse to warehouse door');
+assert(gameSource.includes('this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, 19.5);'), 'Player movement bounds must allow walking into warehouse');
+
 console.log('Ground geometry, walkways, and navigation safety tests passed.');

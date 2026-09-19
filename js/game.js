@@ -937,13 +937,25 @@ class MiniMartGame {
       this.marketLevelBlocks.push(block);
     }
 
-    // B. Left Wall (X = -19.0, Z = -24 to -1)
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 23.4), wallMat);
-    leftWall.position.set(-19.2, 1.6, -12.5);
-    leftWall.castShadow = true;
-    const leftTrim = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 23.5), wallTrimMat);
-    leftTrim.position.set(-19.2, 3.3, -12.5);
-    this.scene.add(leftWall, leftTrim);
+    // B. Left Wall (X = -19.2, Z = -24 to -1) with Warehouse Double-Doorway (Z: -13.8 to -11.2)
+    const leftWallN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 10.2), wallMat);
+    leftWallN.position.set(-19.2, 1.6, -18.9);
+    leftWallN.castShadow = true;
+    const leftTrimN = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 10.3), wallTrimMat);
+    leftTrimN.position.set(-19.2, 3.3, -18.9);
+
+    const leftWallS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 10.2), wallMat);
+    leftWallS.position.set(-19.2, 1.6, -6.1);
+    leftWallS.castShadow = true;
+    const leftTrimS = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 10.3), wallTrimMat);
+    leftTrimS.position.set(-19.2, 3.3, -6.1);
+
+    const leftWallLintel = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 2.6), wallMat);
+    leftWallLintel.position.set(-19.2, 2.975, -12.5);
+    const leftTrimLintel = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 2.7), wallTrimMat);
+    leftTrimLintel.position.set(-19.2, 3.3, -12.5);
+
+    this.scene.add(leftWallN, leftTrimN, leftWallS, leftTrimS, leftWallLintel, leftTrimLintel);
 
     // C. Right Wall (X = +19.0, Z = -24 to -1)
     const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 23.4), wallMat);
@@ -1155,8 +1167,12 @@ class MiniMartGame {
 
     // 9. Register Environmental Colliders
     this.collision.addBox(-19.5, -3.5, -24.5, -23.6, 'north_wall_left');
-    this.collision.addBox(3.5, 19.5, -24.5, -23.6, 'north_wall_right');
-    this.collision.addBox(-19.8, -18.8, -24.2, -0.8, 'wall_left');
+    this.collision.addBox(-19.8, -18.8, -24.2, -13.8, 'wall_left_north');
+    this.collision.addBox(-19.8, -18.8, -11.2, -0.8, 'wall_left_south');
+    this.collision.addBox(-27.8, -19.0, -24.4, -23.6, 'warehouse_north_wall');
+    this.collision.addBox(-27.8, -19.0, -1.4, -0.6, 'warehouse_south_wall');
+    this.collision.addBox(-28.0, -27.2, -24.2, -12.0, 'warehouse_west_wall_north');
+    this.collision.addBox(-28.0, -27.2, -8.0, -0.8, 'warehouse_west_wall_south');
     this.collision.addBox(18.8, 19.8, -24.2, -0.8, 'wall_right');
     this.collision.addBox(-19.5, -3.5, -1.4, -0.6, 'front_wall_left');
     this.collision.addBox(3.5, 19.5, -1.4, -0.6, 'front_wall_right');
@@ -1620,6 +1636,10 @@ class MiniMartGame {
 
     this.voxelRadio = new VoxelRadio(this.scene, 1.8, -18.2);
     this.neonSign = new VoxelNeonSign(this.scene, 0, 4.2, -23.8, 'BİZİM MARKET', 0xffe600);
+
+    // Architectural Supermarket Visual Rigging & Logistics Warehouse Zone
+    this.supermarketVisuals = new SupermarketVisualSystem(this.scene);
+    this.warehouseZone = new WarehouseZone(this.scene);
   }
 
   // --- Controls & Inputs (Keyboard, Mouse Drag, Touch) ---
@@ -3465,7 +3485,7 @@ class MiniMartGame {
 
       this.collision.resolveCircle(this.player.group.position, 0.45);
 
-      this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -19.5, 19.5);
+      this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, 19.5);
       this.player.group.position.z = THREE.MathUtils.clamp(this.player.group.position.z, -31.0, 24.2);
     } else {
       this.player.velocity.set(0, 0, 0);
