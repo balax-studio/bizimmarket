@@ -494,6 +494,7 @@ class MiniMartGame {
 
     // Neighborhood Residents, Brands, Day Choice, and Exterior Investments
     this.neighborhoodState = window.GameMechanics.createNeighborhoodState();
+    this.residentOrders = window.GameMechanics.createResidentOrderState();
     this.brandState = window.GameMechanics.createBrandState();
     this.activeDayChoice = null;
     this.dayChoicesOffered = [];
@@ -1992,6 +1993,23 @@ class MiniMartGame {
       window.Sound.playUnlock();
     });
 
+    if (event && event.type === 'sale' && event.residentId && window.GameMechanics?.getResidentProfile) {
+      const availableItems = this.getAvailableDemandItems ? this.getAvailableDemandItems() : [];
+      const profile = window.GameMechanics.getResidentProfile(this.neighborhoodState, event.residentId, { availableItems });
+      if (profile && profile.specialOrder) {
+        const beforeRewardCount = this.residentOrders && this.residentOrders.rewards ? this.residentOrders.rewards.length : 0;
+        this.residentOrders = window.GameMechanics.updateResidentOrderState(this.residentOrders, profile.specialOrder, event);
+        const newOrderRewards = this.residentOrders.rewards.slice(beforeRewardCount);
+        newOrderRewards.forEach(reward => {
+          this.money += reward.amount;
+          this.updateMoneyUI();
+          const resident = (window.GameMechanics.NEIGHBORHOOD_RESIDENTS || []).find(r => r.id === reward.residentId);
+          this.showFloatingText(`ÖZEL SİPARİŞ TAMAM +$${reward.amount}${resident ? ` / ${resident.name}` : ''}`, this.player.group.position, '#00D2D3');
+          window.Sound.playUnlock();
+        });
+      }
+    }
+
     this.renderProgressionHud();
     this.renderSideQuestUI();
     this.updateMarketAppearance();
@@ -2046,7 +2064,39 @@ class MiniMartGame {
     const summaryKey = summary ? `${summary.day}` : null;
     if (summary && summaryKey !== previousSummaryKey && summaryKey !== this.lastShownDaySummary) {
       this.lastShownDaySummary = summaryKey;
-      this.showDaySummary(summary);
+
+      // Simulate branches daily revenue
+      let branchSim = null;
+      if (window.GameMechanics?.simulateBranchDailyOperations) {
+        this.branchState = window.GameMechanics.createBranchState(this.branchState || this.branches);
+        const neighborhoodEffects = window.GameMechanics.getActiveNeighborhoodEffects
+          ? window.GameMechanics.getActiveNeighborhoodEffects(this.neighborhoodBuildingsState)
+          : {};
+        branchSim = window.GameMechanics.simulateBranchDailyOperations(this.branchState, neighborhoodEffects, this.dailyDemand);
+        this.branchState = branchSim.state;
+        this.branches = this.branchState.branches;
+      }
+
+      // Generate rich prestige summary
+      const richSummary = window.GameMechanics?.summarizeDayWithPrestige
+        ? window.GameMechanics.summarizeDayWithPrestige(this.dayState, {
+            decorationState: this.decorationState,
+            hygieneScore: this.hygieneScore,
+            brandState: this.brandState,
+            neighborhoodState: this.neighborhoodState,
+            previousPrestigeScore: this.previousDayPrestigeScore || 0
+          })
+        : summary;
+
+      if (branchSim) {
+        richSummary.branchSummaries = branchSim.branchSummaries;
+        richSummary.branchTotalRevenue = branchSim.totalSimulatedRevenue;
+      }
+      if (richSummary.prestigeReport) {
+        this.previousDayPrestigeScore = richSummary.prestigeReport.score;
+      }
+
+      this.showDaySummary(richSummary);
       this.dailyDemand = null;
       this.ensureDailyDemand();
       this.presentDayChoices();
@@ -2092,17 +2142,63 @@ class MiniMartGame {
 
   showDaySummary(summary) {
     if (!this.daySummaryCard || !this.daySummaryBody) return;
+
+    let branchHtml = '';
+    if (summary.branchSummaries && Object.keys(summary.branchSummaries).length > 0) {
+      const branchItems = Object.values(summary.branchSummaries).map(b => `
+        <div class="day-summary-branch-row">
+          <span>${b.name}:</span>
+          <span>+$${b.revenue} (${b.itemsSold} satış) · Kasa: $${b.uncollectedRevenue}</span>
+        </div>
+      `).join('');
+      branchHtml = `
+        <div class="day-summary-branch-box">
+          <div class="day-summary-section-title">UYDU ŞUBE GELİRLERİ (+$${summary.branchTotalRevenue || 0})</div>
+          ${branchItems}
+        </div>
+      `;
+    }
+
+    let prestigeHtml = '';
+    if (summary.prestigeReport) {
+      const rep = summary.prestigeReport;
+      const driversHtml = rep.drivers.map(d => `<span class="prestige-driver-pill">${d}</span>`).join('');
+      const deltaLabel = rep.delta !== 0 ? `(${rep.delta > 0 ? '+' : ''}${rep.delta} Puan)` : '';
+      prestigeHtml = `
+        <div class="day-summary-prestige-box">
+          <div class="day-summary-section-title">PRESTİJ RAPORU: [P${rep.stars}] ${rep.score}/100 ${deltaLabel}</div>
+          <div class="day-summary-drivers">${driversHtml}</div>
+          <div class="day-summary-advice">${rep.advice}</div>
+        </div>
+      `;
+    }
+
     this.daySummaryBody.innerHTML = `
-      <div>Gün: ${summary.day}</div>
-      <div>Gelir: $${summary.salesRevenue}</div>
-      <div>Satılan ürün: ${summary.customersServed}</div>
-      <div>En çok satan: ${summary.topItem}</div>
-      <div>Tamamlanan görev: ${summary.completedQuests}</div>
+      <div class="day-summary-grid">
+        <div><span>GÜN:</span> <strong>${summary.day}</strong></div>
+        <div><span>GELİR:</span> <strong>$${summary.salesRevenue}</strong></div>
+        <div><span>SATIŞ:</span> <strong>${summary.customersServed} adet</strong></div>
+        <div><span>EN ÇOK SATAN:</span> <strong>${summary.topItem}</strong></div>
+      </div>
+      ${branchHtml}
+      ${prestigeHtml}
+      <button id="day-summary-close-btn" class="day-summary-close-btn" type="button">DEVAM ET</button>
     `;
+
+    const closeBtn = document.getElementById('day-summary-close-btn');
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        if (this.daySummaryCard) this.daySummaryCard.classList.add('hidden');
+      };
+    }
+
     this.daySummaryCard.classList.remove('hidden');
-    window.setTimeout(() => {
+    window.Sound.playCoin();
+
+    if (this.daySummaryTimeout) clearTimeout(this.daySummaryTimeout);
+    this.daySummaryTimeout = window.setTimeout(() => {
       if (this.daySummaryCard) this.daySummaryCard.classList.add('hidden');
-    }, 6500);
+    }, 10000);
   }
 
   initSpecializationUI() {
@@ -3979,9 +4075,13 @@ class MiniMartGame {
     const buildingEffects = (this.neighborhoodBuildingsState && window.GameMechanics?.getActiveNeighborhoodEffects)
       ? window.GameMechanics.getActiveNeighborhoodEffects(this.neighborhoodBuildingsState)
       : { extraCustomerCapacity: 0, customerSpawnRateBoost: 0, morningRushHour: false, residentAffinityGainBoost: 0 };
+    const dayChoiceEffects = window.GameMechanics?.getDayChoiceEffects
+      ? window.GameMechanics.getDayChoiceEffects(this.activeDayChoice)
+      : { customerSpawnRateBoost: 0, residentAffinityBonus: false, specialCustomer: null, boostedItems: [] };
 
     const baseSpawnRate = this.isRushHour ? 1.4 : 4.0;
-    const spawnRate = Math.max(0.8, baseSpawnRate * (1 - (buildingEffects.customerSpawnRateBoost || 0)));
+    const totalSpawnBoost = (buildingEffects.customerSpawnRateBoost || 0) + (dayChoiceEffects.customerSpawnRateBoost || 0);
+    const spawnRate = Math.max(0.8, baseSpawnRate * (1 - totalSpawnBoost));
     const maxCapacity = (this.isRushHour ? 9 : 5) + (buildingEffects.extraCustomerCapacity || 0);
 
     const dayTime = this.dayState ? window.GameMechanics.getResidentDayTime(this.dayState.clock) : 'morning';
@@ -4018,9 +4118,13 @@ class MiniMartGame {
       }
 
       // Sample resident candidate
-      const residentCandidate = (this.neighborhoodState && window.GameMechanics?.getResidentSpawnCandidate)
+      let residentCandidate = (this.neighborhoodState && window.GameMechanics?.getResidentSpawnCandidate)
         ? window.GameMechanics.getResidentSpawnCandidate(this.neighborhoodState, dayTime)
         : null;
+      if (dayChoiceEffects.specialCustomer && window.GameMechanics?.NEIGHBORHOOD_RESIDENTS && Math.random() < 0.45) {
+        const specialResident = window.GameMechanics.NEIGHBORHOOD_RESIDENTS.find(r => r.id === dayChoiceEffects.specialCustomer);
+        if (specialResident) residentCandidate = specialResident;
+      }
 
       const customer = new CustomerAI(
         this.scene,
@@ -4037,9 +4141,13 @@ class MiniMartGame {
       this.customerSpawnCooldown = spawnRate;
     }
 
-    // VIP Customer Spawn (Arrives in luxury gold/purple car or limousine)
+    // VIP Customer Spawn (Requires prestige isVIPEligible e.g. [P3] 3+ Stars)
     this.vipSpawnTimer -= delta;
-    if (this.vipSpawnTimer <= 0 && this.shelves.length >= 4) {
+    const storePrestige = window.GameMechanics?.calculateStorePrestige
+      ? window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore, this.brandState, this.neighborhoodState)
+      : { isVIPEligible: true, perks: { vipSpawnRateMultiplier: 1.0 } };
+
+    if (this.vipSpawnTimer <= 0 && this.shelves.length >= 3 && storePrestige.isVIPEligible) {
       let vipSpot = this.parkingLot ? this.parkingLot.reserveSpot('CAR') : null;
       let vipVehicle = null;
       let spawnPos;
@@ -4056,7 +4164,8 @@ class MiniMartGame {
 
       const vip = new VIPCustomerAI(this.scene, spawnPos, this.shelves, this.checkout, 'VIP', vipSpot, vipVehicle);
       this.customers.push(vip);
-      this.vipSpawnTimer = 50.0 + Math.random() * 25.0;
+      const rateMult = (storePrestige.perks && storePrestige.perks.vipSpawnRateMultiplier) ? storePrestige.perks.vipSpawnRateMultiplier : 1.0;
+      this.vipSpawnTimer = (45.0 + Math.random() * 20.0) / rateMult;
       this.showFloatingText('VIP GURME MÜŞTERİ GELDİ! (2.5x KAZANÇ)', vip.char.group.position, '#FFE600');
       window.Sound.playUnlock();
     }
@@ -4615,6 +4724,7 @@ class MiniMartGame {
           storage: this.storage || {},
           staffSettings: this.staffSettings || {},
           neighborhood: this.neighborhoodState || window.GameMechanics.createNeighborhoodState(),
+          residentOrders: this.residentOrders || window.GameMechanics.createResidentOrderState(),
           brands: this.brandState || window.GameMechanics.createBrandState(),
           dayChoice: this.activeDayChoice || null,
           neighborhoodBuildings: this.neighborhoodBuildingsState || window.GameMechanics.createNeighborhoodBuildingState(),
@@ -4657,6 +4767,7 @@ class MiniMartGame {
         this.storage = window.GameMechanics.createStockTargets(data.storage || {});
         this.staffSettings = window.GameMechanics.createStaffSettings(data.staffSettings || {});
         this.neighborhoodState = window.GameMechanics.createNeighborhoodState(data.neighborhood || {});
+        this.residentOrders = window.GameMechanics.createResidentOrderState(data.residentOrders || {});
         this.brandState = window.GameMechanics.createBrandState(data.brands || {});
         this.activeDayChoice = data.dayChoice || null;
         this.neighborhoodBuildingsState = window.GameMechanics.createNeighborhoodBuildingState(data.neighborhoodBuildings || {});
@@ -4728,10 +4839,14 @@ class MiniMartGame {
   }
 
   // Pricing & brand calculation for item checkouts
-  getSalePrice(type, basePrice = null) {
+  getSalePrice(type, basePrice = null, soldItem = null) {
     const item = ITEM_TYPES[type] || ITEM_TYPES.TOMATO;
     const base = typeof basePrice === 'number' ? basePrice : item.price;
     let price = base;
+
+    if (soldItem && window.GameMechanics?.getFreshItemPricedAmount) {
+      price = window.GameMechanics.getFreshItemPricedAmount(price, soldItem, this.dayState?.elapsedSeconds || 0);
+    }
 
     // Pricing mode multiplier (economy / standard / premium)
     if (this.pricing && window.GameMechanics?.getProductPricingMultiplier) {
@@ -4756,7 +4871,18 @@ class MiniMartGame {
 
   recordBrandSale(type, qty = 1) {
     if (!this.brandState || !window.GameMechanics?.recordBrandSale) return;
+    const previousBrandState = this.brandState;
     this.brandState = window.GameMechanics.recordBrandSale(this.brandState, type, qty);
+    const levelInfo = window.GameMechanics.getBrandLevelUpInfo
+      ? window.GameMechanics.getBrandLevelUpInfo(previousBrandState, this.brandState, type)
+      : { didLevelUp: false };
+    if (levelInfo.didLevelUp) {
+      this.showFloatingText(`MARKA SEVİYE ATLADI! ${levelInfo.brandName} [LV${levelInfo.nextReputation}]`, this.player.group.position, '#00D2D3');
+      if (this.particleFX && this.particleFX.spawnGoldenSparkles) {
+        this.particleFX.spawnGoldenSparkles(this.player.group.position, 10);
+      }
+      window.Sound.playUnlock();
+    }
   }
 
   recordResidentVisit(residentId) {
@@ -4767,6 +4893,12 @@ class MiniMartGame {
       ? window.GameMechanics.getActiveNeighborhoodEffects(this.neighborhoodBuildingsState)
       : null;
     if (effects && effects.residentAffinityGainBoost > 0) {
+      this.neighborhoodState = window.GameMechanics.recordResidentVisit(this.neighborhoodState, residentId);
+    }
+    const dayChoiceEffects = window.GameMechanics?.getDayChoiceEffects
+      ? window.GameMechanics.getDayChoiceEffects(this.activeDayChoice)
+      : null;
+    if (dayChoiceEffects?.residentAffinityBonus && (!dayChoiceEffects.specialCustomer || dayChoiceEffects.specialCustomer === residentId)) {
       this.neighborhoodState = window.GameMechanics.recordResidentVisit(this.neighborhoodState, residentId);
     }
     this.saveState();
@@ -4853,6 +4985,8 @@ class MiniMartGame {
       this.renderBuildingsTab(container);
     } else if (tab === 'veresiye') {
       this.renderVeresiyeTab(container);
+    } else if (tab === 'branches') {
+      this.renderBranchesTab(container);
     }
   }
 
@@ -4860,27 +4994,44 @@ class MiniMartGame {
     const grid = document.createElement('div');
     grid.className = 'resident-grid';
 
-    const residents = window.GameMechanics.NEIGHBORHOOD_RESIDENTS || [];
-    residents.forEach(res => {
+    const dayTime = this.dayState ? window.GameMechanics.getResidentDayTime(this.dayState.elapsedSeconds || this.dayState.clock || 0) : null;
+    const availableItems = this.getAvailableDemandItems ? this.getAvailableDemandItems() : [];
+    const profiles = window.GameMechanics.getResidentProfiles
+      ? window.GameMechanics.getResidentProfiles(this.neighborhoodState, { veresiyeState: this.veresiyeState, dayTime, availableItems })
+      : (window.GameMechanics.NEIGHBORHOOD_RESIDENTS || []);
+    profiles.forEach(res => {
       const card = document.createElement('div');
       card.className = 'resident-card';
 
-      const aff = window.GameMechanics.getResidentAffinity(this.neighborhoodState, res.id);
+      const aff = typeof res.affinity === 'number' ? res.affinity : window.GameMechanics.getResidentAffinity(this.neighborhoodState, res.id);
       const stories = window.GameMechanics.getUnlockedStories(this.neighborhoodState, res.id);
-      const visits = (this.neighborhoodState && this.neighborhoodState.visits && this.neighborhoodState.visits[res.id]) || 0;
-      const levelName = aff >= 5 ? 'KADİM DOST' : (aff >= 3 ? 'MÜDAVİM' : (aff >= 1 ? 'KOMŞU' : 'TANIŞ'));
+      const visits = res.visits || 0;
+      const routineLabel = res.routine === 'morning' ? 'SABAH' : (res.routine === 'afternoon' ? 'ÖĞLE' : 'AKŞAM');
+      const preferredNames = (res.preferredItems || []).map(type => (ITEM_TYPES[type] || { name: type }).name).join(', ');
+      const nextText = res.nextAffinityVisitTarget
+        ? `${res.visitsUntilNextAffinity} ziyaret sonra LV${Math.min(5, aff + 1)}`
+        : 'MAKS SADAKAT';
+      const debtText = res.hasDebt ? `VERESİYE: $${res.debt}` : 'BORÇ YOK';
+      const basketText = res.basketMultiplier > 1 ? '2x sepet' : 'normal sepet';
+      const tipText = res.tipMultiplier > 1 ? `+%${Math.round((res.tipMultiplier - 1) * 100)} ödeme bonusu` : 'standart ödeme';
+      const specialOrderText = res.specialOrder
+        ? `ÖZEL SİPARİŞ: ${res.specialOrder.targetQty}x ${(ITEM_TYPES[res.specialOrder.itemType] || { name: res.specialOrder.itemType }).name} · ÖDÜL $${res.specialOrder.rewardMoney}`
+        : 'ÖZEL SİPARİŞ: LV2 sadakat ve uygun ürün bekliyor';
 
       card.innerHTML = `
         <div class="resident-head">
           <div class="resident-name">${res.name}</div>
-          <div class="resident-affinity-badge">[LV${aff}] ${levelName}</div>
+          <div class="resident-affinity-badge">[LV${aff}] ${res.loyaltyLabel || 'KOMŞU'}</div>
         </div>
-        <div class="resident-desc">${res.description}</div>
-        <div class="resident-routine">ZİYARET VAKTİ: ${res.visitTime === 'morning' ? 'SABAH' : (res.visitTime === 'afternoon' ? 'ÖĞLE' : 'AKŞAM')} · TERCİH: ${(ITEM_TYPES[res.preferredItem] || { name: res.preferredItem }).name}</div>
-        <div class="resident-perk">AVANTAJ: ${res.perkDesc} (Ziyaret: ${visits})</div>
+        <div class="resident-desc">${res.backstory}</div>
+        <div class="resident-routine">ZİYARET VAKTİ: ${routineLabel}${res.isRoutineNow ? ' · BUGÜN AKTİF' : ''}</div>
+        <div class="resident-routine">TERCİH: ${preferredNames}</div>
+        <div class="resident-perk">${specialOrderText}</div>
+        <div class="resident-perk">${debtText} · ${basketText} · ${tipText}</div>
+        <div class="resident-perk">ZİYARET: ${visits} · SONRAKİ SADAKAT: ${nextText}</div>
         <div class="resident-stories-box">
-          <div class="resident-stories-title">AÇILAN HİKAYELER (${stories.length}/${res.dialogues.length})</div>
-          ${stories.map(s => `<div class="resident-story-item">"${s.text}"</div>`).join('')}
+          <div class="resident-stories-title">AÇILAN HİKAYELER (${stories.length}/5)</div>
+          ${stories.length > 0 ? stories.map(s => `<div class="resident-story-item">"${s.text}"</div>`).join('') : '<div class="resident-story-item">Sadakat arttıkça özel hikayeler açılır.</div>'}
         </div>
       `;
       grid.appendChild(card);
@@ -4910,10 +5061,17 @@ class MiniMartGame {
 
       const itemName = (ITEM_TYPES[cat] || { name: cat }).name;
       const bonusMult = window.GameMechanics.getBrandPriceBonus(this.brandState, cat);
+      const brandSummary = window.GameMechanics.getBrandPrestigeSummary
+        ? window.GameMechanics.getBrandPrestigeSummary(this.brandState)
+        : { prestigeBonus: 0, averageReputation: 1, premiumBrands: 0 };
       const pal = ['#ff5252', '#ff793f', '#ffe600', '#2ecc71', '#00d2d3', '#0984e3', '#6c5ce7', '#ff2a7a'];
 
       card.innerHTML = `
         <div class="brand-title">${itemName} - MARKA YÖNETİMİ (+%${Math.round((bonusMult - 1) * 100)} KAZANÇ)</div>
+        <div class="brand-row">
+          <span class="brand-label">PRESTİJ ETKİSİ:</span>
+          <span class="brand-prestige-badge">+${brandSummary.prestigeBonus} PUAN · ORT. İTİBAR ${brandSummary.averageReputation} · PREMİUM ${brandSummary.premiumBrands}</span>
+        </div>
         <div class="brand-row">
           <span class="brand-label">MARKA ADI:</span>
           <input type="text" class="brand-input" data-brand-cat="${cat}" value="${bInfo.name}" maxlength="24">
@@ -4967,15 +5125,15 @@ class MiniMartGame {
         const nameVal = (input.value || '').trim() || `${itemName} Markası`;
 
         if (selectedTier !== bInfo.quality && window.GameMechanics?.canUpgradeBrandTier) {
-          const check = window.GameMechanics.canUpgradeBrandTier(bInfo.quality, selectedTier, bInfo.salesCount || 0, this.cash || 0);
+          const check = window.GameMechanics.canUpgradeBrandTier(bInfo.quality, selectedTier, bInfo.salesCount || 0, this.money || 0);
           if (!check.canUpgrade) {
             window.Sound.playBuzz();
             this.showFloatingText(check.reason || 'KİLİTLİ!', this.player.group.position, '#FF4757');
             return;
           }
           if (check.cost > 0) {
-            this.cash -= check.cost;
-            this.updateCashUI();
+            this.money -= check.cost;
+            this.updateMoneyUI();
           }
         }
 
@@ -5004,6 +5162,36 @@ class MiniMartGame {
   }
 
   renderBuildingsTab(container) {
+    const progress = window.GameMechanics.getNeighborhoodBuildingProgress
+      ? window.GameMechanics.getNeighborhoodBuildingProgress(this.neighborhoodBuildingsState, this.money, this.progression.marketLevel)
+      : null;
+    if (progress) {
+      const panel = document.createElement('div');
+      panel.className = 'building-progress-panel';
+      const nextText = progress.nextAvailable
+        ? `SIRADAKİ: ${progress.nextAvailable.name} ($${progress.nextAvailable.cost})`
+        : 'MAHALLE YATIRIMLARI TAMAM';
+      const activeText = progress.activeEffectLabels.length > 0
+        ? progress.activeEffectLabels.join(' · ')
+        : 'Henüz aktif yatırım etkisi yok';
+      panel.innerHTML = `
+        <div class="building-progress-head">
+          <div class="building-progress-title">MAHALLE GELİŞİMİ</div>
+          <div class="building-progress-count">${progress.builtCount}/${progress.totalCount}</div>
+        </div>
+        <div class="building-progress-bar" aria-label="Mahalle yatırım ilerlemesi">
+          <div class="building-progress-fill" style="width: ${progress.completionPercent}%"></div>
+        </div>
+        <div class="building-progress-meta">
+          <span>${progress.completionPercent}% TAMAMLANDI</span>
+          <span>${nextText}</span>
+          <span>KİLİTLİ: ${progress.lockedCount}</span>
+        </div>
+        <div class="building-progress-effects">${activeText}</div>
+      `;
+      container.appendChild(panel);
+    }
+
     const grid = document.createElement('div');
     grid.className = 'building-grid';
 
@@ -5088,6 +5276,290 @@ class MiniMartGame {
     }
   }
 
+  renderVeresiyeTab(container) {
+    this.veresiyeState = window.GameMechanics.createVeresiyeState(this.veresiyeState);
+    const box = document.createElement('div');
+    box.className = 'veresiye-box-content';
+    box.style.display = 'flex';
+    box.style.flexDirection = 'column';
+    box.style.gap = '14px';
+
+    const totalDebt = window.GameMechanics.getVeresiyeTotal(this.veresiyeState);
+
+    const summaryCard = document.createElement('div');
+    summaryCard.className = 'veresiye-summary-card';
+    summaryCard.style.background = '#FFE600';
+    summaryCard.style.border = '3px solid #000';
+    summaryCard.style.padding = '12px';
+    summaryCard.style.boxShadow = '4px 4px 0 #000';
+    summaryCard.innerHTML = `
+      <div style="font-weight: 900; font-size: 15px;">ESNAF VERESİYE DEFTERİ</div>
+      <div style="font-size: 12px; margin-top: 4px;">Toplam Alacak: <strong>$${totalDebt}</strong> · Esnaf İtimadı: <strong>%${this.veresiyeState.trustScore || 100}</strong></div>
+      <div style="font-size: 11px; color: #333; margin-top: 2px;">Komşular her sabah dükkana gelip borçlarını nakit olarak kapatır.</div>
+    `;
+    box.appendChild(summaryCard);
+
+    const grid = document.createElement('div');
+    grid.className = 'resident-grid';
+
+    const residents = window.GameMechanics.NEIGHBORHOOD_RESIDENTS || [];
+    residents.forEach(r => {
+      const debt = this.veresiyeState.debts[r.id] || 0;
+      const card = document.createElement('div');
+      card.className = 'resident-card';
+      card.innerHTML = `
+        <div class="resident-head">
+          <div class="resident-name">${r.name}</div>
+          <div class="resident-affinity-badge">${debt > 0 ? `BORÇ: $${debt}` : '[BORÇ YOK]'}</div>
+        </div>
+        <div class="resident-desc">${r.backstory || r.description || ''}</div>
+        <div class="resident-routine" style="margin-top: 6px;">Durum: ${debt > 0 ? 'Ödeme sabah bekleniyor.' : 'Hesap temiz.'}</div>
+        ${debt > 0 ? `<button type="button" class="branch-action-btn collect active" data-collect-debt="${r.id}" style="margin-top: 8px;">TAHSİLAT İSTE (+$${debt})</button>` : ''}
+      `;
+
+      const collectBtn = card.querySelector(`[data-collect-debt="${r.id}"]`);
+      if (collectBtn) {
+        collectBtn.addEventListener('click', () => {
+          const res = window.GameMechanics.collectVeresiye(this.veresiyeState, r.id, debt);
+          this.veresiyeState = res.state;
+          this.money += res.collected;
+          this.updateMoneyUI();
+          window.Sound.playCoin();
+          this.showFloatingText(`+$${res.collected} VERESİYE TAHSİL EDİLDİ!`, this.player.group.position, '#2ECC71');
+          this.saveState();
+          this.renderVeresiyeTab(container);
+        });
+      }
+
+      grid.appendChild(card);
+    });
+
+    box.appendChild(grid);
+    container.replaceChildren(box);
+  }
+
+  renderBranchesTab(container) {
+    this.branchState = window.GameMechanics.createBranchState(this.branchState || this.branches);
+    const box = document.createElement('div');
+    box.className = 'branch-box-container';
+    box.style.display = 'flex';
+    box.style.flexDirection = 'column';
+    box.style.gap = '14px';
+
+    const prestige = window.GameMechanics?.calculateStorePrestige
+      ? window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore, this.brandState, this.neighborhoodState)
+      : { stars: 1, score: 25 };
+
+    const grid = document.createElement('div');
+    grid.className = 'branch-grid';
+
+    const configs = window.GameMechanics.BRANCH_CONFIGS || {};
+
+    Object.entries(this.branchState.branches).forEach(([branchId, branch]) => {
+      const cfg = configs[branchId] || { name: branch.name, unlockCost: 0, unlockPrestige: 1, unlockLevel: 1, district: 'Mahalle', description: '' };
+      const card = document.createElement('div');
+      card.className = 'branch-card';
+
+      if (branchId === 'branch_1') {
+        card.innerHTML = `
+          <div class="branch-head">
+            <div class="branch-name">${branch.name}</div>
+            <div class="branch-badge">[ANA İŞLETME]</div>
+          </div>
+          <div class="branch-district">${cfg.district} · 3D Canlı Süpermarket</div>
+          <div class="branch-desc">${cfg.description}</div>
+          <div class="branch-stats-box">
+            <div class="branch-stat-row">
+              <span>İŞLETME KAPASİTESİ:</span>
+              <strong>${this.shelves.length} Raf (${this.shelves.length * 8} Ürün)</strong>
+            </div>
+            <div class="branch-stat-row">
+              <span>PRESTİJ DERECESİ:</span>
+              <strong>[P${prestige.stars}] (${prestige.score}/100 Puan)</strong>
+            </div>
+            <div class="branch-stat-row">
+              <span>DÜKKAN HİJYENİ:</span>
+              <strong>%${Math.round(this.hygieneScore)}</strong>
+            </div>
+          </div>
+        `;
+      } else if (!branch.unlocked) {
+        const check = window.GameMechanics.canUnlockBranch(this.branchState, branchId, this.money, prestige.stars, this.progression.marketLevel);
+        card.innerHTML = `
+          <div class="branch-head">
+            <div class="branch-name">${cfg.name}</div>
+            <div class="branch-badge locked">[KİLİTLİ]</div>
+          </div>
+          <div class="branch-district">${cfg.district} · Uydu Şube</div>
+          <div class="branch-desc">${cfg.description}</div>
+          <div class="branch-requirements">
+            <div class="req-item ${prestige.stars >= cfg.unlockPrestige ? 'met' : 'unmet'}">
+              Gereken Prestij: [P${cfg.unlockPrestige}] (${cfg.unlockPrestige} Yıldız)
+            </div>
+            <div class="req-item ${this.progression.marketLevel >= cfg.unlockLevel ? 'met' : 'unmet'}">
+              Gereken Market Seviyesi: LV${cfg.unlockLevel}
+            </div>
+            <div class="req-item ${this.money >= cfg.unlockCost ? 'met' : 'unmet'}">
+              Açılış Maliyeti: $${cfg.unlockCost}
+            </div>
+          </div>
+          <button type="button" class="branch-unlock-btn ${check.allowed ? 'active' : 'disabled'}" data-branch-unlock="${branchId}">
+            ${check.allowed ? `ŞUBEYİ AÇ ($${cfg.unlockCost})` : (check.reason || 'KİLİTLİ')}
+          </button>
+        `;
+
+        const unlockBtn = card.querySelector(`[data-branch-unlock="${branchId}"]`);
+        if (unlockBtn && check.allowed) {
+          unlockBtn.addEventListener('click', () => {
+            this.money -= cfg.unlockCost;
+            this.updateMoneyUI();
+            this.branchState = window.GameMechanics.unlockBranch(this.branchState, branchId, this.money);
+            this.branches = this.branchState.branches;
+            window.Sound.playUnlock();
+            this.showFloatingText(`${cfg.name} AÇILDI!`, this.player.group.position, '#2ECC71');
+            this.saveState();
+            this.renderBranchesTab(container);
+          });
+        }
+      } else {
+        const currentStockCount = Object.values(branch.stock).reduce((a, b) => a + (Number(b) || 0), 0);
+        const upgradeCost = branch.level * 1500;
+        const canUpgrade = this.money >= upgradeCost;
+
+        const stockEntries = Object.entries(branch.stock).filter(([_, qty]) => qty > 0);
+        const stockPillsHtml = stockEntries.length > 0
+          ? stockEntries.map(([type, qty]) => {
+              const name = (ITEM_TYPES[type] || { name: type }).name;
+              return `<div class="branch-stock-pill">${name}: ${qty}</div>`;
+            }).join('')
+          : '<div class="branch-stock-empty">Stok boş! Sevkiyat yapın.</div>';
+
+        card.innerHTML = `
+          <div class="branch-head">
+            <div class="branch-name">${branch.name}</div>
+            <div class="branch-badge active">[LV${branch.level} AKTİF]</div>
+          </div>
+          <div class="branch-district">${cfg.district} · Otomatik Ciro</div>
+          <div class="branch-stats-box">
+            <div class="branch-stat-row">
+              <span>KAPASİTE:</span>
+              <strong>${currentStockCount} / ${branch.capacity} Kasa</strong>
+            </div>
+            <div class="branch-stat-row">
+              <span>BİRİKEN KASA HASILATI:</span>
+              <strong class="branch-revenue-text">$${branch.uncollectedRevenue}</strong>
+            </div>
+            <div class="branch-stat-row">
+              <span>DÜN SATILAN ÜRÜN:</span>
+              <strong>${branch.lastDaySales} adet (Günlük Ciro: $${branch.dailyRevenue})</strong>
+            </div>
+            <div class="branch-stat-row">
+              <span>ŞUBE MÜDÜRÜ:</span>
+              <strong>${branch.staff.manager ? 'ATANDI (+%30 Gelir)' : 'YOK'}</strong>
+            </div>
+          </div>
+
+          <div class="branch-section-title">ŞUBE STOK DURUMU</div>
+          <div class="branch-stock-grid">${stockPillsHtml}</div>
+
+          <div class="branch-actions-grid">
+            <button type="button" class="branch-action-btn collect ${branch.uncollectedRevenue > 0 ? 'active' : 'disabled'}" data-branch-collect="${branchId}">
+              HASILATI TAHSİL ET (+$${branch.uncollectedRevenue})
+            </button>
+            <button type="button" class="branch-action-btn ship" data-branch-ship="${branchId}">
+              SEVKİYAT YAP (+16 Ürün, $120)
+            </button>
+            <button type="button" class="branch-action-btn upgrade ${canUpgrade ? 'active' : 'disabled'}" data-branch-upgrade="${branchId}">
+              KAPASİTE YÜKSELT (+$30 Kapasite, $${upgradeCost})
+            </button>
+            <button type="button" class="branch-action-btn manager ${!branch.staff.manager && this.money >= 1000 ? 'active' : 'disabled'}" data-branch-manager="${branchId}">
+              ${branch.staff.manager ? 'MÜDÜR GÖREVDE' : 'MÜDÜR İŞE AL ($1,000)'}
+            </button>
+          </div>
+        `;
+
+        const collectBtn = card.querySelector(`[data-branch-collect="${branchId}"]`);
+        if (collectBtn && branch.uncollectedRevenue > 0) {
+          collectBtn.addEventListener('click', () => {
+            const res = window.GameMechanics.collectBranchRevenue(this.branchState, branchId);
+            this.branchState = res.state;
+            this.branches = this.branchState.branches;
+            this.money += res.collectedAmount;
+            this.updateMoneyUI();
+            window.Sound.playCoin();
+            this.showFloatingText(`+$${res.collectedAmount} TAHSİL EDİLDİ!`, this.player.group.position, '#FFE600');
+            this.saveState();
+            this.renderBranchesTab(container);
+          });
+        }
+
+        const shipBtn = card.querySelector(`[data-branch-ship="${branchId}"]`);
+        if (shipBtn) {
+          shipBtn.addEventListener('click', () => {
+            const shipCost = 120;
+            if (this.money < shipCost) {
+              window.Sound.playBuzz();
+              this.showFloatingText('YETERSİZ BAKİYE!', this.player.group.position, '#FF5252');
+              return;
+            }
+            if (currentStockCount >= branch.capacity) {
+              window.Sound.playBuzz();
+              this.showFloatingText('ŞUBE DEPOSU DOLU!', this.player.group.position, '#FF5252');
+              return;
+            }
+            this.money -= shipCost;
+            this.updateMoneyUI();
+            const items = ['TOMATO', 'BREAD', 'CHEESE', 'APPLE_JUICE'];
+            items.forEach(t => {
+              this.branchState = window.GameMechanics.transferStockToBranch(this.branchState, branchId, t, 4);
+            });
+            this.branches = this.branchState.branches;
+            window.Sound.playPop();
+            this.showFloatingText('SEVKİYAT ŞUBEYE ULAŞTI!', this.player.group.position, '#00D2D3');
+            this.saveState();
+            this.renderBranchesTab(container);
+          });
+        }
+
+        const upgradeBtn = card.querySelector(`[data-branch-upgrade="${branchId}"]`);
+        if (upgradeBtn && canUpgrade) {
+          upgradeBtn.addEventListener('click', () => {
+            const res = window.GameMechanics.upgradeBranchCapacity(this.branchState, branchId, this.money);
+            if (res.upgraded) {
+              this.money -= res.cost;
+              this.updateMoneyUI();
+              this.branchState = res.state;
+              this.branches = this.branchState.branches;
+              window.Sound.playUnlock();
+              this.showFloatingText(`${branch.name} SEVİYE ${res.newLevel} OLDU!`, this.player.group.position, '#FFE600');
+              this.saveState();
+              this.renderBranchesTab(container);
+            }
+          });
+        }
+
+        const managerBtn = card.querySelector(`[data-branch-manager="${branchId}"]`);
+        if (managerBtn && !branch.staff.manager && this.money >= 1000) {
+          managerBtn.addEventListener('click', () => {
+            this.money -= 1000;
+            this.updateMoneyUI();
+            this.branchState = window.GameMechanics.assignBranchStaff(this.branchState, branchId, 'manager', true);
+            this.branches = this.branchState.branches;
+            window.Sound.playUnlock();
+            this.showFloatingText('ŞUBE MÜDÜRÜ ATANDI (+%30 GELİR)!', this.player.group.position, '#2ECC71');
+            this.saveState();
+            this.renderBranchesTab(container);
+          });
+        }
+      }
+
+      grid.appendChild(card);
+    });
+
+    box.appendChild(grid);
+    container.replaceChildren(box);
+  }
+
   // --- Day Start Choice Neo-Brutalist System ---
   initDayChoiceUI() {
     // Day choice cards ready for dynamic presentation
@@ -5142,13 +5614,17 @@ class MiniMartGame {
 
   selectDayChoice(choice) {
     this.activeDayChoice = window.GameMechanics.applyDayChoice(choice);
+    const effects = window.GameMechanics.getDayChoiceEffects(this.activeDayChoice);
     const modal = document.getElementById('day-choice-modal');
     if (modal) {
       modal.classList.remove('open');
       modal.classList.add('hidden');
     }
     window.Sound.playCoin();
-    this.showFloatingText(`${choice.name} AKTİF!`, this.player.group.position, '#FFE600');
+    const boostedLabel = effects.boostedItems.length > 0
+      ? ` ${effects.boostedItems.map(type => ITEM_TYPES[type]?.name || type).join(' + ')}`
+      : '';
+    this.showFloatingText(`${choice.name} AKTİF!${boostedLabel}`, this.player.group.position, '#FFE600');
     this.saveState();
   }
 
@@ -5377,7 +5853,7 @@ class MiniMartGame {
     decBox.style.flexDirection = 'column';
     decBox.style.gap = '14px';
 
-    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore);
+    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore, this.brandState);
     const prestigeCard = document.createElement('div');
     prestigeCard.className = 'decoration-card';
     prestigeCard.style.background = '#FFE600';
@@ -5648,7 +6124,7 @@ class MiniMartGame {
   }
 
   updatePrestigeAndVIP(delta) {
-    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore);
+    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore, this.brandState);
     if (this.prestigeDisplay) {
       this.prestigeDisplay.textContent = `[P${prestige.stars}]`;
     }

@@ -106,6 +106,9 @@ assert.strictEqual(decState.activeFloor, 'classic');
 
 const p1 = mechanics.calculateStorePrestige(decState, 100);
 assert(p1.stars >= 1, 'Base store should have at least 1 star');
+assert.strictEqual(p1.floorName, 'Klasik Karo', 'Prestige output must expose the active floor name for UI cards');
+assert.strictEqual(p1.hygieneScore, 100, 'Prestige output must expose the hygiene score for UI cards');
+assert.strictEqual(mechanics.DECORATION_TIERS.classic.colorHex, '#E0E0E0', 'Decoration tiers must expose colorHex for UI previews');
 
 // Upgrade floor to marble and high hygiene
 decState.activeFloor = 'marble';
@@ -114,6 +117,10 @@ assert(p5.stars >= 4, 'Marble floor with high hygiene should yield high prestige
 assert.strictEqual(p5.isVIPEligible, true, 'High prestige must make store eligible for VIP customers');
 
 // 10. Verify 3D Voxel Classes and VRAM Dispose Cleanup in entities.js
+const busStopDef = mechanics.NEIGHBORHOOD_BUILDINGS.find(b => b.id === 'bus_stop');
+assert.strictEqual(busStopDef.requiredLevel, busStopDef.unlockLevel, 'Neighborhood building UI must have requiredLevel alias');
+assert(busStopDef.effectDesc, 'Neighborhood building UI must have effectDesc text');
+
 const entitiesCode = fs.readFileSync(path.join(__dirname, '../js/entities.js'), 'utf8');
 assert(entitiesCode.includes('class MopStation'), 'entities.js must define class MopStation');
 assert(entitiesCode.includes('class TrashItem'), 'entities.js must define class TrashItem');
@@ -134,5 +141,32 @@ assert(entitiesCode.includes('child.material.dispose()') || entitiesCode.include
 const gameCode = fs.readFileSync(path.join(__dirname, '../js/game.js'), 'utf8');
 assert(gameCode.includes('this.closeWholesaleModal()'), 'game.js must handle Escape key for closing wholesale modal');
 assert(gameCode.includes('this.confirmVeresiyeCheckout()'), 'game.js must handle KeyE for veresiye checkout confirmation');
+assert(gameCode.includes('getResidentProfiles'), 'Residents tab must render from normalized resident profiles');
+assert(!gameCode.includes('res.dialogues.length'), 'Residents tab must not depend on missing dialogue arrays');
+assert(gameCode.includes('ÖZEL SİPARİŞ'), 'Residents tab must surface special order text');
+assert(gameCode.includes('PRESTİJ ETKİSİ'), 'Brand tab must surface brand prestige contribution');
+assert(gameCode.includes('calculateStorePrestige(this.decorationState, this.hygieneScore, this.brandState)'), 'Prestige display must include brand state');
+assert(!gameCode.includes('this.cash || 0'), 'Brand tier upgrades must use the game money balance');
+assert(!gameCode.includes('this.updateCashUI()'), 'Brand tier upgrades must refresh money UI, not a missing cash UI');
+assert(gameCode.includes('MARKA SEVİYE ATLADI'), 'Brand sales must surface level-up feedback');
+assert(gameCode.includes('spawnGoldenSparkles'), 'Brand level-up feedback should include a visual celebration');
+assert(gameCode.includes('getDayChoiceEffects(this.activeDayChoice)'), 'Active day choice must drive live customer effects');
+assert(gameCode.includes('totalSpawnBoost'), 'Day choice customer boost must be folded into spawn timing');
+assert(gameCode.includes('dayChoiceEffects.specialCustomer'), 'Day choice special customer must affect resident spawning');
+assert(entitiesCode.includes('applyDayChoiceToShoppingPool'), 'Customer shopping lists must favor active day choice products');
+assert(gameCode.includes('getNeighborhoodBuildingProgress'), 'Buildings tab must render visible neighborhood progress');
+assert(gameCode.includes('building-progress-panel'), 'Buildings tab must include a progress panel before investment cards');
+assert(css.includes('.building-progress-panel'), 'CSS must style the neighborhood progress panel');
+
+const residentProfile = mechanics.getResidentProfile(
+  mechanics.recordResidentVisit(mechanics.recordResidentVisit(mechanics.recordResidentVisit(mechanics.createNeighborhoodState(), 'ayse'), 'ayse'), 'ayse'),
+  'ayse',
+  { veresiyeState: mechanics.issueVeresiye(mechanics.createVeresiyeState(), 'ayse', 25), dayTime: 'morning' }
+);
+assert.strictEqual(residentProfile.loyaltyLabel, 'TANIŞ ESNAF', 'Resident profile must expose loyalty labels for UI');
+assert.strictEqual(residentProfile.hasDebt, true, 'Resident profile must expose veresiye debt for UI');
+let specialOrderState = mechanics.createNeighborhoodState();
+for (let i = 0; i < 8; i++) specialOrderState = mechanics.recordResidentVisit(specialOrderState, 'ayse');
+assert(mechanics.getResidentProfile(specialOrderState, 'ayse', { availableItems: ['BREAD'] }).specialOrder, 'Loyal residents must expose special orders when preferred products are available');
 
 console.log('Living Neighborhood unit and integration tests passed successfully.');

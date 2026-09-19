@@ -1740,7 +1740,13 @@ class Character3D {
   addItemToCart(type = 'TOMATO') {
     if (this.cartItems.length >= 6) return false;
 
-    const mesh = this.createCubicItemMesh(type, 0.85);
+    let itemType = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(type) : (typeof type === 'string' ? type : type.type);
+    if (itemType === 'STRAWBERRY' && this.itemType === 'STRAWBERRY_JAM') itemType = 'STRAWBERRY_JAM';
+    let itemData = typeof type === 'object' && type !== null
+      ? type
+      : (window.GameMechanics?.createFreshItem ? window.GameMechanics.createFreshItem(itemType, window.gameInstance?.dayState?.elapsedSeconds || 0) : { type: itemType });
+    if (itemData && itemData.type !== itemType) itemData = { ...itemData, type: itemType };
+    const mesh = this.createCubicItemMesh(itemType, 0.85);
 
     // Position neatly in a 2x3 grid inside the cart
     const idx = this.cartItems.length;
@@ -1749,7 +1755,7 @@ class Character3D {
     mesh.position.set(-0.14 + col * 0.28, 0.14, -0.22 + row * 0.22);
 
     this.cartItemsMount.add(mesh);
-    this.cartItems.push({ mesh, type });
+    this.cartItems.push({ mesh, type: itemType, item: itemData });
     return true;
   }
 
@@ -1767,7 +1773,7 @@ class Character3D {
         }
       });
     }
-    return item ? item.type : null;
+    return item ? (item.item || item.type) : null;
   }
 
   // Add an item to the character's back stack
@@ -1778,14 +1784,18 @@ class Character3D {
 
     if (this.stack.length >= this.maxStack) return false;
 
-    const mesh = this.createCubicItemMesh(type, 1.0);
+    const itemType = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(type) : (typeof type === 'string' ? type : type.type);
+    const itemData = typeof type === 'object' && type !== null
+      ? type
+      : (window.GameMechanics?.createFreshItem ? window.GameMechanics.createFreshItem(itemType, window.gameInstance?.dayState?.elapsedSeconds || 0) : { type: itemType });
+    const mesh = this.createCubicItemMesh(itemType, 1.0);
 
     // Calculate vertical stack position
     const stackHeight = this.stack.length * 0.34;
     mesh.position.set(0, stackHeight, 0);
 
     this.backpackBone.add(mesh);
-    this.stack.push({ mesh, type, baseY: stackHeight });
+    this.stack.push({ mesh, type: itemType, item: itemData, baseY: stackHeight });
 
     // Little pop scale animation with parent detachment guard
     mesh.scale.set(0.1, 0.1, 0.1);
@@ -1835,7 +1845,7 @@ class Character3D {
       this.stack[i].baseY = h;
       this.stack[i].mesh.position.y = h;
     }
-    return item ? item.type : null;
+    return item ? (item.item || item.type) : null;
   }
 
   update(delta) {
@@ -3801,7 +3811,12 @@ class ShelfUnit {
 
   // Stock an item onto the shelf (Clean Voxel Cubes)
   stockItem(type) {
-    if (this.isFull() || type !== this.itemType) return false;
+    const itemType = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(type) : (typeof type === 'string' ? type : type.type);
+    const itemData = typeof type === 'object' && type !== null
+      ? type
+      : (window.GameMechanics?.createFreshItem ? window.GameMechanics.createFreshItem(itemType, window.gameInstance?.dayState?.elapsedSeconds || 0) : { type: itemType });
+    if (this.isFull() || itemType !== this.itemType) return false;
+    type = itemType;
 
     const index = this.items.length;
     const pos = this.slotPositions[index];
@@ -4021,7 +4036,7 @@ class ShelfUnit {
       }
     }
 
-    mesh.userData = { spawnedAt: Date.now() };
+    mesh.userData = { spawnedAt: Date.now(), item: itemData };
     mesh.position.copy(pos);
     this.group.add(mesh);
     this.items.push(mesh);
@@ -4035,7 +4050,7 @@ class ShelfUnit {
     const mesh = this.items.pop();
     this.group.remove(mesh);
     this.updateShelfStockHud();
-    return this.itemType;
+    return mesh.userData && mesh.userData.item ? mesh.userData.item : this.itemType;
   }
 
   // Per-frame animation for billboard camera alignment, logo floating/rotation and dynamic alert bouncing
@@ -5241,13 +5256,35 @@ class CustomerAI {
     preferredPool = window.GameMechanics && window.gameInstance
       ? window.GameMechanics.applyDemandToShoppingPool(preferredPool, window.gameInstance.dailyDemand)
       : preferredPool;
+    preferredPool = window.GameMechanics?.applyDayChoiceToShoppingPool && window.gameInstance
+      ? window.GameMechanics.applyDayChoiceToShoppingPool(preferredPool, window.gameInstance.activeDayChoice)
+      : preferredPool;
 
-    const count = Math.min(new Set(preferredPool).size, this.isVIP ? 3 : (this.archetype === 'CHEF_GOURMET' ? 2 : (Math.random() > 0.5 ? 2 : 1)));
+    const residentProfile = this.residentData && window.gameInstance?.neighborhoodState && window.GameMechanics?.getResidentProfile
+      ? window.GameMechanics.getResidentProfile(window.gameInstance.neighborhoodState, this.residentData.id, { availableItems: availablePool })
+      : null;
+    if (residentProfile && residentProfile.specialOrder) {
+      preferredPool = [
+        residentProfile.specialOrder.itemType,
+        residentProfile.specialOrder.itemType,
+        ...preferredPool.filter(type => type !== residentProfile.specialOrder.itemType)
+      ];
+    }
+    const prestige = window.gameInstance && window.GameMechanics?.calculateStorePrestige
+      ? window.GameMechanics.calculateStorePrestige(window.gameInstance.decorationState, window.gameInstance.hygieneScore, window.gameInstance.brandState, window.gameInstance.neighborhoodState)
+      : null;
+    const vipConfig = (this.isVIP && prestige) ? window.GameMechanics.getVipBasketConfig(prestige.stars) : null;
+    const prestigeBasketBonus = (prestige && prestige.stars >= 4 && Math.random() < 0.35) ? 1 : 0;
+    const loyaltyBasketBonus = residentProfile && residentProfile.basketMultiplier > 1 ? 1 : 0;
+    const baseCount = this.isVIP ? (vipConfig ? vipConfig.maxItems : 4) : (this.archetype === 'CHEF_GOURMET' ? 2 : (Math.random() > 0.5 ? 2 : 1));
+    const count = Math.min(new Set(preferredPool).size, baseCount + loyaltyBasketBonus + prestigeBasketBonus);
     const chosenItems = window.GameMechanics.pickShoppingItems(preferredPool, window.gameInstance?.pricing, count);
 
     for (let i = 0; i < count; i++) {
       const type = chosenItems[i];
-      const qty = (this.archetype === 'KID_FAMILY' || this.isVIP) ? (Math.random() > 0.5 ? 2 : 1) : 1;
+      const qty = (residentProfile && residentProfile.basketMultiplier > 1)
+        ? residentProfile.basketMultiplier
+        : ((this.archetype === 'KID_FAMILY' || this.isVIP) ? (Math.random() > 0.5 ? 2 : 1) : 1);
       this.shoppingList.push({
         type,
         requiredQty: qty,
@@ -5631,21 +5668,25 @@ class CustomerAI {
 
     // Process all items in shopping cart
     while (this.char.cartItems.length > 0) {
-      const type = this.char.removeItemFromCart();
+      const soldItem = this.char.removeItemFromCart();
+      const type = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(soldItem) : soldItem;
       const basePrice = (ITEM_TYPES[type] || ITEM_TYPES.TOMATO).price;
       let price = window.gameInstance && window.gameInstance.getSalePrice
-        ? window.gameInstance.getSalePrice(type, basePrice)
+        ? window.gameInstance.getSalePrice(type, basePrice, soldItem)
         : basePrice;
 
       if (this.residentData && window.gameInstance?.neighborhoodState && window.GameMechanics) {
-        const aff = window.GameMechanics.getResidentAffinity(window.gameInstance.neighborhoodState, this.residentData.id);
-        if (aff >= 5) price = Math.round(price * 1.25);
-        else if (aff >= 3) price = Math.round(price * 1.15);
+        const profile = window.GameMechanics.getResidentProfile
+          ? window.GameMechanics.getResidentProfile(window.gameInstance.neighborhoodState, this.residentData.id)
+          : null;
+        const aff = profile ? profile.affinity : window.GameMechanics.getResidentAffinity(window.gameInstance.neighborhoodState, this.residentData.id);
+        const tipMultiplier = profile ? profile.tipMultiplier : (aff >= 5 ? 1.25 : (aff >= 3 ? 1.15 : 1));
+        price = Math.round(price * tipMultiplier);
       }
 
       totalCash += price;
       if (window.gameInstance && window.gameInstance.recordProgressEvent) {
-        window.gameInstance.recordProgressEvent({ type: 'sale', itemType: type, amount: 1 });
+        window.gameInstance.recordProgressEvent({ type: 'sale', itemType: type, amount: 1, residentId: this.residentData?.id || null });
       }
       if (window.gameInstance && window.gameInstance.recordDayEvent) {
         window.gameInstance.recordDayEvent({ type: 'sale', itemType: type, amount: 1, revenue: price });
@@ -5656,21 +5697,25 @@ class CustomerAI {
     }
     // Process items on stack
     while (this.char.stack.length > 0) {
-      const type = this.char.removeItem();
+      const soldItem = this.char.removeItem();
+      const type = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(soldItem) : soldItem;
       const basePrice = (ITEM_TYPES[type] || ITEM_TYPES.TOMATO).price;
       let price = window.gameInstance && window.gameInstance.getSalePrice
-        ? window.gameInstance.getSalePrice(type, basePrice)
+        ? window.gameInstance.getSalePrice(type, basePrice, soldItem)
         : basePrice;
 
       if (this.residentData && window.gameInstance?.neighborhoodState && window.GameMechanics) {
-        const aff = window.GameMechanics.getResidentAffinity(window.gameInstance.neighborhoodState, this.residentData.id);
-        if (aff >= 5) price = Math.round(price * 1.25);
-        else if (aff >= 3) price = Math.round(price * 1.15);
+        const profile = window.GameMechanics.getResidentProfile
+          ? window.GameMechanics.getResidentProfile(window.gameInstance.neighborhoodState, this.residentData.id)
+          : null;
+        const aff = profile ? profile.affinity : window.GameMechanics.getResidentAffinity(window.gameInstance.neighborhoodState, this.residentData.id);
+        const tipMultiplier = profile ? profile.tipMultiplier : (aff >= 5 ? 1.25 : (aff >= 3 ? 1.15 : 1));
+        price = Math.round(price * tipMultiplier);
       }
 
       totalCash += price;
       if (window.gameInstance && window.gameInstance.recordProgressEvent) {
-        window.gameInstance.recordProgressEvent({ type: 'sale', itemType: type, amount: 1 });
+        window.gameInstance.recordProgressEvent({ type: 'sale', itemType: type, amount: 1, residentId: this.residentData?.id || null });
       }
       if (window.gameInstance && window.gameInstance.recordDayEvent) {
         window.gameInstance.recordDayEvent({ type: 'sale', itemType: type, amount: 1, revenue: price });
@@ -8192,7 +8237,8 @@ class StaffHelperAI {
       if (this.moveTo(bufferTarget, speed, delta)) {
         if (this.cooldown <= 0) {
           const dumped = this.char.removeItem();
-          const val = Math.round(((ITEM_TYPES[dumped]?.price || 10) * 0.6));
+          const dumpedType = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(dumped) : dumped;
+          const val = Math.round(((ITEM_TYPES[dumpedType]?.price || 10) * 0.6));
           if (this.game.money !== undefined) {
             this.game.money += val;
             this.game.updateMoneyUI();
@@ -9272,10 +9318,11 @@ class VIPCustomerAI extends CustomerAI {
     let totalCash = 0;
 
     while (this.char.cartItems.length > 0) {
-      const type = this.char.removeItemFromCart();
+      const soldItem = this.char.removeItemFromCart();
+      const type = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(soldItem) : soldItem;
       const basePrice = (ITEM_TYPES[type] || ITEM_TYPES.TOMATO).price;
       const price = window.gameInstance && window.gameInstance.getSalePrice
-        ? window.gameInstance.getSalePrice(type, basePrice)
+        ? window.gameInstance.getSalePrice(type, basePrice, soldItem)
         : basePrice;
       totalCash += price;
       if (window.gameInstance && window.gameInstance.recordProgressEvent) {
@@ -9286,10 +9333,11 @@ class VIPCustomerAI extends CustomerAI {
       }
     }
     while (this.char.stack.length > 0) {
-      const type = this.char.removeItem();
+      const soldItem = this.char.removeItem();
+      const type = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(soldItem) : soldItem;
       const basePrice = (ITEM_TYPES[type] || ITEM_TYPES.TOMATO).price;
       const price = window.gameInstance && window.gameInstance.getSalePrice
-        ? window.gameInstance.getSalePrice(type, basePrice)
+        ? window.gameInstance.getSalePrice(type, basePrice, soldItem)
         : basePrice;
       totalCash += price;
       if (window.gameInstance && window.gameInstance.recordProgressEvent) {
@@ -9437,7 +9485,8 @@ class ShoplifterAI {
     // Drop all carried stolen items back onto floor / notify player
     if (this.char.stack.length > 0) {
       while (this.char.stack.length > 0) {
-        const itemType = this.char.removeItem();
+        const rescuedItem = this.char.removeItem();
+        const itemType = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(rescuedItem) : rescuedItem;
         if (window.gameInstance) {
           window.gameInstance.showFloatingText(`${getItemDisplayName(itemType)} KURTARILDI!`, this.char.group.position, '#2ECC71');
         }
@@ -10664,4 +10713,3 @@ if (typeof module !== 'undefined' && module.exports) {
     VoxelNeonSign
   };
 }
-

@@ -494,31 +494,113 @@ a:focus-visible {
 
 .day-summary-card {
   position: absolute;
-  top: 92px;
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  min-width: 300px;
+  width: min(92vw, 480px);
   background: var(--color-cream);
   border: var(--border-hero);
   box-shadow: var(--shadow-hero);
   color: var(--color-black);
-  padding: 14px 18px;
-  z-index: 160;
-  pointer-events: none;
+  padding: 16px 20px;
+  z-index: 180;
+  pointer-events: auto;
+  border-radius: 0px !important;
 }
 
 .day-summary-title {
   font-size: 18px;
   font-weight: 900;
   letter-spacing: 0.8px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 4px;
 }
 
 .day-summary-body {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   font-size: 13px;
   font-weight: 800;
+}
+
+.day-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: #fff;
+  border: 2px solid #000;
+  padding: 8px 10px;
+}
+
+.day-summary-section-title {
+  font-size: 11px;
+  font-weight: 900;
+  color: #2d3436;
+  margin-bottom: 4px;
+}
+
+.day-summary-branch-box {
+  background: #dff9fb;
+  border: 2px solid #000;
+  padding: 8px 10px;
+}
+
+.day-summary-branch-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.day-summary-prestige-box {
+  background: #ffeaa7;
+  border: 2px solid #000;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-summary-drivers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.prestige-driver-pill {
+  background: #fff;
+  border: 1.5px solid #000;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.day-summary-advice {
+  font-size: 11px;
+  font-style: italic;
+  color: #2d3436;
+  border-top: 1px dashed #000;
+  padding-top: 4px;
+}
+
+.day-summary-close-btn {
+  background: #2ecc71;
+  color: #000;
+  border: 3px solid #000;
+  box-shadow: 3px 3px 0 #000;
+  padding: 8px;
+  font-weight: 900;
+  font-size: 13px;
+  cursor: pointer;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.day-summary-close-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #000;
 }
 
 .offline-notice {
@@ -2400,6 +2482,71 @@ a:focus-visible {
 }
 
 /* Building Investment Cards */
+.building-progress-panel {
+  background: #ffffff;
+  border: 3px solid var(--color-black);
+  box-shadow: 4px 4px 0 var(--color-black);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 0px !important;
+}
+
+.building-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.building-progress-title,
+.building-progress-count {
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.building-progress-count {
+  background: var(--color-cyan);
+  border: 2px solid var(--color-black);
+  padding: 3px 8px;
+}
+
+.building-progress-bar {
+  height: 18px;
+  background: #f0f0f0;
+  border: 2px solid var(--color-black);
+  overflow: hidden;
+}
+
+.building-progress-fill {
+  height: 100%;
+  background: var(--color-yellow);
+  border-right: 2px solid var(--color-black);
+}
+
+.building-progress-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.building-progress-meta span,
+.building-progress-effects {
+  font-size: 11px;
+  font-weight: 900;
+  background: #eaf2fb;
+  border: 1.5px solid var(--color-black);
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+.building-progress-effects {
+  background: #eafaf1;
+  color: #155724;
+}
+
 .building-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -2989,6 +3136,192 @@ a:focus-visible {
 
 .staff-stamina-fill.exhausted {
   background: #ff4757;
+}
+
+/* Branch & Satellite Market Management Styles */
+.branch-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.branch-card {
+  background: #ffffff;
+  border: 3px solid var(--color-black);
+  box-shadow: 4px 4px 0 var(--color-black);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 0px !important;
+}
+
+.branch-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.branch-name {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.branch-badge {
+  font-size: 11px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border: 2px solid #000;
+  background: #ffe600;
+}
+
+.branch-badge.locked {
+  background: #dfe6e9;
+  color: #636e72;
+}
+
+.branch-badge.active {
+  background: #2ecc71;
+  color: #000;
+}
+
+.branch-district {
+  font-size: 12px;
+  font-weight: 800;
+  color: #636e72;
+}
+
+.branch-desc {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.branch-stats-box {
+  background: #f8f9fa;
+  border: 2px solid #000;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.branch-stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.branch-revenue-text {
+  color: #27ae60;
+  font-size: 14px;
+}
+
+.branch-section-title {
+  font-size: 12px;
+  font-weight: 900;
+  margin-top: 4px;
+}
+
+.branch-stock-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.branch-stock-pill {
+  background: #f1f2f6;
+  border: 1.5px solid #000;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.branch-stock-empty {
+  font-size: 11px;
+  font-style: italic;
+  color: #e74c3c;
+}
+
+.branch-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.branch-action-btn {
+  background: #fff;
+  border: 2.5px solid #000;
+  box-shadow: 2px 2px 0 #000;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 0px !important;
+}
+
+.branch-action-btn.collect.active {
+  background: #ffe600;
+}
+
+.branch-action-btn.ship {
+  background: #00d2d3;
+}
+
+.branch-action-btn.upgrade.active {
+  background: #a29bfe;
+}
+
+.branch-action-btn.manager.active {
+  background: #fab1a0;
+}
+
+.branch-action-btn.disabled {
+  background: #dfe6e9;
+  color: #b2bec3;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.branch-action-btn:active:not(.disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 #000;
+}
+
+.branch-unlock-btn {
+  background: #2ecc71;
+  border: 3px solid #000;
+  box-shadow: 3px 3px 0 #000;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-radius: 0px !important;
+}
+
+.branch-unlock-btn.disabled {
+  background: #dfe6e9;
+  color: #7f8c8d;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.branch-requirements {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.branch-requirements .req-item.met {
+  color: #27ae60;
+}
+
+.branch-requirements .req-item.unmet {
+  color: #e74c3c;
 }
 
 

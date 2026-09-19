@@ -63,9 +63,10 @@
       staffSettings: source.staffSettings && typeof source.staffSettings === 'object' ? source.staffSettings : {},
       lastSavedAt: typeof source.lastSavedAt === 'number' ? source.lastSavedAt : null,
       neighborhood: source.neighborhood && typeof source.neighborhood === 'object' ? source.neighborhood : {},
+      residentOrders: source.residentOrders && typeof source.residentOrders === 'object' ? source.residentOrders : {},
       brands: source.brands && typeof source.brands === 'object' ? source.brands : {},
       dayChoice: source.dayChoice && typeof source.dayChoice === 'object' ? source.dayChoice : null,
-      neighborhoodBuildings: Array.isArray(source.neighborhoodBuildings) ? source.neighborhoodBuildings : []
+      neighborhoodBuildings: source.neighborhoodBuildings && typeof source.neighborhoodBuildings === 'object' ? source.neighborhoodBuildings : []
     };
 
     if (source.veresiye && typeof source.veresiye === 'object') state.veresiye = source.veresiye;
@@ -355,6 +356,63 @@
     return state;
   }
 
+  function summarizeDayWithPrestige(dayState, context = {}) {
+    const baseSummary = summarizeDay(dayState);
+    const decState = context.decorationState || {};
+    const hygiene = typeof context.hygieneScore === 'number' ? context.hygieneScore : 100;
+    const brandState = context.brandState || null;
+    const neighborhoodState = context.neighborhoodState || null;
+    const previousPrestigeScore = typeof context.previousPrestigeScore === 'number' ? context.previousPrestigeScore : 0;
+
+    const currentPrestige = calculateStorePrestige(decState, hygiene, brandState, neighborhoodState);
+    const deltaInfo = calculatePrestigeDelta(previousPrestigeScore, currentPrestige.score);
+
+    const drivers = [];
+    if (hygiene >= 85) drivers.push(`[+] Yüksek Hijyen (%${Math.round(hygiene)})`);
+    else if (hygiene <= 50) drivers.push(`[-] Düşük Hijyen (%${Math.round(hygiene)}) - Temizlik Gerekli!`);
+
+    if (currentPrestige.breakdown.brand >= 8) {
+      drivers.push(`[+] Özel Marka İtibarı (+${currentPrestige.breakdown.brand} Puan)`);
+    }
+    if (currentPrestige.breakdown.affinity >= 10) {
+      drivers.push(`[+] Komşu Sadakati (+${currentPrestige.breakdown.affinity} Puan)`);
+    }
+    if (currentPrestige.breakdown.decoration >= 18) {
+      drivers.push(`[+] ${currentPrestige.floorName} Kaplaması (+${currentPrestige.breakdown.decoration} Puan)`);
+    }
+
+    if (drivers.length === 0) {
+      drivers.push(`[+] Standart İşletme Durumu (+${currentPrestige.score} Puan)`);
+    }
+
+    let advice = 'Zemin kaplamasını yenileyerek ve komşularla bağı güçlendirerek prestiji artırabilirsiniz.';
+    if (currentPrestige.stars < 3) {
+      advice = 'Prestij 3 Yıldıza ulaştığında VIP Gurme müşteriler gelmeye ve 2. Şube (Çarşı) açılmaya başlar!';
+    } else if (currentPrestige.stars < 4) {
+      advice = 'Dükkan hijyenini %90 üstünde tutarak ve özel markalar çıkararak 4 Yıldız prestije ulaşın.';
+    } else if (currentPrestige.stars < 5) {
+      advice = 'Mermer zemin döşeyerek ve tüm komşu sadakatlerini maks seviyeye çıkararak 5 Yıldızlı Lüks Market olun!';
+    } else {
+      advice = 'Maksimum prestij! VIP gurmeler en yüksek bahşişlerle marketinize akın ediyor.';
+    }
+
+    return {
+      ...baseSummary,
+      prestigeReport: {
+        score: currentPrestige.score,
+        stars: currentPrestige.stars,
+        delta: deltaInfo.delta,
+        improved: deltaInfo.improved,
+        declined: deltaInfo.declined,
+        breakdown: currentPrestige.breakdown,
+        floorName: currentPrestige.floorName,
+        drivers,
+        advice,
+        isVIPEligible: currentPrestige.isVIPEligible
+      }
+    };
+  }
+
   function recordDayEvent(currentState, event) {
     const state = createDayState(currentState);
     if (!event) return state;
@@ -520,6 +578,11 @@
   function getPricedAmount(basePrice, itemType, pricingState) {
     const mode = getProductPricingMode(pricingState, itemType);
     return Math.round(Math.max(0, basePrice || 0) * PRICING_MULTIPLIERS[mode]);
+  }
+
+  function getProductPricingMultiplier(state, itemType) {
+    const mode = getProductPricingMode(state, itemType);
+    return PRICING_MULTIPLIERS[mode] || 1;
   }
 
   function pickShoppingItems(pool, pricingState, count, random = Math.random) {
@@ -768,6 +831,102 @@
     return 0;
   }
 
+  function getNextAffinityVisitTarget(visits) {
+    if (visits < 3) return 3;
+    if (visits < 8) return 8;
+    if (visits < 15) return 15;
+    if (visits < 25) return 25;
+    if (visits < 40) return 40;
+    return null;
+  }
+
+  const RESIDENT_SPECIAL_ORDER_PRICE = {
+    TOMATO: 5,
+    BREAD: 30,
+    CHEESE: 54,
+    CORN: 10,
+    POPCORN: 45,
+    APPLE_JUICE: 38,
+    APPLE_PIE: 75,
+    STRAWBERRY: 24,
+    STRAWBERRY_JAM: 60,
+    CARROT: 18,
+    ICE_CREAM: 95,
+    SALAD_BOWL: 70,
+    PIZZA: 120,
+    TOAST: 35
+  };
+
+  function createResidentSpecialOrder(resident, affinity, availableItems = []) {
+    if (!resident || affinity < 2) return null;
+    const available = Array.isArray(availableItems) && availableItems.length > 0 ? availableItems : resident.preferredItems;
+    const itemType = resident.preferredItems.find(item => available.includes(item));
+    if (!itemType) return null;
+    const targetQty = Math.min(6, 2 + affinity);
+    const basePrice = RESIDENT_SPECIAL_ORDER_PRICE[itemType] || DEMAND_BASE_PRICE[itemType] || 25;
+    const rewardMoney = Math.round(basePrice * targetQty * (1 + affinity * 0.05));
+    return {
+      residentId: resident.id,
+      itemType,
+      targetQty,
+      rewardMoney,
+      label: `${resident.name} özel siparişi: ${targetQty}x ${itemType}`
+    };
+  }
+
+  function recordResidentSpecialOrderSale(order, event = {}) {
+    if (!order) return null;
+    const amount = event.itemType === order.itemType ? Math.max(1, event.amount || 1) : 0;
+    const progress = Math.min(order.targetQty, Math.max(0, order.progress || 0) + amount);
+    const claimed = progress >= order.targetQty;
+    return {
+      ...order,
+      progress,
+      claimed,
+      rewardReady: claimed && !order.claimed ? order.rewardMoney : 0
+    };
+  }
+
+  function createResidentOrderState(seed = {}) {
+    const orders = {};
+    const sourceOrders = seed && seed.orders && typeof seed.orders === 'object' ? seed.orders : {};
+    Object.keys(sourceOrders).forEach(key => {
+      const src = sourceOrders[key] || {};
+      orders[key] = {
+        residentId: src.residentId,
+        itemType: src.itemType,
+        targetQty: Math.max(1, src.targetQty || 1),
+        rewardMoney: Math.max(0, src.rewardMoney || 0),
+        label: src.label || '',
+        progress: Math.max(0, src.progress || 0),
+        claimed: !!src.claimed
+      };
+    });
+    return {
+      orders,
+      rewards: Array.isArray(seed && seed.rewards) ? seed.rewards.slice() : []
+    };
+  }
+
+  function updateResidentOrderState(state, order, event = {}) {
+    const next = createResidentOrderState(state);
+    if (!order || !order.residentId || !order.itemType) return next;
+    const key = `${order.residentId}_${order.itemType}`;
+    const current = next.orders[key] || { ...order, progress: 0, claimed: false };
+    const updated = recordResidentSpecialOrderSale(current, event);
+    next.orders[key] = updated;
+    if (updated && updated.rewardReady > 0) {
+      next.rewards.push({
+        residentId: updated.residentId,
+        itemType: updated.itemType,
+        amount: updated.rewardReady
+      });
+      next.orders[key].claimed = true;
+      next.orders[key].rewardReady = 0;
+    }
+    return next;
+  }
+
   function recordResidentVisit(state, residentId, day = 1) {
     const next = createNeighborhoodState(state);
     if (!next.residents[residentId]) return next;
@@ -781,6 +940,40 @@
   function getResidentAffinity(state, residentId) {
     const s = createNeighborhoodState(state);
     return s.residents[residentId] ? s.residents[residentId].affinity : 0;
+  }
+
+  function getResidentProfile(state, residentId, options = {}) {
+    const resident = NEIGHBORHOOD_RESIDENTS.find(r => r.id === residentId);
+    if (!resident) return null;
+    const nState = createNeighborhoodState(state);
+    const residentState = nState.residents[residentId] || { visits: 0, affinity: 0, lastVisitDay: 0 };
+    const debtEntry = options.veresiyeState && options.veresiyeState.ledger
+      ? options.veresiyeState.ledger[residentId]
+      : null;
+    const debt = typeof debtEntry === 'number' ? debtEntry : (debtEntry && debtEntry.amount ? debtEntry.amount : 0);
+    const affinity = residentState.affinity;
+    const nextVisitTarget = getNextAffinityVisitTarget(residentState.visits);
+    const specialOrder = createResidentSpecialOrder(resident, affinity, options.availableItems);
+    return {
+      ...resident,
+      visits: residentState.visits,
+      affinity,
+      lastVisitDay: residentState.lastVisitDay,
+      debt,
+      hasDebt: debt > 0,
+      isRoutineNow: options.dayTime ? resident.routine === options.dayTime : false,
+      nextAffinityVisitTarget: nextVisitTarget,
+      visitsUntilNextAffinity: nextVisitTarget === null ? 0 : Math.max(0, nextVisitTarget - residentState.visits),
+      basketMultiplier: affinity >= 4 ? 2 : 1,
+      tipMultiplier: affinity >= 5 ? 1.25 : (affinity >= 3 ? 1.15 : 1),
+      loyaltyLabel: affinity >= 5 ? 'SADIK DOST' : (affinity >= 3 ? 'MAHALLE MÜDAVİMİ' : (affinity >= 1 ? 'TANIŞ ESNAF' : 'YENİ KOMŞU')),
+      preferenceSummary: resident.preferredItems.join(', '),
+      specialOrder
+    };
+  }
+
+  function getResidentProfiles(state, options = {}) {
+    return NEIGHBORHOOD_RESIDENTS.map(r => getResidentProfile(state, r.id, options));
   }
 
   function getResidentDayTime(elapsedSeconds, dayLengthSeconds = 300) {
@@ -881,6 +1074,35 @@
     return 1.0;
   }
 
+  function createFreshItem(itemType, nowSeconds = 0) {
+    return {
+      type: itemType || 'TOMATO',
+      createdAt: Math.max(0, Math.floor(nowSeconds || 0))
+    };
+  }
+
+  function getItemType(item) {
+    if (typeof item === 'string') return item;
+    return item && item.type ? item.type : 'TOMATO';
+  }
+
+  function getItemCreatedAt(item) {
+    return item && typeof item === 'object' && typeof item.createdAt === 'number' ? item.createdAt : 0;
+  }
+
+  function getItemAgeSeconds(item, nowSeconds = 0) {
+    return Math.max(0, Math.floor(nowSeconds || 0) - getItemCreatedAt(item));
+  }
+
+  function getItemFreshnessState(item, nowSeconds = 0) {
+    return getItemFreshness(getItemType(item), getItemAgeSeconds(item, nowSeconds));
+  }
+
+  function getFreshItemPricedAmount(basePrice, item, nowSeconds = 0) {
+    const freshness = getItemFreshnessState(item, nowSeconds);
+    return Math.round(Math.max(0, basePrice || 0) * getFreshnessPriceMultiplier(freshness.state));
+  }
+
   // --- FAZ 3: KENDİ MARKANI YARATMA (BRANDS) ---
   const BRAND_CATEGORIES = ['JUICE', 'JAM', 'BREAD', 'ICE_CREAM', 'PIZZA', 'TOAST'];
 
@@ -962,6 +1184,41 @@
     return Math.round((baseBonus + repBonus) * 100) / 100;
   }
 
+  function getBrandPrestigeSummary(state) {
+    const next = createBrandState(state);
+    const entries = Object.values(next.brands);
+    if (entries.length === 0) {
+      return {
+        activeBrands: 0,
+        averageReputation: 1,
+        premiumBrands: 0,
+        prestigeBonus: 2
+      };
+    }
+    const totalRep = entries.reduce((sum, b) => sum + (b.reputation || 1), 0);
+    const averageReputation = Math.round((totalRep / entries.length) * 10) / 10;
+    const premiumBrands = entries.filter(b => b.quality === 'premium').length;
+    return {
+      activeBrands: entries.length,
+      averageReputation,
+      premiumBrands,
+      prestigeBonus: Math.min(10, Math.round(averageReputation * 2))
+    };
+  }
+
+  function getBrandLevelUpInfo(previousState, nextState, category) {
+    const prev = createBrandState(previousState).brands[category];
+    const next = createBrandState(nextState).brands[category];
+    const previousReputation = prev ? prev.reputation || 1 : 0;
+    const nextReputation = next ? next.reputation || 1 : previousReputation;
+    return {
+      didLevelUp: nextReputation > previousReputation,
+      previousReputation,
+      nextReputation,
+      brandName: next ? next.name : category
+    };
+  }
+
   // --- FAZ 4: GÜN BAŞINDA TİCARİ SEÇİM (DAY CHOICE EVENTS) ---
   const DAY_EVENT_POOL = [
     {
@@ -1012,12 +1269,14 @@
   ];
 
   function generateDayChoices(day = 1, availableItems = ['TOMATO']) {
+    const count = typeof availableItems === 'number' ? Math.max(1, Math.floor(availableItems)) : 3;
     const pool = DAY_EVENT_POOL.slice();
     const index = (Math.max(1, day) - 1) % pool.length;
-    const choice1 = pool[index];
-    const choice2 = pool[(index + 1) % pool.length];
-    const choice3 = pool[(index + 2) % pool.length];
-    return [choice1, choice2, choice3];
+    const choices = [];
+    for (let i = 0; i < count; i++) {
+      choices.push(pool[(index + i) % pool.length]);
+    }
+    return choices.map(normalizeDayChoiceForUI);
   }
 
   function applyDayChoice(choiceOrId) {
@@ -1026,12 +1285,58 @@
     return {
       eventId: event.id,
       label: event.label,
+      name: event.label,
+      theme: event.icon || event.label,
       icon: event.icon,
       boosted: event.boosted.slice(),
+      priceMultipliers: event.boosted.reduce((acc, itemType) => {
+        acc[itemType] = event.multiplier;
+        return acc;
+      }, {}),
+      residentAffinityBonus: !!event.specialCustomer,
       multiplier: event.multiplier,
       specialCustomer: event.specialCustomer,
       description: event.description,
       appliedAt: Date.now()
+    };
+  }
+
+  function normalizeDayChoiceForUI(event) {
+    return {
+      ...event,
+      name: event.name || event.label,
+      theme: event.theme || event.icon || event.label,
+      priceMultipliers: event.priceMultipliers || event.boosted.reduce((acc, itemType) => {
+        acc[itemType] = event.multiplier;
+        return acc;
+      }, {}),
+      residentAffinityBonus: event.residentAffinityBonus || !!event.specialCustomer
+    };
+  }
+
+  function applyDayChoiceToShoppingPool(pool, dayChoice) {
+    const available = Array.isArray(pool) && pool.length > 0 ? pool.slice() : ['TOMATO'];
+    if (!dayChoice || !Array.isArray(dayChoice.boosted)) return available;
+    const boosted = dayChoice.boosted.filter(item => available.includes(item));
+    if (boosted.length === 0) return available;
+    const rest = available.filter(item => !boosted.includes(item));
+    return [boosted[0], boosted[0], ...boosted.slice(1), ...rest];
+  }
+
+  function getDayChoiceEffects(dayChoice) {
+    if (!dayChoice) {
+      return {
+        customerSpawnRateBoost: 0,
+        residentAffinityBonus: false,
+        specialCustomer: null,
+        boostedItems: []
+      };
+    }
+    return {
+      customerSpawnRateBoost: 0.15,
+      residentAffinityBonus: !!dayChoice.residentAffinityBonus,
+      specialCustomer: dayChoice.specialCustomer || null,
+      boostedItems: Array.isArray(dayChoice.boosted) ? dayChoice.boosted.slice() : []
     };
   }
 
@@ -1042,7 +1347,9 @@
       name: 'Otobüs Durağı',
       cost: 500,
       unlockLevel: 2,
-      effect: { morningRush: true, extraCustomers: 2 },
+      requiredLevel: 2,
+      effect: { morningRush: true, extraCustomers: 2, customerSpawnRateBoost: 0.10 },
+      effectDesc: 'Sabah akını ve +2 müşteri kapasitesi',
       description: 'Sabah saatlerinde durak kalabalığı marketten geçer.'
     },
     {
@@ -1050,7 +1357,9 @@
       name: 'Mahalle Parkı',
       cost: 800,
       unlockLevel: 2,
-      effect: { weekendBoost: 'ICE_CREAM', extraCustomers: 1 },
+      requiredLevel: 2,
+      effect: { weekendBoost: 'ICE_CREAM', extraCustomers: 1, boosted: ['ICE_CREAM', 'APPLE_JUICE'] },
+      effectDesc: '+1 müşteri kapasitesi, serin ürün talebi',
       description: 'Parkta yürüyüş yapanlar dondurma ve serinletici içecek arar.'
     },
     {
@@ -1058,7 +1367,9 @@
       name: 'Sokak Kafesi',
       cost: 1200,
       unlockLevel: 3,
-      effect: { afternoonRush: true, boosted: ['BREAD', 'CHEESE', 'TOAST'], extraCustomers: 1 },
+      requiredLevel: 3,
+      effect: { afternoonRush: true, boosted: ['BREAD', 'CHEESE', 'TOAST'], extraCustomers: 1, residentAffinityGainBoost: 1 },
+      effectDesc: 'Öğleden sonra akını, fırın ürünleri talebi',
       description: 'Öğleden sonra kafe müdavimleri fırın ve kahvaltılık alışverişine gelir.'
     },
     {
@@ -1066,7 +1377,9 @@
       name: 'Mahalle Okulu',
       cost: 1500,
       unlockLevel: 3,
-      effect: { morningRush: true, afternoonRush: true, boosted: ['APPLE_JUICE', 'BREAD'], extraCustomers: 2 },
+      requiredLevel: 3,
+      effect: { morningRush: true, afternoonRush: true, boosted: ['APPLE_JUICE', 'BREAD'], extraCustomers: 2, customerSpawnRateBoost: 0.15 },
+      effectDesc: 'Sabah/öğlen akını ve +2 müşteri kapasitesi',
       description: 'Okul giriş ve çıkış saatlerinde veli ve öğrenci bereketi yaşanır.'
     },
     {
@@ -1074,13 +1387,17 @@
       name: 'Fitness Salonu',
       cost: 2000,
       unlockLevel: 4,
+      requiredLevel: 4,
       effect: { boosted: ['SALAD_BOWL', 'CARROT', 'APPLE_JUICE'], extraCustomers: 2 },
+      effectDesc: '+2 müşteri kapasitesi, sağlıklı ürün talebi',
       description: 'Sporcular taze salata ve organik ürünleri tüketir.'
     }
   ];
 
   function createNeighborhoodBuildingState(seed = {}) {
-    const built = Array.isArray(seed && seed.built) ? seed.built.slice() : [];
+    const built = Array.isArray(seed && seed.built)
+      ? seed.built.slice()
+      : (Array.isArray(seed) ? seed.slice() : []);
     return { built };
   }
 
@@ -1104,16 +1421,30 @@
     const current = createNeighborhoodBuildingState(state);
     const effects = {
       extraCustomers: 0,
+      extraCustomerCapacity: 0,
+      customerSpawnRateBoost: 0,
       morningRush: false,
+      morningRushHour: false,
       afternoonRush: false,
+      afternoonRushHour: false,
+      residentAffinityGainBoost: 0,
       boostedItems: []
     };
     current.built.forEach(id => {
       const b = NEIGHBORHOOD_BUILDINGS.find(x => x.id === id);
       if (!b || !b.effect) return;
       if (b.effect.extraCustomers) effects.extraCustomers += b.effect.extraCustomers;
-      if (b.effect.morningRush) effects.morningRush = true;
-      if (b.effect.afternoonRush) effects.afternoonRush = true;
+      if (b.effect.extraCustomers) effects.extraCustomerCapacity += b.effect.extraCustomers;
+      if (b.effect.customerSpawnRateBoost) effects.customerSpawnRateBoost += b.effect.customerSpawnRateBoost;
+      if (b.effect.residentAffinityGainBoost) effects.residentAffinityGainBoost += b.effect.residentAffinityGainBoost;
+      if (b.effect.morningRush) {
+        effects.morningRush = true;
+        effects.morningRushHour = true;
+      }
+      if (b.effect.afternoonRush) {
+        effects.afternoonRush = true;
+        effects.afternoonRushHour = true;
+      }
       if (Array.isArray(b.effect.boosted)) {
         b.effect.boosted.forEach(item => {
           if (!effects.boostedItems.includes(item)) effects.boostedItems.push(item);
@@ -1121,6 +1452,40 @@
       }
     });
     return effects;
+  }
+
+  function getNeighborhoodBuildingProgress(state, money = 0, marketLevel = 1) {
+    const current = createNeighborhoodBuildingState(state);
+    const totalCount = NEIGHBORHOOD_BUILDINGS.length;
+    const builtCount = current.built.filter(id => NEIGHBORHOOD_BUILDINGS.some(b => b.id === id)).length;
+    const effects = getActiveNeighborhoodEffects(current);
+    const activeEffectLabels = [];
+    if (effects.extraCustomerCapacity > 0) activeEffectLabels.push(`+${effects.extraCustomerCapacity} müşteri kapasitesi`);
+    if (effects.customerSpawnRateBoost > 0) activeEffectLabels.push(`+%${Math.round(effects.customerSpawnRateBoost * 100)} müşteri akışı`);
+    if (effects.morningRushHour) activeEffectLabels.push('sabah akını');
+    if (effects.afternoonRushHour) activeEffectLabels.push('öğleden sonra akını');
+    if (effects.residentAffinityGainBoost > 0) activeEffectLabels.push('komşu yakınlık bonusu');
+    if (effects.boostedItems.length > 0) activeEffectLabels.push(`${effects.boostedItems.length} ürün talebi`);
+
+    const available = NEIGHBORHOOD_BUILDINGS
+      .filter(b => !current.built.includes(b.id))
+      .map(b => ({
+        ...b,
+        canBuild: canBuildNeighborhood(current, b.id, money, marketLevel),
+        levelMet: marketLevel >= b.unlockLevel,
+        moneyMet: money >= b.cost
+      }));
+    const nextAvailable = available.find(b => b.canBuild) || available.find(b => b.levelMet) || available[0] || null;
+    const lockedCount = available.filter(b => !b.levelMet).length;
+
+    return {
+      builtCount,
+      totalCount,
+      completionPercent: totalCount > 0 ? Math.round((builtCount / totalCount) * 100) : 100,
+      nextAvailable,
+      lockedCount,
+      activeEffectLabels
+    };
   }
 
   // --- FAZ 6: VERESİYE DEFTERİ & ESNAF İTİMATİ ---
@@ -1315,11 +1680,11 @@
 
   // --- FAZ 8: DEKORASYON & PRESTİJ ---
   const DECORATION_TIERS = {
-    classic: { id: 'classic', name: 'Klasik Karo', cost: 0, prestige: 1, floorColor: 0xe0e0e0 },
-    wood: { id: 'wood', name: 'Doğal Ahşap Parke', cost: 350, prestige: 3, floorColor: 0x8b5a2b },
-    mosaic: { id: 'mosaic', name: 'Retro Çini Deseni', cost: 650, prestige: 4, floorColor: 0x00d2d3 },
-    granite: { id: 'granite', name: 'Cilalı Granit Mermer', cost: 1200, prestige: 5, floorColor: 0x2c3e50 },
-    marble: { id: 'marble', name: 'Cilalı Granit Mermer', cost: 1200, prestige: 5, floorColor: 0x2c3e50 }
+    classic: { id: 'classic', name: 'Klasik Karo', cost: 0, prestige: 1, floorColor: 0xe0e0e0, colorHex: '#E0E0E0' },
+    wood: { id: 'wood', name: 'Doğal Ahşap Parke', cost: 350, prestige: 3, floorColor: 0x8b5a2b, colorHex: '#8B5A2B' },
+    mosaic: { id: 'mosaic', name: 'Retro Çini Deseni', cost: 650, prestige: 4, floorColor: 0x00d2d3, colorHex: '#00D2D3' },
+    granite: { id: 'granite', name: 'Cilalı Granit', cost: 1200, prestige: 5, floorColor: 0x2c3e50, colorHex: '#2C3E50' },
+    marble: { id: 'marble', name: 'Beyaz Mermer', cost: 1400, prestige: 5, floorColor: 0xf4f1e8, colorHex: '#F4F1E8' }
   };
 
   function createDecorationState(seed = {}) {
@@ -1332,40 +1697,422 @@
     };
   }
 
-  function calculateStorePrestige(arg1, arg2, arg3) {
+  function calculateStorePrestige(arg1, arg2, arg3, arg4) {
     let hygieneScore = 100;
     let floorTier = 'classic';
     let brandReputationAverage = 1;
+    let brandSummary = null;
+    let neighborhoodState = null;
 
     if (typeof arg1 === 'object' && arg1 !== null) {
       const decState = arg1;
       floorTier = decState.activeFloor || decState.floor || 'classic';
       hygieneScore = typeof arg2 === 'number' ? arg2 : 100;
+      if (arg3 && typeof arg3 === 'object') {
+        brandSummary = getBrandPrestigeSummary(arg3);
+        brandReputationAverage = brandSummary.averageReputation;
+      } else if (typeof arg3 === 'number') {
+        brandReputationAverage = arg3;
+      }
+      if (arg4 && typeof arg4 === 'object') {
+        neighborhoodState = arg4;
+      }
     } else if (typeof arg1 === 'number') {
       hygieneScore = arg1;
       floorTier = typeof arg2 === 'string' ? arg2 : ((arg2 && (arg2.activeFloor || arg2.floor)) || 'classic');
-      brandReputationAverage = typeof arg3 === 'number' ? arg3 : 1;
+      if (arg3 && typeof arg3 === 'object') {
+        brandSummary = getBrandPrestigeSummary(arg3);
+        brandReputationAverage = brandSummary.averageReputation;
+      } else {
+        brandReputationAverage = typeof arg3 === 'number' ? arg3 : 1;
+      }
+      if (arg4 && typeof arg4 === 'object') {
+        neighborhoodState = arg4;
+      }
     }
 
     const floorTierObj = DECORATION_TIERS[floorTier] || DECORATION_TIERS.classic;
-    const floorPts = (floorTierObj.prestige || 1) * 10;
-    const hygienePts = (hygieneScore / 100) * 40;
-    const brandPts = Math.min(5, brandReputationAverage) * 2;
-    const total = Math.min(100, Math.round(floorPts + hygienePts + brandPts));
+    // 1. Dekorasyon puanı: 6 ila 30 puan
+    const decPts = Math.min(30, (floorTierObj.prestige || 1) * 6);
+
+    // 2. Hijyen puanı: 0 ila 30 puan
+    const clampedHygiene = Math.max(0, Math.min(100, typeof hygieneScore === 'number' ? hygieneScore : 100));
+    const hygPts = Math.round((clampedHygiene / 100) * 30);
+
+    // 3. Marka itibarı puanı: 0 ila 20 puan
+    let brandPts = 0;
+    if (brandSummary) {
+      brandPts = Math.min(20, Math.round(brandSummary.prestigeBonus * 1.5 + (brandReputationAverage - 1) * 2));
+    } else {
+      brandPts = Math.min(20, Math.round(Math.min(5, brandReputationAverage) * 3));
+    }
+
+    // 4. Komşu sadakati puanı: 0 ila 20 puan
+    let affPts = 4;
+    if (neighborhoodState && neighborhoodState.residents && typeof neighborhoodState.residents === 'object') {
+      const affinities = Object.values(neighborhoodState.residents).map(r => (r && typeof r.affinity === 'number') ? r.affinity : 1);
+      const totalAffinitySum = affinities.reduce((a, b) => a + b, 0);
+      affPts = Math.min(20, Math.max(2, Math.round((totalAffinitySum / 25) * 20)));
+    }
+
+    const total = Math.min(100, Math.max(10, Math.round(decPts + hygPts + brandPts + affPts)));
 
     let stars = 1;
-    if (total >= 85 || (floorTierObj.prestige >= 4 && hygieneScore >= 80)) {
-      stars = floorTierObj.prestige >= 5 ? 5 : 4;
-    } else if (total >= 65) {
+    if (total >= 85 || (floorTierObj.prestige >= 5 && clampedHygiene >= 85)) {
+      stars = 5;
+    } else if (total >= 65 || (floorTierObj.prestige >= 4 && clampedHygiene >= 75)) {
+      stars = 4;
+    } else if (total >= 45 || (floorTierObj.prestige >= 3 && clampedHygiene >= 60)) {
       stars = 3;
-    } else if (total >= 40) {
+    } else if (total >= 25) {
       stars = 2;
     }
+
+    const perks = getPrestigePerks(stars);
 
     return {
       score: total,
       stars,
-      isVIPEligible: stars >= 4
+      floorName: floorTierObj.name,
+      floorTier,
+      hygieneScore: Math.round(clampedHygiene),
+      brandReputationAverage,
+      brandPrestigeBonus: brandSummary ? brandSummary.prestigeBonus : brandPts,
+      activeBrands: brandSummary ? brandSummary.activeBrands : 0,
+      affinityPoints: affPts,
+      breakdown: {
+        decoration: decPts,
+        hygiene: hygPts,
+        brand: brandPts,
+        affinity: affPts,
+        maxPoints: 100
+      },
+      perks,
+      isVIPEligible: stars >= 3,
+      basketMultiplier: perks.basketMultiplier
+    };
+  }
+
+  function getPrestigePerks(stars) {
+    const s = Math.max(1, Math.min(5, Number(stars) || 1));
+    const TITLES = {
+      1: 'Mahalle Bakkalı',
+      2: 'Gelişen Bakkal',
+      3: 'Sevilen Esnaf Marketi',
+      4: 'Prestijli Süpermarket',
+      5: 'Lüks Gurme Hipermarket'
+    };
+    return {
+      stars: s,
+      title: TITLES[s] || 'Mahalle Marketi',
+      basketMultiplier: s === 5 ? 1.40 : (s === 4 ? 1.25 : (s === 3 ? 1.15 : (s === 2 ? 1.05 : 1.00))),
+      isVIPEligible: s >= 3,
+      vipSpawnRateMultiplier: s === 5 ? 1.6 : (s === 4 ? 1.3 : (s === 3 ? 1.0 : 0.0)),
+      branchUnlockEligible: s >= 3,
+      unlockedFloors: Object.keys(DECORATION_TIERS).filter(k => (DECORATION_TIERS[k].prestige || 1) <= s)
+    };
+  }
+
+  function getVipBasketConfig(stars) {
+    const s = Math.max(3, Math.min(5, Number(stars) || 3));
+    return {
+      maxItems: Math.min(5, Math.max(2, s)),
+      tipBonusMultiplier: 1.20 + (s - 3) * 0.15,
+      highValueWeight: s >= 4 ? 2.5 : 1.5
+    };
+  }
+
+  function calculatePrestigeDelta(prevScore, currentScore) {
+    const prev = Number(prevScore) || 0;
+    const curr = Number(currentScore) || 0;
+    const delta = curr - prev;
+    return {
+      previousScore: prev,
+      currentScore: curr,
+      delta,
+      improved: delta > 0,
+      declined: delta < 0
+    };
+  }
+
+  // --- FAZ 9: UYDU ŞUBELER & ÇARŞI GENİŞLEMESİ (BRANCHES) ---
+  const BRANCH_CONFIGS = {
+    branch_1: {
+      id: 'branch_1',
+      name: 'Merkez Şube',
+      district: 'Ana Mahalle',
+      isSatellite: false,
+      unlockCost: 0,
+      unlockPrestige: 1,
+      unlockLevel: 1,
+      baseCapacity: 100,
+      baseDailyCustomers: 30,
+      description: 'Ana cadde üzerinde yer alan 3D etkileşimli ana süpermarket.'
+    },
+    branch_2: {
+      id: 'branch_2',
+      name: 'Çarşı Şubesi',
+      district: 'Çarşı Meydanı',
+      isSatellite: true,
+      unlockCost: 3500,
+      unlockPrestige: 3,
+      unlockLevel: 4,
+      baseCapacity: 60,
+      baseDailyCustomers: 18,
+      description: 'Çarşı esnafı ve yayaların yoğun olduğu uydu şube. Otomatik ciro sağlar.'
+    },
+    branch_3: {
+      id: 'branch_3',
+      name: 'İstasyon Şubesi',
+      district: 'Tren Garı & Sanayi',
+      isSatellite: true,
+      unlockCost: 7500,
+      unlockPrestige: 4,
+      unlockLevel: 6,
+      baseCapacity: 120,
+      baseDailyCustomers: 32,
+      description: 'Gar yolcuları ve işçiler için unlu mamul ve paketli ürün odaklı büyük şube.'
+    }
+  };
+
+  function createBranchState(seed = {}) {
+    const rawBranches = (seed && typeof seed === 'object' && seed.branches && typeof seed.branches === 'object')
+      ? seed.branches
+      : ((seed && typeof seed === 'object') ? seed : {});
+
+    const defaultBranches = {
+      branch_1: {
+        id: 'branch_1',
+        name: 'Merkez Şube',
+        unlocked: true,
+        level: 1,
+        capacity: 100,
+        stock: {},
+        staff: { manager: true, cashier: 1, restocker: 1 },
+        dailyRevenue: 0,
+        uncollectedRevenue: 0,
+        totalRevenue: 0,
+        lastDaySales: 0
+      },
+      branch_2: {
+        id: 'branch_2',
+        name: 'Çarşı Şubesi',
+        unlocked: false,
+        level: 1,
+        capacity: 60,
+        stock: {},
+        staff: { manager: false, cashier: 1, restocker: 1 },
+        dailyRevenue: 0,
+        uncollectedRevenue: 0,
+        totalRevenue: 0,
+        lastDaySales: 0
+      },
+      branch_3: {
+        id: 'branch_3',
+        name: 'İstasyon Şubesi',
+        unlocked: false,
+        level: 1,
+        capacity: 120,
+        stock: {},
+        staff: { manager: false, cashier: 1, restocker: 1 },
+        dailyRevenue: 0,
+        uncollectedRevenue: 0,
+        totalRevenue: 0,
+        lastDaySales: 0
+      }
+    };
+
+    const merged = {};
+    for (const [id, def] of Object.entries(defaultBranches)) {
+      const src = rawBranches[id] || {};
+      merged[id] = {
+        ...def,
+        ...src,
+        id,
+        unlocked: src.unlocked !== undefined ? Boolean(src.unlocked) : def.unlocked,
+        level: typeof src.level === 'number' ? src.level : def.level,
+        capacity: typeof src.capacity === 'number' ? src.capacity : def.capacity,
+        stock: src.stock && typeof src.stock === 'object' ? { ...src.stock } : {},
+        staff: src.staff && typeof src.staff === 'object' ? { ...def.staff, ...src.staff } : { ...def.staff },
+        dailyRevenue: typeof src.dailyRevenue === 'number' ? src.dailyRevenue : 0,
+        uncollectedRevenue: typeof src.uncollectedRevenue === 'number' ? src.uncollectedRevenue : 0,
+        totalRevenue: typeof src.totalRevenue === 'number' ? src.totalRevenue : 0,
+        lastDaySales: typeof src.lastDaySales === 'number' ? src.lastDaySales : 0
+      };
+    }
+
+    return { branches: merged };
+  }
+
+  function canUnlockBranch(branchState, branchId, money = 0, prestigeStars = 1, marketLevel = 1) {
+    const config = BRANCH_CONFIGS[branchId];
+    if (!config) return { allowed: false, reason: 'Bilinmeyen şube!' };
+    const state = createBranchState(branchState);
+    const branch = state.branches[branchId];
+    if (!branch) return { allowed: false, reason: 'Şube bulunamadı!' };
+    if (branch.unlocked) return { allowed: false, reason: 'Şube zaten açık.' };
+
+    if (prestigeStars < config.unlockPrestige) {
+      return { allowed: false, reason: `En az [P${config.unlockPrestige}] (${config.unlockPrestige} Yıldız) prestij gerekli!`, cost: config.unlockCost };
+    }
+    if (marketLevel < config.unlockLevel) {
+      return { allowed: false, reason: `Market Seviyesi ${config.unlockLevel} gerekli!`, cost: config.unlockCost };
+    }
+    if (money < config.unlockCost) {
+      return { allowed: false, reason: `Yetersiz bütçe! $${config.unlockCost} gerekli.`, cost: config.unlockCost };
+    }
+
+    return { allowed: true, cost: config.unlockCost, config };
+  }
+
+  function unlockBranch(branchState, branchId, money = 0) {
+    const state = createBranchState(branchState);
+    const branch = state.branches[branchId];
+    if (branch) {
+      branch.unlocked = true;
+    }
+    return state;
+  }
+
+  function transferStockToBranch(branchState, branchId, itemType, quantity) {
+    const state = createBranchState(branchState);
+    const branch = state.branches[branchId];
+    if (!branch || !branch.unlocked) return state;
+
+    const currentTotalStock = Object.values(branch.stock).reduce((a, b) => a + (Number(b) || 0), 0);
+    const availableCapacity = Math.max(0, branch.capacity - currentTotalStock);
+    const actualTransfer = Math.min(Math.max(0, quantity || 0), availableCapacity);
+
+    if (actualTransfer > 0) {
+      branch.stock[itemType] = (branch.stock[itemType] || 0) + actualTransfer;
+    }
+    return state;
+  }
+
+  function assignBranchStaff(branchState, branchId, role, value) {
+    const state = createBranchState(branchState);
+    const branch = state.branches[branchId];
+    if (!branch || !branch.unlocked) return state;
+
+    if (role === 'manager') {
+      branch.staff.manager = Boolean(value);
+    } else if (role === 'cashier' || role === 'restocker') {
+      branch.staff[role] = Math.max(0, Math.min(5, Number(value) || 0));
+    }
+    return state;
+  }
+
+  function upgradeBranchCapacity(branchState, branchId, money = 0) {
+    const state = createBranchState(branchState);
+    const branch = state.branches[branchId];
+    if (!branch || !branch.unlocked) return { state, upgraded: false, cost: 0 };
+
+    const cost = branch.level * 1500;
+    if (money < cost) {
+      return { state, upgraded: false, cost, reason: 'Yetersiz bakiye!' };
+    }
+
+    branch.level += 1;
+    branch.capacity += 30;
+    return { state, upgraded: true, cost, newLevel: branch.level, newCapacity: branch.capacity };
+  }
+
+  const ITEM_BASE_PRICES = {
+    TOMATO: 10,
+    BREAD: 25,
+    CHEESE: 45,
+    CORN: 15,
+    POPCORN: 35,
+    APPLE_JUICE: 40,
+    APPLE_PIE: 65,
+    STRAWBERRY: 25,
+    CARROT: 20,
+    ICE_CREAM: 80,
+    SALAD_BOWL: 60,
+    PIZZA: 110,
+    MILK: 30,
+    WHEAT: 12
+  };
+
+  function simulateBranchDailyOperations(branchState, neighborhoodEffects = {}, activeDemand = null) {
+    const state = createBranchState(branchState);
+    const boosted = Array.isArray(neighborhoodEffects.boostedItems) ? neighborhoodEffects.boostedItems : [];
+    const capacityBoost = Number(neighborhoodEffects.extraCustomerCapacity) || 0;
+    const spawnRateBoost = Number(neighborhoodEffects.customerSpawnRateBoost) || 0;
+
+    let totalSimulatedRevenue = 0;
+    const branchSummaries = {};
+
+    for (const [id, branch] of Object.entries(state.branches)) {
+      if (!branch.unlocked || id === 'branch_1') continue;
+
+      const cfg = BRANCH_CONFIGS[id] || {};
+      const baseCustomers = cfg.baseDailyCustomers || 15;
+      const managerBonus = branch.staff.manager ? 1.3 : 1.0;
+      const cashierEfficiency = Math.min(2.0, 0.7 + (branch.staff.cashier || 1) * 0.3);
+      const levelMult = 1 + (branch.level - 1) * 0.2;
+
+      const totalCustomers = Math.round((baseCustomers + capacityBoost * 2) * (1 + spawnRateBoost) * managerBonus * levelMult);
+
+      let branchDailyRev = 0;
+      let branchDailyItems = 0;
+
+      const stockTypes = Object.keys(branch.stock).filter(t => (branch.stock[t] || 0) > 0);
+      if (stockTypes.length > 0) {
+        for (let c = 0; c < totalCustomers; c++) {
+          const availableTypes = Object.keys(branch.stock).filter(t => (branch.stock[t] || 0) > 0);
+          if (availableTypes.length === 0) break;
+
+          let chosenType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+          const preferred = availableTypes.filter(t => boosted.includes(t) || (activeDemand && activeDemand.itemType === t));
+          if (preferred.length > 0 && Math.random() < 0.6) {
+            chosenType = preferred[Math.floor(Math.random() * preferred.length)];
+          }
+
+          const basePrice = ITEM_BASE_PRICES[chosenType] || 20;
+          const boostPriceMult = (boosted.includes(chosenType) ? 1.25 : 1.0) * (activeDemand && activeDemand.itemType === chosenType ? 1.5 : 1.0);
+          const finalPrice = Math.round(basePrice * boostPriceMult * cashierEfficiency);
+
+          branch.stock[chosenType] = Math.max(0, branch.stock[chosenType] - 1);
+          branchDailyRev += finalPrice;
+          branchDailyItems += 1;
+        }
+      }
+
+      branch.dailyRevenue = branchDailyRev;
+      branch.uncollectedRevenue = (branch.uncollectedRevenue || 0) + branchDailyRev;
+      branch.totalRevenue = (branch.totalRevenue || 0) + branchDailyRev;
+      branch.lastDaySales = branchDailyItems;
+
+      totalSimulatedRevenue += branchDailyRev;
+      branchSummaries[id] = {
+        name: branch.name,
+        revenue: branchDailyRev,
+        itemsSold: branchDailyItems,
+        uncollectedRevenue: branch.uncollectedRevenue,
+        remainingStock: Object.values(branch.stock).reduce((a, b) => a + (Number(b) || 0), 0)
+      };
+    }
+
+    return {
+      state,
+      totalSimulatedRevenue,
+      branchSummaries
+    };
+  }
+
+  function collectBranchRevenue(branchState, branchId) {
+    const state = createBranchState(branchState);
+    const branch = state.branches[branchId];
+    if (!branch || !branch.unlocked) {
+      return { state, collectedAmount: 0 };
+    }
+
+    const amount = branch.uncollectedRevenue || 0;
+    branch.uncollectedRevenue = 0;
+    return {
+      state,
+      collectedAmount: amount
     };
   }
 
@@ -1397,6 +2144,7 @@
     getProductPricingMode,
     setProductPricingMode,
     getPricedAmount,
+    getProductPricingMultiplier,
     pickShoppingItems,
     createStaffSettings,
     getStaffPriority,
@@ -1415,6 +2163,11 @@
     createNeighborhoodState,
     recordResidentVisit,
     getResidentAffinity,
+    getResidentProfile,
+    getResidentProfiles,
+    recordResidentSpecialOrderSale,
+    createResidentOrderState,
+    updateResidentOrderState,
     getResidentDayTime,
     getResidentSpawnCandidate,
     getUnlockedStories,
@@ -1422,6 +2175,11 @@
     FRESHNESS_CONFIG,
     getItemFreshness,
     getFreshnessPriceMultiplier,
+    createFreshItem,
+    getItemType,
+    getItemAgeSeconds,
+    getItemFreshnessState,
+    getFreshItemPricedAmount,
     // Faz 3
     BRAND_CATEGORIES,
     BRAND_TIER_CONFIG,
@@ -1430,16 +2188,21 @@
     createOrUpdateBrand,
     recordBrandSale,
     getBrandPriceBonus,
+    getBrandPrestigeSummary,
+    getBrandLevelUpInfo,
     // Faz 4
     DAY_EVENT_POOL,
     generateDayChoices,
     applyDayChoice,
+    applyDayChoiceToShoppingPool,
+    getDayChoiceEffects,
     // Faz 5
     NEIGHBORHOOD_BUILDINGS,
     createNeighborhoodBuildingState,
     canBuildNeighborhood,
     purchaseNeighborhoodBuilding,
     getActiveNeighborhoodEffects,
+    getNeighborhoodBuildingProgress,
     // Faz 6 (Veresiye, Hijyen, Karabaş)
     createVeresiyeState,
     issueVeresiye,
@@ -1460,7 +2223,21 @@
     // Faz 8 (Dekorasyon, Prestij)
     DECORATION_TIERS,
     createDecorationState,
-    calculateStorePrestige
+    calculateStorePrestige,
+    getPrestigePerks,
+    getVipBasketConfig,
+    calculatePrestigeDelta,
+    summarizeDayWithPrestige,
+    // Faz 9 (Uydu Şubeler - Branches)
+    BRANCH_CONFIGS,
+    createBranchState,
+    canUnlockBranch,
+    unlockBranch,
+    transferStockToBranch,
+    assignBranchStaff,
+    upgradeBranchCapacity,
+    simulateBranchDailyOperations,
+    collectBranchRevenue
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.GameMechanics = api;
