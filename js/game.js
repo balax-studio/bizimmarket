@@ -402,7 +402,16 @@ class MiniMartGame {
     this.unlockPads = [];
     this.customers = [];
     this.helpers = [];
+    this.checkout = null;
+    this.checkout1 = null;
+    this.checkout2 = null;
+    this.checkout3 = null;
+    this.checkouts = [];
     this.cashierBot = null;
+    this.cashierBot1 = null;
+    this.cashierBot2 = null;
+    this.cashierBot3 = null;
+    this.cashierBots = [];
     this.flourMill = null;
     this.bakeryOven = null;
     this.wheatPlot = null;
@@ -704,10 +713,10 @@ class MiniMartGame {
       this.scene.add(line);
     }
 
-    // Parquet Wood Floor Inlay under Checkout Counter
+    // Parquet Wood Floor Inlay under Checkout Counters (Covers all 3 parallel lanes)
     const parquetMat = new THREE.MeshStandardMaterial({ color: 0xd35400, roughness: 0.4 });
-    const chkFloor = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.02, 6.0), parquetMat);
-    chkFloor.position.set(8.5, 0.022, -4.5);
+    const chkFloor = new THREE.Mesh(new THREE.BoxGeometry(12.0, 0.02, 5.2), parquetMat);
+    chkFloor.position.set(7.5, 0.022, -19.5);
     chkFloor.receiveShadow = true;
     this.scene.add(chkFloor);
 
@@ -884,45 +893,45 @@ class MiniMartGame {
     const nLeftWall = new THREE.Mesh(new THREE.BoxGeometry(15.7, 0.8, 0.45), wallMat);
     nLeftWall.position.set(-11.35, 0.4, -24.0);
     nLeftWall.castShadow = true;
-    const nLeftGlass = new THREE.Mesh(new THREE.BoxGeometry(15.5, 2.0, 0.12), glassMat);
-    nLeftGlass.position.set(-11.35, 1.8, -24.0);
+    const nLeftGlass = new THREE.Mesh(new THREE.BoxGeometry(15.5, 3.0, 0.12), glassMat);
+    nLeftGlass.position.set(-11.35, 2.3, -24.0);
     const nLeftTrim = new THREE.Mesh(new THREE.BoxGeometry(15.7, 0.45, 0.55), wallTrimMat);
-    nLeftTrim.position.set(-11.35, 3.05, -24.0);
+    nLeftTrim.position.set(-11.35, 4.05, -24.0);
     this.scene.add(nLeftWall, nLeftGlass, nLeftTrim);
 
     // Right Storefront Wall & Windows (X: +3.5 to +19.2)
     const nRightWall = new THREE.Mesh(new THREE.BoxGeometry(15.7, 0.8, 0.45), wallMat);
     nRightWall.position.set(11.35, 0.4, -24.0);
     nRightWall.castShadow = true;
-    const nRightGlass = new THREE.Mesh(new THREE.BoxGeometry(15.5, 2.0, 0.12), glassMat);
-    nRightGlass.position.set(11.35, 1.8, -24.0);
+    const nRightGlass = new THREE.Mesh(new THREE.BoxGeometry(15.5, 3.0, 0.12), glassMat);
+    nRightGlass.position.set(11.35, 2.3, -24.0);
     const nRightTrim = new THREE.Mesh(new THREE.BoxGeometry(15.7, 0.45, 0.55), wallTrimMat);
-    nRightTrim.position.set(11.35, 3.05, -24.0);
+    nRightTrim.position.set(11.35, 4.05, -24.0);
     this.scene.add(nRightWall, nRightGlass, nRightTrim);
 
     // Entrance Portal Archway & Gate Posts (X: -3.5 and +3.5 at Z = -24.0)
     [-3.5, 3.5].forEach(px => {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.4, 0.7), pillarMat);
-      p.position.set(px, 1.7, -24.0);
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.4, 0.7), pillarMat);
+      p.position.set(px, 2.2, -24.0);
       p.castShadow = true;
       const c = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.2, 0.85), wallTrimMat);
-      c.position.set(px, 3.3, -24.0);
+      c.position.set(px, 4.3, -24.0);
       const l = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), lanternMat);
-      l.position.set(px, 3.6, -24.0);
+      l.position.set(px, 4.6, -24.0);
       this.scene.add(p, c, l);
     });
 
     // Top Overhead Arch Canopy over North Entrance
     const archCanopy = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.45, 0.85), wallTrimMat);
-    archCanopy.position.set(0, 3.25, -24.0);
+    archCanopy.position.set(0, 4.25, -24.0);
     this.scene.add(archCanopy);
 
-    // 3D Illuminated "MINI MART" Sign on Top of Entrance (Z = -24.0, Y = 4.2)
+    // 3D Illuminated "MINI MART" Sign on Top of Entrance (Z = -24.0, Y = 5.2)
     const signBoard = new THREE.Mesh(new THREE.BoxGeometry(8.4, 1.2, 0.3), new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.2 }));
-    signBoard.position.set(0, 4.2, -23.95);
+    signBoard.position.set(0, 5.2, -23.95);
     signBoard.castShadow = true;
     const signTrim = new THREE.Mesh(new THREE.BoxGeometry(8.8, 1.4, 0.15), frameMat.clone());
-    signTrim.position.set(0, 4.2, -24.05);
+    signTrim.position.set(0, 5.2, -24.05);
     this.scene.add(signBoard, signTrim);
     this.marketSign = signBoard;
     this.marketSignTrim = signTrim;
@@ -931,38 +940,38 @@ class MiniMartGame {
       // Suspended decoration above the entrance: no walkable-space obstruction.
       const block = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35 + i * 0.15, 0.4),
         new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.35 }));
-      block.position.set(-1.2 + i * 0.8, 5.15 + i * 0.075, -23.95);
+      block.position.set(-1.2 + i * 0.8, 6.15 + i * 0.075, -23.95);
       block.visible = false;
       this.scene.add(block);
       this.marketLevelBlocks.push(block);
     }
 
     // B. Left Wall (X = -19.2, Z = -24 to -1) with Warehouse Double-Doorway (Z: -13.8 to -11.2)
-    const leftWallN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 10.2), wallMat);
-    leftWallN.position.set(-19.2, 1.6, -18.9);
+    const leftWallN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 10.2), wallMat);
+    leftWallN.position.set(-19.2, 2.1, -18.9);
     leftWallN.castShadow = true;
     const leftTrimN = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 10.3), wallTrimMat);
-    leftTrimN.position.set(-19.2, 3.3, -18.9);
+    leftTrimN.position.set(-19.2, 4.3, -18.9);
 
-    const leftWallS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 10.2), wallMat);
-    leftWallS.position.set(-19.2, 1.6, -6.1);
+    const leftWallS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 10.2), wallMat);
+    leftWallS.position.set(-19.2, 2.1, -6.1);
     leftWallS.castShadow = true;
     const leftTrimS = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 10.3), wallTrimMat);
-    leftTrimS.position.set(-19.2, 3.3, -6.1);
+    leftTrimS.position.set(-19.2, 4.3, -6.1);
 
-    const leftWallLintel = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 2.6), wallMat);
-    leftWallLintel.position.set(-19.2, 2.975, -12.5);
+    const leftWallLintel = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.45, 2.6), wallMat);
+    leftWallLintel.position.set(-19.2, 3.475, -12.5);
     const leftTrimLintel = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 2.7), wallTrimMat);
-    leftTrimLintel.position.set(-19.2, 3.3, -12.5);
+    leftTrimLintel.position.set(-19.2, 4.3, -12.5);
 
     this.scene.add(leftWallN, leftTrimN, leftWallS, leftTrimS, leftWallLintel, leftTrimLintel);
 
     // C. Right Wall (X = +19.0, Z = -24 to -1)
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.2, 23.4), wallMat);
-    rightWall.position.set(19.2, 1.6, -12.5);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 23.4), wallMat);
+    rightWall.position.set(19.2, 2.1, -12.5);
     rightWall.castShadow = true;
     const rightTrim = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 23.5), wallTrimMat);
-    rightTrim.position.set(19.2, 3.3, -12.5);
+    rightTrim.position.set(19.2, 4.3, -12.5);
     this.scene.add(rightWall, rightTrim);
 
     // Structural Voxel Pillars along Side Perimeters
@@ -971,11 +980,11 @@ class MiniMartGame {
       [19.2, -18.0], [19.2, -12.0], [19.2, -6.0], [19.2, -1.0]
     ];
     pillarPositions.forEach(([px, pz]) => {
-      const col = new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.4, 0.7), pillarMat);
-      col.position.set(px, 1.7, pz);
+      const col = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.4, 0.7), pillarMat);
+      col.position.set(px, 2.2, pz);
       col.castShadow = true;
       const colCap = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.2, 0.85), wallTrimMat);
-      colCap.position.set(px, 3.3, pz);
+      colCap.position.set(px, 4.3, pz);
       this.scene.add(col, colCap);
     });
 
@@ -1263,9 +1272,25 @@ class MiniMartGame {
 
     this.shelves.push(this.tomatoShelf, this.eggShelf);
 
-    // Front Supermarket Service Stations
-    this.checkout = new CheckoutCounter(this.scene, 8.0, -4.5);
-    this.collision.addBox(6.8, 9.2, -5.3, -3.7, 'checkout');
+    // Front Modern Supermarket Triple-Checkout Concourse (Z = -19.5)
+    this.checkout1 = new CheckoutCounter(this.scene, 3.5, -19.5, 1);
+    this.checkout2 = new CheckoutCounter(this.scene, 7.5, -19.5, 2);
+    this.checkout3 = new CheckoutCounter(this.scene, 11.5, -19.5, 3);
+    this.checkouts = [this.checkout1, this.checkout2, this.checkout3];
+    this.checkout = this.checkout1; // Backward compatibility
+
+    // Checkouts AABB Colliders (2.6m wide, 0.88m deep with 1.4m open corridors between them)
+    this.collision.addBox(2.2, 4.8, -20.1, -18.9, 'checkout_1');
+    this.collision.addBox(6.2, 8.8, -20.1, -18.9, 'checkout_2');
+    this.collision.addBox(10.2, 12.8, -20.1, -18.9, 'checkout_3');
+    this.collision.addBox(2.2, 4.8, -20.1, -18.9, 'checkout'); // Backward compatibility
+
+    // Blue-aproned mustache/capped Cashier Staff Bots
+    this.cashierBot1 = this.createCashierStaff(this.scene, 3.5, -19.5, 1);
+    this.cashierBot2 = this.createCashierStaff(this.scene, 7.5, -19.5, 2);
+    this.cashierBot3 = this.createCashierStaff(this.scene, 11.5, -19.5, 3);
+    this.cashierBots = [this.cashierBot1, this.cashierBot2, this.cashierBot3];
+    this.cashierBot = this.cashierBot2; // Backward compatibility
 
     this.executiveOffice = new ExecutiveOffice(this.scene, -15.8, -4.8);
     this.upgradeDesk = this.executiveOffice;
@@ -1297,6 +1322,35 @@ class MiniMartGame {
     });
   }
 
+  createCashierStaff(scene, x, z, laneNum) {
+    // Blue uniformed cashier standing behind checkout counter at (x, 0, z - 0.65)
+    const cashier = new Character3D(scene, 0x0984e3, false);
+    cashier.group.position.set(x, 0, z - 0.65);
+    cashier.group.rotation.y = 0; // Facing south towards register desk and customers
+
+    // Blue Service Visor/Cap
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.35 });
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.16, 0.54), capMat);
+    cap.position.y = 1.72;
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.04, 0.28), capMat);
+    visor.position.set(0, 1.64, 0.38);
+    cashier.model.add(cap, visor);
+
+    // Chunky Neo-Brutalist Mustache (bıyık)
+    const stacheMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, roughness: 0.8 });
+    const mustache = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.05), stacheMat);
+    mustache.position.set(0, 1.34, 0.28);
+    cashier.model.add(mustache);
+
+    // Kasa Personel Rozeti
+    const badgeMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
+    const badge = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 0.04), badgeMat);
+    badge.position.set(0.16, 1.05, 0.21);
+    cashier.model.add(badge);
+
+    return cashier;
+  }
+
   createProgressionPads() {
     // Pad 1: 2nd Tomato Stand ($40)
     const pad1 = new UnlockPad(this.scene, -11.5, -7.0, 40, '2. DOMATES RAFI', () => {
@@ -1310,16 +1364,13 @@ class MiniMartGame {
     });
     this.unlockPads.push(pad1);
 
-    // Pad 2: Auto Cashier Staff Bot ($80)
-    const pad2 = new UnlockPad(this.scene, 8.0, -2.5, 80, 'KASİYER', () => {
+    // Pad 2: Senior Cashier Staff Training & Speed Boost ($80)
+    const pad2 = new UnlockPad(this.scene, 7.5, -15.5, 80, 'KASİYER HIZI', () => {
       this.unlockedFeatures.cashier = true;
-      this.checkout.hasCashier = true;
+      this.cashierSpeedBoost = 1.35;
+      this.checkouts.forEach(chk => { if (chk) chk.hasCashier = true; });
 
-      this.cashierBot = new Character3D(this.scene, 0x9b59b6, false);
-      this.cashierBot.group.position.set(8.0, 0, -3.7);
-      this.cashierBot.group.rotation.y = 0;
-
-      this.showFloatingText('KASİYER İŞE ALINDI!', this.cashierBot.group.position, '#9b59b6');
+      this.showFloatingText('KASİYERLER HIZLANDIRILDI! (+35% HIZ)', this.checkout2.group.position, '#0984e3');
       window.Sound.playUnlock();
       this.recordProgressEvent({ type: 'hireStaff', key: 'cashier' });
       this.saveState();
@@ -4009,62 +4060,92 @@ class MiniMartGame {
     }
   }
 
-  // Checkout counter: customer processing & money collection
+  // Checkout counters: multi-lane customer processing, scanning animations & money collection
   updateCheckout(delta) {
     const playerPos = this.player.group.position;
-    const cashierSpot = new THREE.Vector3(this.checkout.x, 0, this.checkout.z + 0.5);
-    const isPlayerAtRegister = playerPos.distanceTo(cashierSpot) < 1.4;
+    const checkouts = (this.checkouts && this.checkouts.length > 0) ? this.checkouts : [this.checkout];
 
-    const cashierActive = this.checkout.hasCashier || isPlayerAtRegister;
-    const isFastBonus = this.checkout.hasCashier && isPlayerAtRegister;
+    checkouts.forEach((chk, idx) => {
+      if (!chk) return;
+      const cashierSpot = new THREE.Vector3(chk.x, 0, chk.z - 0.65);
+      const isPlayerAtRegister = playerPos.distanceTo(cashierSpot) < 1.4;
 
-    // Find the active processing customer or the next waiting customer in line
-    const activeCustomer = this.customers.find(c => c.state === 'PROCESSING_PAYMENT');
-    const waitingCustomer = this.customers.find(c => c.state === 'IN_CHECKOUT_LINE');
+      const cashierActive = chk.hasCashier || isPlayerAtRegister;
+      const isFastBonus = chk.hasCashier && isPlayerAtRegister;
 
-    if (activeCustomer) {
-      if (cashierActive) {
-        activeCustomer.isCashierWaiting = false;
-        activeCustomer.isFastCheckout = isFastBonus;
-      } else {
-        activeCustomer.isCashierWaiting = true;
-      }
-    } else if (waitingCustomer) {
-      const frontPos = new THREE.Vector3(this.checkout.x - 1.2, 0, this.checkout.z - 0.9);
-      if (waitingCustomer.char.group.position.distanceTo(frontPos) < 1.1) {
+      // Find the active processing customer or the next waiting customer in this specific lane
+      const activeCustomer = this.customers.find(c => c.checkout === chk && c.state === 'PROCESSING_PAYMENT');
+      const waitingCustomer = this.customers.find(c => c.checkout === chk && c.state === 'IN_CHECKOUT_LINE');
+      const cashierBot = this.cashierBots ? this.cashierBots[idx] : (idx === 1 ? this.cashierBot : null);
+
+      if (activeCustomer) {
         if (cashierActive) {
-          waitingCustomer.startCheckoutProcess(isFastBonus);
-          if (waitingCustomer.residentData && isPlayerAtRegister && !this.pendingVeresiyeCheckout) {
-            const rId = waitingCustomer.residentData.id;
-            const curDebt = (this.veresiyeState && this.veresiyeState.ledger && this.veresiyeState.ledger[rId]) || 0;
-            if (curDebt === 0 && !this.veresiyePromptCooldown) {
-              this.showVeresiyePrompt(waitingCustomer, waitingCustomer.residentData);
-              this.veresiyePromptCooldown = 15.0;
-            }
-          }
+          activeCustomer.isCashierWaiting = false;
+          activeCustomer.isFastCheckout = isFastBonus;
         } else {
-          waitingCustomer.isCashierWaiting = true;
+          activeCustomer.isCashierWaiting = true;
+        }
+
+        // Active barcode scanning animation for cashier bot
+        if (cashierBot) {
+          cashierBot.rightArm.rotation.x = -0.6 + Math.sin(Date.now() * 0.008) * 0.25;
+          cashierBot.leftArm.rotation.x = -0.4 + Math.cos(Date.now() * 0.008) * 0.15;
+          cashierBot.head.rotation.y = Math.sin(Date.now() * 0.006) * 0.12;
+        }
+      } else if (waitingCustomer) {
+        // Customer reaches head of queue at (chk.x - 0.70, 0, chk.z + 0.65)
+        const frontPos = new THREE.Vector3(chk.x - 0.70, 0, chk.z + 0.65);
+        if (waitingCustomer.char.group.position.distanceTo(frontPos) < 1.3) {
+          if (cashierActive) {
+            waitingCustomer.startCheckoutProcess(isFastBonus);
+            if (waitingCustomer.residentData && isPlayerAtRegister && !this.pendingVeresiyeCheckout) {
+              const rId = waitingCustomer.residentData.id;
+              const curDebt = (this.veresiyeState && this.veresiyeState.ledger && this.veresiyeState.ledger[rId]) || 0;
+              if (curDebt === 0 && !this.veresiyePromptCooldown) {
+                this.showVeresiyePrompt(waitingCustomer, waitingCustomer.residentData);
+                this.veresiyePromptCooldown = 15.0;
+              }
+            }
+          } else {
+            waitingCustomer.isCashierWaiting = true;
+          }
+        }
+
+        if (cashierBot) {
+          cashierBot.rightArm.rotation.x = -0.2;
+          cashierBot.leftArm.rotation.x = 0;
+          cashierBot.head.rotation.y = 0;
+        }
+      } else {
+        if (chk && chk.hideProgress) {
+          chk.hideProgress();
+        }
+        if (cashierBot) {
+          cashierBot.rightArm.rotation.x = 0;
+          cashierBot.leftArm.rotation.x = 0;
+          cashierBot.head.rotation.y = 0;
         }
       }
-    } else {
-      if (this.checkout && this.checkout.hideProgress) {
-        this.checkout.hideProgress();
-      }
-    }
-    if (this.veresiyePromptCooldown > 0) this.veresiyePromptCooldown -= delta;
 
-    // Money pickup on tray
-    const cashPickupPos = new THREE.Vector3(this.checkout.x + 0.92, 0, this.checkout.z - 0.15);
-    if (playerPos.distanceTo(cashPickupPos) < 1.6 && this.checkout.cashOnCounter > 0) {
-      let earned = this.checkout.collectCash();
-      this.playTransferEffect(cashPickupPos, playerPos, null, true);
-      this.money += earned;
-      this.updateMoneyUI();
-      window.Sound.playCoin();
-      this.showFloatingText(`+$${earned}`, this.checkout.group.position, '#2ecc71');
-      this.recordProgressEvent({ type: 'collectCash', amount: 1 });
-      this.saveState();
-    }
+      if (cashierBot) {
+        cashierBot.update(delta);
+      }
+
+      // Money pickup on tray
+      const cashPickupPos = new THREE.Vector3(chk.x + 0.88, 0, chk.z + 0.22);
+      if (playerPos.distanceTo(cashPickupPos) < 1.6 && chk.cashOnCounter > 0) {
+        let earned = chk.collectCash();
+        this.playTransferEffect(cashPickupPos, playerPos, null, true);
+        this.money += earned;
+        this.updateMoneyUI();
+        window.Sound.playCoin();
+        this.showFloatingText(`+$${earned}`, chk.group.position, '#2ecc71');
+        this.recordProgressEvent({ type: 'collectCash', amount: 1 });
+        this.saveState();
+      }
+    });
+
+    if (this.veresiyePromptCooldown > 0) this.veresiyePromptCooldown -= delta;
   }
 
   // Ground Unlock Pads (Purchase & Expansion)
@@ -4422,14 +4503,16 @@ class MiniMartGame {
       text = 'HIRSIZI KOVALA VE YAKALA!';
     }
     // 2. Cash on counter has high priority
-    else if (this.checkout && this.checkout.cashOnCounter > 0) {
-      target = new THREE.Vector3(this.checkout.x + 0.92, 0, this.checkout.z - 0.15);
+    else if (this.checkouts && this.checkouts.some(c => c && c.cashOnCounter > 0)) {
+      const chk = this.checkouts.find(c => c && c.cashOnCounter > 0) || this.checkout;
+      target = new THREE.Vector3(chk.x + 0.88, 0, chk.z + 0.22);
       iconKey = 'CASH';
-      text = `PARALARI TOPLA (+$${this.checkout.cashOnCounter})`;
+      text = `PARALARI TOPLA (+$${chk.cashOnCounter})`;
     }
     // 3. Customers waiting in checkout line (if no auto cashier and player not cashier)
-    else if (this.customers.some(c => c.state === 'IN_CHECKOUT_LINE') && !this.checkout.hasCashier) {
-      target = new THREE.Vector3(this.checkout.x, 0, this.checkout.z + 0.5);
+    else if (this.customers.some(c => c.state === 'IN_CHECKOUT_LINE') && this.checkouts && this.checkouts.some(c => c && !c.hasCashier)) {
+      const chk = this.checkouts.find(c => c && !c.hasCashier) || this.checkout;
+      target = new THREE.Vector3(chk.x, 0, chk.z - 0.65);
       iconKey = 'CASHIER';
       text = 'KASADA ÖDEME AL';
     }

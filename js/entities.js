@@ -4097,102 +4097,223 @@ class ShelfUnit {
   }
 }
 
-// --- Checkout Register Counter (Stepped Cubic Coral Desk) ---
+// --- Supermarket Neo-Brutalist Label Texture Generator & Sign Helper ---
+const _supermarketLabelTextureCache = {};
+
+function getSupermarketLabelTexture(label, bgColor = '#FFE600', textColor = '#111111', width = 512, height = 128) {
+  const key = `${label}-${bgColor}-${textColor}-${width}-${height}`;
+  if (_supermarketLabelTextureCache[key]) return _supermarketLabelTextureCache[key];
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, width, height);
+  const borderW = Math.max(6, Math.floor(height * 0.08));
+  ctx.lineWidth = borderW;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeRect(borderW / 2, borderW / 2, width - borderW, height - borderW);
+  ctx.font = `900 ${Math.floor(height * 0.38)}px "Arial Black", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = textColor;
+  ctx.fillText(label, width / 2, height / 2, width - borderW * 2.5);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  _supermarketLabelTextureCache[key] = tex;
+  return tex;
+}
+
+function createVoxelNeoSign(label, bgColor = '#FFE600', textColor = '#111111', width = 2.4, height = 0.6, depth = 0.08) {
+  const signGroup = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, depth), frameMat);
+  signGroup.add(frame);
+
+  const tex = getSupermarketLabelTexture(label, bgColor, textColor, 512, 128);
+  const faceMat = tex
+    ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
+    : new THREE.MeshStandardMaterial({ color: parseInt(bgColor.replace('#', '0x'), 16), roughness: 0.3 });
+
+  const frontFace = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.02), faceMat);
+  frontFace.position.z = depth / 2 + 0.01;
+  signGroup.add(frontFace);
+
+  const backFace = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.02), faceMat);
+  backFace.position.z = -(depth / 2 + 0.01);
+  backFace.rotation.y = Math.PI;
+  signGroup.add(backFace);
+
+  return signGroup;
+}
+
+// --- Modern Motorized Supermarket Checkout Counter (Conveyor, Scanner, Dual POS, Acrylic Shield, Bagging Well, Lane Lantern) ---
 class CheckoutCounter {
-  constructor(scene, x, z) {
+  constructor(scene, x, z, laneNumber = 1) {
     this.scene = scene;
     this.x = x;
     this.z = z;
+    this.laneNumber = laneNumber;
     this.group = new THREE.Group();
     this.group.position.set(x, 0, z);
 
     this.cashOnCounter = 0;
     this.cashMeshes = [];
-    this.hasCashier = false;
+    this.hasCashier = true;
 
     this.initMesh();
     this.scene.add(this.group);
   }
 
   initMesh() {
-    // Coral / Soft Red U-Shaped Counter Desk
-    const coralDeskMat = new THREE.MeshStandardMaterial({ color: 0xff5252, roughness: 0.35 });
-    const darkConveyorMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
-    const whiteTrimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+    // 1. Sleek Neo-Brutalist Retail Counter Desk Frame
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, roughness: 0.4 });
+    const fasciaMat = new THREE.MeshStandardMaterial({ color: 0xff5252, roughness: 0.3 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+    const darkConveyorMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0xb2bec3, metalness: 0.5, roughness: 0.3 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.85, roughness: 0.2 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x81ecec, transparent: true, opacity: 0.45, roughness: 0.1 });
 
-    // 1. Front Desk Counter Block
-    const frontDesk = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.0, 0.65), coralDeskMat);
-    frontDesk.position.set(0, 0.5, -0.45);
-    frontDesk.castShadow = true;
-    frontDesk.receiveShadow = true;
-    this.group.add(frontDesk);
+    // Main Counter Body (W: 2.6m, H: 0.94m, D: 0.88m)
+    const mainDesk = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.94, 0.88), baseMat);
+    mainDesk.position.set(0, 0.47, 0);
+    mainDesk.castShadow = true;
+    mainDesk.receiveShadow = true;
 
-    // 2. Left Side Wing Block
-    const leftWing = new THREE.Mesh(new THREE.BoxGeometry(0.58, 1.0, 1.1), coralDeskMat);
-    leftWing.position.set(-0.91, 0.5, 0.1);
-    leftWing.castShadow = true;
-    this.group.add(leftWing);
+    // Customer-Facing Coral/Red Fascia Panel & White Impact Trim
+    const frontFascia = new THREE.Mesh(new THREE.BoxGeometry(2.62, 0.55, 0.06), fasciaMat);
+    frontFascia.position.set(0, 0.48, 0.44);
+    const frontTrim = new THREE.Mesh(new THREE.BoxGeometry(2.66, 0.08, 0.08), trimMat);
+    frontTrim.position.set(0, 0.94, 0.44);
+    const kickPlate = new THREE.Mesh(new THREE.BoxGeometry(2.64, 0.14, 0.06), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    kickPlate.position.set(0, 0.07, 0.44);
+    this.group.add(mainDesk, frontFascia, frontTrim, kickPlate);
 
-    // 3. Right Side Wing Block
-    const rightWing = new THREE.Mesh(new THREE.BoxGeometry(0.58, 1.0, 1.1), coralDeskMat);
-    rightWing.position.set(0.91, 0.5, 0.1);
-    rightWing.castShadow = true;
-    this.group.add(rightWing);
+    // 2. Motorized Conveyor Belt (Siyah motorlu konveyör bant)
+    const conveyorBelt = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.04, 0.62), darkConveyorMat);
+    conveyorBelt.position.set(-0.55, 0.96, 0.0);
+    conveyorBelt.castShadow = true;
+    conveyorBelt.receiveShadow = true;
 
-    // White Protective Rim along top edge
-    const rimFront = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.08, 0.06), whiteTrimMat);
-    rimFront.position.set(0, 1.04, -0.76);
-    this.group.add(rimFront);
+    // Conveyor Aluminum Side Guide Rails
+    const railNorth = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.08, 0.04), steelMat);
+    railNorth.position.set(-0.55, 0.98, -0.32);
+    const railSouth = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.08, 0.04), steelMat);
+    railSouth.position.set(-0.55, 0.98, 0.32);
 
-    // Charcoal Black Conveyor Belt slab
-    const conveyor = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.55), darkConveyorMat);
-    conveyor.position.set(-0.25, 1.03, -0.45);
-    conveyor.castShadow = true;
-    this.group.add(conveyor);
-
-    // Register Terminal & Screen
-    const regBase = new THREE.Mesh(
-      new THREE.BoxGeometry(0.38, 0.18, 0.28),
-      new THREE.MeshStandardMaterial({ color: 0x111111 })
+    // Customer Next-in-Line Lane Separator Baton Stick (Ayraç çubuğu)
+    const separatorStick = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.04, 0.52),
+      new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.3 })
     );
-    regBase.position.set(-0.25, 1.12, -0.32);
-    regBase.castShadow = true;
+    separatorStick.position.set(-1.05, 0.99, 0.0);
+    this.group.add(conveyorBelt, railNorth, railSouth, separatorStick);
 
-    const regScreen = new THREE.Mesh(
-      new THREE.BoxGeometry(0.34, 0.24, 0.06),
-      new THREE.MeshBasicMaterial({ color: 0x25d366 })
+    // 3. Flatbed Optical Barcode Scanner (Kırmızı lazerli barkod tarayıcı camı)
+    const scannerWell = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.03, 0.32), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    scannerWell.position.set(0.25, 0.965, 0.0);
+    const scannerGlass = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.02, 0.28), new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.1 }));
+    scannerGlass.position.set(0.25, 0.975, 0.0);
+    // Glowing Optical Red Laser Scan Emitter
+    const laserLine = new THREE.Mesh(
+      new THREE.BoxGeometry(0.26, 0.015, 0.025),
+      new THREE.MeshBasicMaterial({ color: 0xff0000 })
     );
-    regScreen.position.set(-0.25, 1.30, -0.24);
-    regScreen.rotation.x = -0.25;
-    this.group.add(regBase, regScreen);
+    laserLine.position.set(0.25, 0.985, 0.0);
 
-    // Cash Money Tray on right side wing
+    // Upright Vertical Scanner Window Tower
+    const scannerTower = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.24, 0.28), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    scannerTower.position.set(0.25, 1.08, -0.22);
+    const towerGlass = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.22), new THREE.MeshStandardMaterial({ color: 0x1e272e }));
+    towerGlass.position.set(0.25, 1.08, -0.19);
+    const towerLaser = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.14, 0.015), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+    towerLaser.position.set(0.25, 1.08, -0.18);
+    this.group.add(scannerWell, scannerGlass, laserLine, scannerTower, towerGlass, towerLaser);
+
+    // 4. Dual POS Terminals (Kasiyer ve müşteri için çift POS ekranı)
+    // A. Cashier-facing POS Monitor (Facing North towards Cashier)
+    const cashierArm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.28, 0.06), chromeMat);
+    cashierArm.position.set(0.20, 1.10, -0.32);
+    const cashierTerminal = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.05), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    cashierTerminal.position.set(0.20, 1.25, -0.32);
+    cashierTerminal.rotation.x = 0.25; // angled up toward cashier
+    const cashierScreen = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 0.02), new THREE.MeshBasicMaterial({ color: 0x2ecc71 }));
+    cashierScreen.position.set(0.20, 1.25, -0.30);
+    cashierScreen.rotation.x = 0.25;
+
+    // B. Customer-facing Pin-Pad / Card Terminal (Facing South towards Customer)
+    const custArm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.26, 0.05), chromeMat);
+    custArm.position.set(0.20, 1.09, 0.30);
+    const custTerminal = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.06), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    custTerminal.position.set(0.20, 1.22, 0.30);
+    custTerminal.rotation.x = -0.35; // angled up toward customer
+    const custScreen = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.02), new THREE.MeshBasicMaterial({ color: 0x0984e3 }));
+    custScreen.position.set(0.20, 1.26, 0.28);
+    custScreen.rotation.x = -0.35;
+    const pinPadKeys = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.02), new THREE.MeshStandardMaterial({ color: 0x636e72 }));
+    pinPadKeys.position.set(0.20, 1.16, 0.32);
+    pinPadKeys.rotation.x = -0.35;
+    this.group.add(cashierArm, cashierTerminal, cashierScreen, custArm, custTerminal, custScreen, pinPadKeys);
+
+    // 5. Transparent Acrylic / Pleksi Sneeze Guard Barrier (Şeffaf pleksi koruma bariyeri)
+    const sneezeShield = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.55, 0.03), glassMat);
+    sneezeShield.position.set(-0.35, 1.24, 0.0);
+    [-1.15, 0.45].forEach(px => {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.58, 0.05), chromeMat);
+      post.position.set(px, 1.24, 0.0);
+      this.group.add(post);
+    });
+    this.group.add(sneezeShield);
+
+    // 6. Stainless Steel Bagging Well & Pack Station (Metal poşetleme teknesi)
+    const baggingWell = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.22, 0.70), steelMat);
+    baggingWell.position.set(0.88, 0.84, 0.0);
+    const baggingRim = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.06, 0.74), chromeMat);
+    baggingRim.position.set(0.88, 0.96, 0.0);
+    // Grocery Bag Carousel / Holder Bracket
+    const bagBracket = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.32, 0.20), chromeMat);
+    bagBracket.position.set(1.15, 1.05, -0.28);
+    const groceryBags = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.28, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0xf5f6fa, roughness: 0.3 })
+    );
+    groceryBags.position.set(1.15, 1.02, -0.28);
+    this.group.add(baggingWell, baggingRim, bagBracket, groceryBags);
+
+    // 7. Cash Money Tray on Right Wing
     const trayMat = new THREE.MeshStandardMaterial({ color: 0xe67e22, roughness: 0.6 });
-    const cashTray = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.52), trayMat);
-    cashTray.position.set(0.91, 1.04, -0.15);
+    const cashTray = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.38), trayMat);
+    cashTray.position.set(0.88, 0.98, 0.22);
     cashTray.castShadow = true;
     this.group.add(cashTray);
 
-    // Cash pile mount point
     this.cashMount = new THREE.Group();
-    this.cashMount.position.set(0.91, 1.09, -0.15);
+    this.cashMount.position.set(0.88, 1.02, 0.22);
     this.group.add(this.cashMount);
 
-    // 3D Neo-Brutalist Checkout Progress Bar on top of register
-    this.progressGroup = new THREE.Group();
-    this.progressGroup.position.set(-0.25, 1.72, -0.25);
+    // 8. Overhead Lane Status Indicator Light & Lantern ([KASA 1: AÇIK], [KASA 2: AÇIK], [KASA 3: AÇIK])
+    const lanePole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.50, 0.08), chromeMat);
+    lanePole.position.set(-1.22, 1.25, -0.38);
+    const laneSign = createVoxelNeoSign(`[KASA ${this.laneNumber}: AÇIK]`, '#2ECC71', '#111111', 1.5, 0.42, 0.22);
+    laneSign.position.set(-1.22, 2.52, -0.38);
+    this.laneSign = laneSign;
+    this.group.add(lanePole, laneSign);
 
-    // Black frame
+    // 9. 3D Neo-Brutalist Checkout Progress Bar on top of register
+    this.progressGroup = new THREE.Group();
+    this.progressGroup.position.set(0.20, 1.62, -0.30);
+
     const barFrame = new THREE.Mesh(
       new THREE.BoxGeometry(1.24, 0.20, 0.10),
       new THREE.MeshBasicMaterial({ color: 0x000000 })
     );
-    // Dark slot background
     const barBg = new THREE.Mesh(
       new THREE.BoxGeometry(1.16, 0.14, 0.11),
       new THREE.MeshBasicMaterial({ color: 0x222222 })
     );
-    // Dynamic green fill bar (anchored to left)
     const fillGeo = new THREE.BoxGeometry(1.14, 0.12, 0.12);
     fillGeo.translate(0.57, 0, 0); // anchor left
     this.progressBarFill = new THREE.Mesh(
@@ -4207,7 +4328,6 @@ class CheckoutCounter {
     this.group.add(this.progressGroup);
   }
 
-  // Show checkout processing progress
   showProgress(ratio, isFastBonus = false) {
     this.progressGroup.visible = true;
     const cam = (window.gameInstance && window.gameInstance.camera);
@@ -4224,7 +4344,6 @@ class CheckoutCounter {
     this.progressBarFill.scale.x = 0.001;
   }
 
-  // Add dollar bills to the counter
   addCash(amount) {
     this.cashOnCounter += amount;
     this.updateCashVisuals();
@@ -4249,12 +4368,22 @@ class CheckoutCounter {
     }
   }
 
-  // Collect cash when player steps onto register cash area
   collectCash() {
     const collected = this.cashOnCounter;
     this.cashOnCounter = 0;
     this.updateCashVisuals();
     return collected;
+  }
+
+  destroy() {
+    this.group.traverse((child) => {
+      if (child.isMesh) {
+        if (child.geometry) child.geometry.dispose();
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else if (child.material) child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
   }
 }
 
@@ -5423,6 +5552,47 @@ class CustomerAI {
     };
   }
 
+  getBestCheckout(allCustomers = []) {
+    const checkouts = (window.gameInstance && Array.isArray(window.gameInstance.checkouts) && window.gameInstance.checkouts.length > 0)
+      ? window.gameInstance.checkouts
+      : (this.checkout ? [this.checkout] : []);
+    if (checkouts.length === 0) return this.checkout;
+    if (checkouts.length === 1) return checkouts[0];
+
+    // Compute queue length for each checkout lane
+    const queueCounts = new Map();
+    checkouts.forEach(chk => queueCounts.set(chk, 0));
+
+    if (allCustomers && allCustomers.length > 0) {
+      allCustomers.forEach(other => {
+        if (other === this || !other.checkout) return;
+        if (other.state === 'WALKING_TO_CHECKOUT' ||
+            other.state === 'IN_CHECKOUT_LINE' ||
+            other.state === 'PROCESSING_PAYMENT') {
+          const cCount = queueCounts.get(other.checkout) || 0;
+          queueCounts.set(other.checkout, cCount + 1);
+        }
+      });
+    }
+
+    const pos = this.char ? this.char.group.position : null;
+    let best = checkouts[0];
+    let minQueue = queueCounts.get(best) ?? 0;
+    let bestDist = pos ? pos.distanceTo(new THREE.Vector3(best.x, 0, best.z)) : 0;
+
+    for (let i = 1; i < checkouts.length; i++) {
+      const chk = checkouts[i];
+      const q = queueCounts.get(chk) ?? 0;
+      const d = pos ? pos.distanceTo(new THREE.Vector3(chk.x, 0, chk.z)) : 0;
+      if (q < minQueue || (q === minQueue && d < bestDist)) {
+        best = chk;
+        minQueue = q;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
   triggerStartle() {
     this.startleTimer = 1.0;
   }
@@ -5520,6 +5690,7 @@ class CustomerAI {
         const found = this.pickTargetShelf(false);
         if (!found) {
           if (this.itemsBought > 0) {
+            this.checkout = this.getBestCheckout(allCustomers);
             if (this.navState) this.navState.path = null;
             this.state = 'WALKING_TO_CHECKOUT';
             return;
@@ -5584,12 +5755,14 @@ class CustomerAI {
           const hasRemaining = this.shoppingList ? this.shoppingList.some(li => li.currentQty < li.requiredQty) : false;
           if (!hasRemaining || this.itemsBought >= this.targetItemsCount) {
             this.char.head.rotation.set(0, 0, 0);
+            this.checkout = this.getBestCheckout(allCustomers);
             if (this.navState) this.navState.path = null;
             this.state = 'WALKING_TO_CHECKOUT';
           } else {
             const foundNext = this.pickTargetShelf(false);
             if (!foundNext) {
               this.char.head.rotation.set(0, 0, 0);
+              this.checkout = this.getBestCheckout(allCustomers);
               if (this.navState) this.navState.path = null;
               this.state = 'WALKING_TO_CHECKOUT';
             } else {
@@ -5614,6 +5787,7 @@ class CustomerAI {
               this.state = 'WALKING_TO_SHELF';
             } else {
               if (this.itemsBought > 0) {
+                this.checkout = this.getBestCheckout(allCustomers);
                 if (this.navState) this.navState.path = null;
                 this.state = 'WALKING_TO_CHECKOUT';
               } else {
@@ -5632,21 +5806,26 @@ class CustomerAI {
         this.char.head.rotation.set(0, 0, 0);
       }
     } else if (this.state === 'WALKING_TO_CHECKOUT') {
+      if (!this.checkout || (window.gameInstance && Array.isArray(window.gameInstance.checkouts) && !window.gameInstance.checkouts.includes(this.checkout))) {
+        this.checkout = this.getBestCheckout(allCustomers);
+      }
+
       let queueIdx = 0;
       if (allCustomers) {
         for (const other of allCustomers) {
           if (other === this) break;
-          if (other.state === 'WALKING_TO_CHECKOUT' || other.state === 'IN_CHECKOUT_LINE') {
+          if (other.checkout === this.checkout &&
+              (other.state === 'WALKING_TO_CHECKOUT' || other.state === 'IN_CHECKOUT_LINE' || other.state === 'PROCESSING_PAYMENT')) {
             queueIdx++;
           }
         }
       }
 
-      // Discrete reserved queue slots with 1.35m spacing
+      // Discrete reserved queue slots with 1.15m spacing extending Southwards into open crossway
       const checkoutTarget = new THREE.Vector3(
-        this.checkout.x - 1.2,
+        this.checkout.x - 0.70,
         0,
-        this.checkout.z - 0.9 - queueIdx * 1.35
+        this.checkout.z + 0.65 + queueIdx * 1.15
       );
       const res = moveWithDoorWaypoints(pos, checkoutTarget, 4.5, delta, this.navState);
       this.char.velocity.copy(res.velocity);
@@ -5657,7 +5836,7 @@ class CustomerAI {
 
       if (pos.distanceTo(checkoutTarget) <= 0.95) {
         this.char.velocity.set(0, 0, 0);
-        this.char.group.rotation.y = 0;
+        this.char.group.rotation.y = Math.PI; // Face North toward cashier desk
         this.state = 'IN_CHECKOUT_LINE';
       }
     } else if (this.state === 'IN_CHECKOUT_LINE') {
@@ -5665,22 +5844,24 @@ class CustomerAI {
       if (allCustomers) {
         for (const other of allCustomers) {
           if (other === this) break;
-          if (other.state === 'IN_CHECKOUT_LINE' || other.state === 'PROCESSING_PAYMENT') {
+          if (other.checkout === this.checkout &&
+              (other.state === 'IN_CHECKOUT_LINE' || other.state === 'PROCESSING_PAYMENT')) {
             queueIdx++;
           }
         }
       }
-      const linePos = new THREE.Vector3(this.checkout.x - 1.2, 0, this.checkout.z - 0.9 - queueIdx * 1.35);
+      const linePos = new THREE.Vector3(this.checkout.x - 0.70, 0, this.checkout.z + 0.65 + queueIdx * 1.15);
       if (pos.distanceTo(linePos) > 0.25) {
         const dir = linePos.clone().sub(pos).normalize();
         pos.addScaledVector(dir, 3.2 * delta);
-        this.char.group.rotation.y = 0;
+        this.char.group.rotation.y = Math.PI; // Face North toward cashier
       } else {
         this.char.velocity.set(0, 0, 0);
+        this.char.group.rotation.y = Math.PI;
       }
     } else if (this.state === 'PROCESSING_PAYMENT') {
       this.char.velocity.set(0, 0, 0);
-      this.char.group.rotation.y = 0;
+      this.char.group.rotation.y = Math.PI; // Face North toward cashier
 
       if (!this.isCashierWaiting) {
         const speedMult = this.isFastCheckout ? 1.6 : 1.0;
@@ -10784,57 +10965,6 @@ class VoxelNeonSign {
   }
 }
 
-// --- Supermarket Neo-Brutalist Label Texture Generator & Sign Helper ---
-const _supermarketLabelTextureCache = {};
-
-function getSupermarketLabelTexture(label, bgColor = '#FFE600', textColor = '#111111', width = 512, height = 128) {
-  const key = `${label}-${bgColor}-${textColor}-${width}-${height}`;
-  if (_supermarketLabelTextureCache[key]) return _supermarketLabelTextureCache[key];
-  if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, width, height);
-  const borderW = Math.max(6, Math.floor(height * 0.08));
-  ctx.lineWidth = borderW;
-  ctx.strokeStyle = '#000000';
-  ctx.strokeRect(borderW / 2, borderW / 2, width - borderW, height - borderW);
-  ctx.font = `900 ${Math.floor(height * 0.38)}px "Arial Black", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = textColor;
-  ctx.fillText(label, width / 2, height / 2, width - borderW * 2.5);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  _supermarketLabelTextureCache[key] = tex;
-  return tex;
-}
-
-function createVoxelNeoSign(label, bgColor = '#FFE600', textColor = '#111111', width = 2.4, height = 0.6, depth = 0.08) {
-  const signGroup = new THREE.Group();
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, depth), frameMat);
-  signGroup.add(frame);
-
-  const tex = getSupermarketLabelTexture(label, bgColor, textColor, 512, 128);
-  const faceMat = tex
-    ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
-    : new THREE.MeshStandardMaterial({ color: parseInt(bgColor.replace('#', '0x'), 16), roughness: 0.3 });
-
-  const frontFace = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.02), faceMat);
-  frontFace.position.z = depth / 2 + 0.01;
-  signGroup.add(frontFace);
-
-  const backFace = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.02), faceMat);
-  backFace.position.z = -(depth / 2 + 0.01);
-  backFace.rotation.y = Math.PI;
-  signGroup.add(backFace);
-
-  return signGroup;
-}
 
 // --- Supermarket Visual System (Architectural Ceiling, Refrigeration, Welcome, Checkout & Safety) ---
 class SupermarketVisualSystem {
@@ -10872,7 +11002,7 @@ class SupermarketVisualSystem {
 
   // Category A.1: Ceiling Truss System & Linear Suspended LEDs
   buildCeilingRiggingAndLighting() {
-    const trussY = 3.82;
+    const trussY = 4.80;
     // 5 Longitudinal Truss Beams (Z: -24 to -1)
     [-18.5, -9.0, 0.0, 9.0, 18.5].forEach(tx => {
       const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 23.0), this.steelMat);
@@ -10892,17 +11022,17 @@ class SupermarketVisualSystem {
       [-20.5, -15.0, -9.5, -4.5].forEach(lz => {
         // Wire hangers
         [-1.8, 1.8].forEach(hx => {
-          const wire = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.03), this.steelMat);
-          wire.position.set(lx, trussY - 0.11, lz + hx);
+          const wire = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.35, 0.03), this.steelMat);
+          wire.position.set(lx, trussY - 0.18, lz + hx);
           this.group.add(wire);
         });
 
         // Enamel Housing
         const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.10, 4.2), this.enamelMat);
-        fixture.position.set(lx, trussY - 0.22, lz);
+        fixture.position.set(lx, trussY - 0.35, lz);
         // Diffuser Face
         const led = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 4.1), this.ledMat);
-        led.position.set(lx, trussY - 0.27, lz);
+        led.position.set(lx, trussY - 0.40, lz);
         this.group.add(fixture, led);
       });
     });
@@ -10918,12 +11048,12 @@ class SupermarketVisualSystem {
 
     banners.forEach(b => {
       const sign = createVoxelNeoSign(b.label, b.bg, b.color, 3.4, 0.65, 0.08);
-      sign.position.set(b.x, 3.15, b.z);
+      sign.position.set(b.x, 4.10, b.z);
 
       // Hanging steel wires
       [-1.4, 1.4].forEach(wx => {
-        const wire = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.65, 0.025), this.steelMat);
-        wire.position.set(b.x + wx, 3.50, b.z);
+        const wire = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.70, 0.025), this.steelMat);
+        wire.position.set(b.x + wx, 4.45, b.z);
         this.group.add(wire);
       });
       this.group.add(sign);
@@ -10932,7 +11062,7 @@ class SupermarketVisualSystem {
 
   // Category A.3: Galvanized HVAC Ventilation Ducts & Diffusers
   buildHVACDuctsAndDiffusers() {
-    const ductY = 3.90;
+    const ductY = 4.95;
     // Main supply trunk duct running East-West
     const mainDuct = new THREE.Mesh(new THREE.BoxGeometry(33.0, 0.42, 0.65), this.hvacMat);
     mainDuct.position.set(0, ductY, -12.5);
@@ -10950,7 +11080,7 @@ class SupermarketVisualSystem {
       const branchN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.36, 9.0), this.hvacMat);
       branchN.position.set(bx, ductY, -17.5);
       const branchS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.36, 9.0), this.hvacMat);
-      branchS.position.set(bx, ductY, -7.5);
+      branchS.position.set(bx, ductY - 0.05, -7.5);
       this.group.add(branchN, branchS);
 
       // Downward Air Supply Diffusers
@@ -11132,9 +11262,9 @@ class SupermarketVisualSystem {
     corral.add(railL, railR, cSign);
     this.group.add(corral);
 
-    // 3. Customer Storage Lockers (X = 3.6, Z = -23.4)
+    // 3. Customer Storage Lockers (X = -6.5, Z = -23.2 on West Entrance Lobby Wall)
     const lockers = new THREE.Group();
-    lockers.position.set(3.6, 0, -23.4);
+    lockers.position.set(-6.5, 0, -23.2);
     const lockerBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.9, 0.55),
       new THREE.MeshStandardMaterial({ color: 0x747d8c, roughness: 0.5 }));
     lockerBody.position.set(0, 0.95, 0);
@@ -11177,24 +11307,13 @@ class SupermarketVisualSystem {
 
   // Category D: Checkout Lane Light, Impulse Merchandising, Receipts & Dividers
   buildCheckoutAccessories() {
-    // 1. Overhead Lane Indicator Pole Light [KASA 1: AÇIK] (X = 8.0, Z = -4.5)
-    const poleLight = new THREE.Group();
-    poleLight.position.set(8.0, 0, -4.5);
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 0.08), this.chromeMat);
-    pole.position.set(0, 1.25, 0);
-    const lantern = createVoxelNeoSign('[KASA 1: AÇIK]', '#2ECC71', '#111111', 1.6, 0.45, 0.30);
-    lantern.position.set(0, 2.45, 0);
-    poleLight.add(pole, lantern);
-    this.group.add(poleLight);
-
-    // 2. Conveyor Impulse Merchandising Rack (X = 6.9, Z = -4.5)
+    // 1. Impulse Merchandising Rack on East Flank of Checkout 3 (X = 13.8, Z = -19.5)
     const impulse = new THREE.Group();
-    impulse.position.set(6.9, 0, -4.5);
-    const rackFrame = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.95, 1.4), this.blackMat);
+    impulse.position.set(13.8, 0, -19.5);
+    const rackFrame = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.95, 1.4), this.blackMat);
     rackFrame.position.set(0, 0.70, 0);
-    // 3 shelves of impulse candy/batteries
     for (let i = 0; i < 3; i++) {
-      const items = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 1.3),
+      const items = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.08, 1.3),
         new THREE.MeshStandardMaterial({ color: i === 0 ? 0xf1c40f : (i === 1 ? 0xe74c3c : 0x3498db) }));
       items.position.set(0, 0.45 + i * 0.25, 0);
       impulse.add(items);
@@ -11202,32 +11321,9 @@ class SupermarketVisualSystem {
     impulse.add(rackFrame);
     this.group.add(impulse);
 
-    // 3. Receipt Printer, Bag Dispenser & Divider Sticks
-    const posDesk = new THREE.Group();
-    posDesk.position.set(8.5, 0.95, -4.5);
-    // Thermal Receipt Printer
-    const printer = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.28), this.blackMat);
-    printer.position.set(0, 0.09, 0);
-    const paperRoll = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.16), this.enamelMat);
-    paperRoll.position.set(0, 0.19, 0.04);
-    // Reusable Bag Dispenser
-    const bagHook = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.35, 0.04), this.chromeMat);
-    bagHook.position.set(0.40, 0.15, -0.40);
-    const bags = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.30, 0.15), this.hazardMat);
-    bags.position.set(0.40, 0.05, -0.40);
-    posDesk.add(printer, paperRoll, bagHook, bags);
-    this.group.add(posDesk);
-
-    // Customer Divider Rods on Conveyor (X = 7.3, Z = -4.5)
-    [-0.35, 0.35].forEach(dz => {
-      const rod = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.45), this.redMat);
-      rod.position.set(7.3, 0.92, -4.5 + dz);
-      this.group.add(rod);
-    });
-
-    // Newspaper & Magazine Display Stand (X = 9.8, Z = -5.8)
+    // 2. Newspaper & Magazine Display Stand on East Flank (X = 14.8, Z = -19.5)
     const newsStand = new THREE.Group();
-    newsStand.position.set(9.8, 0, -5.8);
+    newsStand.position.set(14.8, 0, -19.5);
     const nFrame = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, 0.9), this.blackMat);
     nFrame.position.set(0, 0.60, 0);
     for (let i = 0; i < 3; i++) {
@@ -11360,9 +11456,9 @@ class SupermarketVisualSystem {
 
   // Category G: Advanced Visual Merchandising (Dump Bins, Bakery Canopy, Bulk Silos, Sneeze Guards, Directory Totem, Floral Stand)
   buildMerchandisingAdditions() {
-    // 1. Promotional Action Alley Dump Bin [FIRSAT] (X = 2.4, Z = -13.5)
+    // 1. Promotional Action Alley Dump Bin [FIRSAT] (Perimeter East: X = 17.8, Z = -13.5)
     const dumpBin = new THREE.Group();
-    dumpBin.position.set(2.4, 0, -13.5);
+    dumpBin.position.set(17.8, 0, -13.5);
     const binFrame = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.78, 0.95), this.hazardMat);
     binFrame.position.set(0, 0.39, 0);
     const binInner = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.72, 0.85), this.blackMat);

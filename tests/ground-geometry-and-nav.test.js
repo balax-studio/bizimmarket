@@ -85,4 +85,23 @@ assert(entitiesSource.includes("this.addNode('W_DOCK', -24.0, -10.0);"), 'NavGra
 assert(entitiesSource.includes("this.addEdge('M_Z2_X0', 'W_IN_DOOR');"), 'NavGraph must link store concourse to warehouse door');
 assert(gameSource.includes('this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, 19.5);'), 'Player movement bounds must allow walking into warehouse');
 
+// 9. Verify North Concourse Modern Triple Checkout Line (Z = -19.5), Cashiers & High Ceiling Rigging
+assert(gameSource.includes('this.checkout1 = new CheckoutCounter(this.scene, 3.5, -19.5, 1);'), 'Checkout 1 must be at X = 3.5, Z = -19.5');
+assert(gameSource.includes('this.checkout2 = new CheckoutCounter(this.scene, 7.5, -19.5, 2);'), 'Checkout 2 must be at X = 7.5, Z = -19.5');
+assert(gameSource.includes('this.checkout3 = new CheckoutCounter(this.scene, 11.5, -19.5, 3);'), 'Checkout 3 must be at X = 11.5, Z = -19.5');
+assert(gameSource.includes('this.checkout = this.checkout1;'), 'Backward compatibility reference for this.checkout must be maintained');
+assert(gameSource.includes('this.cashierBot = this.cashierBot2;'), 'Backward compatibility reference for this.cashierBot must be maintained');
+assert(gameSource.includes("this.collision.addBox(2.2, 4.8, -20.1, -18.9, 'checkout_1');"), 'Checkout 1 collision box must be registered');
+assert(gameSource.includes("this.collision.addBox(6.2, 8.8, -20.1, -18.9, 'checkout_2');"), 'Checkout 2 collision box must be registered');
+assert(gameSource.includes("this.collision.addBox(10.2, 12.8, -20.1, -18.9, 'checkout_3');"), 'Checkout 3 collision box must be registered');
+assert(gameSource.includes('chkFloor.position.set(7.5, 0.022, -19.5);'), 'Checkout parquet floor must center at (7.5, -19.5)');
+assert(gameSource.includes('BoxGeometry(12.0, 0.02, 5.2)'), 'Checkout parquet floor must span 12.0m x 5.2m');
+assert(gameSource.includes('BoxGeometry(0.45, 4.2, 23.4)'), 'Store outer wall height must be elevated to 4.2m');
+assert(gameSource.includes('BoxGeometry(0.7, 4.4, 0.7)'), 'Store perimeter pillars must be elevated to 4.4m');
+assert(entitiesSource.includes('getBestCheckout'), 'CustomerAI must implement getBestCheckout queue optimization');
+assert(entitiesSource.includes('const trussY = 4.80;'), 'Ceiling truss system must be elevated to Y = 4.80m');
+assert(entitiesSource.includes('const ductY = 4.95;'), 'HVAC ventilation ducts must be elevated to Y = 4.95m');
+assert(entitiesSource.includes('createVoxelNeoSign(`[KASA ${this.laneNumber}: AÇIK]`'), 'Overhead status lantern must be generated per lane number');
+assert(entitiesSource.includes('lockers.position.set(-6.5, 0, -23.2);'), 'Customer lockers must be safely placed on West entrance lobby wall');
+
 console.log('Ground geometry, walkways, and navigation safety tests passed.');
