@@ -4761,21 +4761,21 @@ class SupermarketNavGraph {
     this.addNode('N_SIDEWALK_E', 12.0, -25.5);
     this.addNode('N_PARK_W', -12.0, -30.0);
     this.addNode('N_PARK_E', 12.0, -30.0);
-    this.addNode('N_OUT_ENTRY', -0.8, -25.5);
-    this.addNode('N_OUT_EXIT', 0.8, -25.5);
+    this.addNode('N_OUT_ENTRY', -1.2, -25.5);
+    this.addNode('N_OUT_EXIT', 1.2, -25.5);
 
     // 2. North Doorway Portal Transitions (Passing through North Wall Z = -24.0)
-    this.addNode('N_IN_ENTRY', -0.8, -22.8);
-    this.addNode('N_IN_EXIT', 0.8, -22.8);
+    this.addNode('N_IN_ENTRY', -1.2, -22.5);
+    this.addNode('N_IN_EXIT', 1.2, -22.5);
 
     // 3. Supermarket Interior Grid
-    // Z0 = -22.8 (North Concourse)
-    this.addNode('M_Z0_X0', -14.5, -22.8);
-    this.addNode('M_Z0_X1', -8.5, -22.8);
-    this.addNode('M_Z0_X2', 0.0, -22.8);
-    this.addNode('M_Z0_X3', 7.0, -22.8);
-    this.addNode('M_Z0_X4', 12.75, -22.8);
-    this.addNode('M_Z0_X5', 17.5, -22.8);
+    // Z0 = -22.5 (North Concourse)
+    this.addNode('M_Z0_X0', -14.5, -22.5);
+    this.addNode('M_Z0_X1', -8.5, -22.5);
+    this.addNode('M_Z0_X2', 0.0, -22.5);
+    this.addNode('M_Z0_X3', 7.0, -22.5);
+    this.addNode('M_Z0_X4', 12.75, -22.5);
+    this.addNode('M_Z0_X5', 17.5, -22.5);
 
     // Z1 = -17.7 (Mid-North Crossway)
     this.addNode('M_Z1_X0', -14.5, -17.7);
@@ -4835,12 +4835,15 @@ class SupermarketNavGraph {
     this.addEdge('N_OUT_ENTRY', 'N_IN_ENTRY');
     this.addEdge('N_OUT_EXIT', 'N_IN_EXIT');
 
-    // North Concourse (Z0 = -22.8) Horizontal Connections
-    this.addEdge('M_Z0_X0', 'M_Z0_X1');
-    this.addEdge('M_Z0_X1', 'N_IN_ENTRY');
+    // North Entrance & Concourse Transitions (Clean direct flow into central artery)
     this.addEdge('N_IN_ENTRY', 'M_Z0_X2');
-    this.addEdge('M_Z0_X2', 'N_IN_EXIT');
-    this.addEdge('N_IN_EXIT', 'M_Z0_X3');
+    this.addEdge('N_IN_EXIT', 'M_Z0_X2');
+    this.addEdge('N_IN_ENTRY', 'M_Z1_X2');
+    this.addEdge('N_IN_EXIT', 'M_Z1_X2');
+    this.addEdge('M_Z0_X2', 'M_Z1_X2');
+
+    // North Concourse Aisle Access
+    this.addEdge('M_Z0_X0', 'M_Z0_X1');
     this.addEdge('M_Z0_X3', 'M_Z0_X4');
     this.addEdge('M_Z0_X4', 'M_Z0_X5');
 
@@ -5171,6 +5174,8 @@ class CustomerAI {
     this.hopTimer = 0;
     this.startleTimer = 0;
     this.stuckTimer = 0;
+    this.lastPos = spawnPos.clone();
+    this.shelfSlotOffset = (Math.random() - 0.5) * 1.4;
     this.checkoutProgress = 0;
     this.checkoutDuration = 1.4;
     this.scanBeepTimer = 0;
@@ -5410,32 +5415,70 @@ class CustomerAI {
 
     const pos = this.char.group.position;
 
-    // Anti-Stuck Jitter & Separation Physics
-    if (this.char.velocity.lengthSq() < 0.04 && this.state !== 'IN_CHECKOUT_LINE') {
+    // 1. True Physical Displacement Movement Watchdog (Anti-Deadlock)
+    if (!this.lastPos) this.lastPos = pos.clone();
+    const distMoved = pos.distanceTo(this.lastPos);
+    const isSupposedToBeMoving = (
+      this.state === 'WALKING_TO_SHELF' ||
+      this.state === 'WALKING_TO_CHECKOUT' ||
+      this.state === 'LEAVING'
+    );
+
+    if (isSupposedToBeMoving && distMoved < 0.04 * Math.max(0.2, delta * 60)) {
       this.stuckTimer += delta;
-      if (this.stuckTimer >= 1.5) {
-        pos.x += (Math.random() - 0.5) * 0.4;
-        pos.z += (Math.random() - 0.5) * 0.4;
+      if (this.stuckTimer >= 0.8) {
+        // Break collinear symmetry with lateral and forward impulse
+        const nudgeDir = ((this.itemsBought + Math.floor((pos.x + pos.z) * 10)) % 2 === 0) ? 1 : -1;
+        pos.x += nudgeDir * 0.45;
+        pos.z += (Math.random() - 0.5) * 0.3;
+        if (this.navState) {
+          this.navState.path = null; // Force fresh A* path around obstacle
+        }
+        resolveShelfCollisions(pos);
         this.stuckTimer = 0;
       }
     } else {
-      this.stuckTimer = 0;
+      this.stuckTimer = Math.max(0, this.stuckTimer - delta * 2);
     }
+    this.lastPos.copy(pos);
 
-    // Flocking / Soft Mutual Repulsion & Lateral Corridor Steering
+    // 2. Flocking / Soft Mutual Repulsion with Lateral Curl (Right-Hand Rule)
     if (allCustomers && allCustomers.length > 1) {
       for (let i = 0; i < allCustomers.length; i++) {
         const other = allCustomers[i];
         if (other === this || !other.char) continue;
-        const d = pos.distanceTo(other.char.group.position);
+        const otherPos = other.char.group.position;
+        const d = pos.distanceTo(otherPos);
         if (d < 1.30 && d > 0.05) {
           const push = (1.30 - d) * 2.0 * delta;
-          const pushDirX = (pos.x - other.char.group.position.x) / d;
-          const pushDirZ = (pos.z - other.char.group.position.z) / d;
-          pos.x += pushDirX * push;
-          pos.z += pushDirZ * push;
+          const pushDirX = (pos.x - otherPos.x) / d;
+          const pushDirZ = (pos.z - otherPos.z) / d;
+
+          // Perpendicular vortex / lateral deflection to slide smoothly past head-on traffic
+          const latX = -pushDirZ * 0.45;
+          const latZ = pushDirX * 0.45;
+
+          const otherIsStationary = (
+            other.state === 'IN_CHECKOUT_LINE' ||
+            other.state === 'PROCESSING_PAYMENT' ||
+            (other.waitingTimer && other.waitingTimer > 0)
+          );
+          const thisIsStationary = (
+            this.state === 'IN_CHECKOUT_LINE' ||
+            this.state === 'PROCESSING_PAYMENT' ||
+            (this.waitingTimer && this.waitingTimer > 0)
+          );
+
+          if (thisIsStationary && !otherIsStationary) {
+            continue; // Stationary agent holds position; moving agent yields & maneuvers
+          }
+
+          const weight = otherIsStationary ? 1.4 : 1.0;
+          pos.x += (pushDirX + latX) * push * weight;
+          pos.z += (pushDirZ + latZ) * push * weight;
         }
       }
+      resolveShelfCollisions(pos);
     }
 
     // Startle Reaction (when thief flees nearby)
@@ -5460,9 +5503,11 @@ class CustomerAI {
         const found = this.pickTargetShelf(false);
         if (!found) {
           if (this.itemsBought > 0) {
+            if (this.navState) this.navState.path = null;
             this.state = 'WALKING_TO_CHECKOUT';
             return;
           } else {
+            if (this.navState) this.navState.path = null;
             this.state = 'LEAVING';
             this.isDisappointed = true;
             if (window.gameInstance && window.gameInstance.particleFX) {
@@ -5473,7 +5518,14 @@ class CustomerAI {
         }
       }
 
-      const shelfTarget = new THREE.Vector3(this.targetShelf.x, 0, this.targetShelf.z + 1.3);
+      if (this.shelfSlotOffset === undefined) {
+        this.shelfSlotOffset = (Math.random() - 0.5) * 1.4;
+      }
+      const shelfTarget = new THREE.Vector3(
+        this.targetShelf.x + this.shelfSlotOffset,
+        0,
+        this.targetShelf.z + 1.25
+      );
       const res = moveWithDoorWaypoints(pos, shelfTarget, 4.2, delta, this.navState);
       this.char.velocity.copy(res.velocity);
 
@@ -5482,7 +5534,9 @@ class CustomerAI {
       }
 
       const distToShelf = pos.distanceTo(shelfTarget);
-      if (distToShelf <= 1.1) {
+      const isInteracting = distToShelf <= 1.35 || (this.waitingTimer > 0 && distToShelf <= 1.85);
+
+      if (isInteracting) {
         this.char.velocity.set(0, 0, 0);
         this.char.group.rotation.y = Math.PI;
 
@@ -5513,16 +5567,21 @@ class CustomerAI {
           const hasRemaining = this.shoppingList ? this.shoppingList.some(li => li.currentQty < li.requiredQty) : false;
           if (!hasRemaining || this.itemsBought >= this.targetItemsCount) {
             this.char.head.rotation.set(0, 0, 0);
+            if (this.navState) this.navState.path = null;
             this.state = 'WALKING_TO_CHECKOUT';
           } else {
             const foundNext = this.pickTargetShelf(false);
             if (!foundNext) {
               this.char.head.rotation.set(0, 0, 0);
+              if (this.navState) this.navState.path = null;
               this.state = 'WALKING_TO_CHECKOUT';
+            } else {
+              this.shelfSlotOffset = (Math.random() - 0.5) * 1.4;
+              if (this.navState) this.navState.path = null;
             }
           }
         } else {
-          // Shelf is empty; wait up to patience duration
+          // Shelf is empty; wait up to patience duration with high reliability
           const patienceMult = (window.gameInstance && typeof window.gameInstance.hygieneScore === 'number')
             ? (window.gameInstance.hygieneScore < 40 ? 0.5 : (window.gameInstance.hygieneScore >= 80 ? 1.25 : 1.0))
             : 1.0;
@@ -5533,11 +5592,15 @@ class CustomerAI {
 
             const foundAlt = this.pickTargetShelf(true);
             if (foundAlt) {
+              this.shelfSlotOffset = (Math.random() - 0.5) * 1.4;
+              if (this.navState) this.navState.path = null;
               this.state = 'WALKING_TO_SHELF';
             } else {
               if (this.itemsBought > 0) {
+                if (this.navState) this.navState.path = null;
                 this.state = 'WALKING_TO_CHECKOUT';
               } else {
+                if (this.navState) this.navState.path = null;
                 this.state = 'LEAVING';
                 this.isDisappointed = true;
                 if (window.gameInstance && window.gameInstance.particleFX) {
@@ -5628,7 +5691,7 @@ class CustomerAI {
         }
       }
     } else if (this.state === 'LEAVING') {
-      let exitTarget = new THREE.Vector3(0.0, 0, -25.5);
+      let exitTarget = new THREE.Vector3(1.2, 0, -25.5);
 
       if (pos.z <= -25.0) {
         if (this.parkingSpot && this.vehicle) {
@@ -9594,7 +9657,7 @@ class ShoplifterAI {
       }
     } else if (this.state === 'FLEEING_PANIC') {
       // 2x Fast Panicked Sprint towards exit doors
-      const exitTarget = new THREE.Vector3(0.0, 0, -27.0);
+      const exitTarget = new THREE.Vector3(1.2, 0, -27.0);
       const res = moveWithDoorWaypoints(pos, exitTarget, 9.2, delta, this.navState);
       this.char.velocity.copy(res.velocity);
 
@@ -10061,7 +10124,7 @@ class VoxelGym {
 // --- Living Neighborhood Phase 1, 2, 3 Procedural Voxel Entities ---
 
 class MopStation {
-  constructor(scene, x = -2.0, z = -22.5) {
+  constructor(scene, x = -4.5, z = -23.5) {
     this.scene = scene;
     this.x = x;
     this.z = z;

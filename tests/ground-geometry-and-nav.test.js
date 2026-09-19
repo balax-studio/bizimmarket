@@ -39,4 +39,18 @@ assert(gameSource.includes("new VoxelGym(this.scene, 0.0, -39.5)"), 'Gym must be
 assert(gameSource.includes("new VoxelSchool(this.scene, 24.0, -39.5)"), 'School must be safely placed at Z = -39.5');
 assert(gameSource.includes("new VoxelPark(this.scene, -24.0, -39.5)"), 'Park must be safely placed at Z = -39.5');
 
+// 6. Verify Entrance/Exit Doorway Dual-Lane Separation & Obstacle Clearance
+assert(entitiesSource.includes("this.addNode('N_OUT_ENTRY', -1.2, -25.5);"), 'Inbound outdoor portal must be separated on West lane X = -1.2');
+assert(entitiesSource.includes("this.addNode('N_OUT_EXIT', 1.2, -25.5);"), 'Outbound outdoor portal must be separated on East lane X = 1.2');
+assert(entitiesSource.includes("this.addNode('N_IN_ENTRY', -1.2, -22.5);"), 'Inbound lobby portal must be on West lane X = -1.2');
+assert(entitiesSource.includes("this.addNode('N_IN_EXIT', 1.2, -22.5);"), 'Outbound lobby portal must be on East lane X = 1.2');
+assert(gameSource.includes("this.mopStation = new MopStation(this.scene, -4.5, -23.5);"), 'Mop station must be placed in safe zone on West wall');
+assert(gameSource.includes("this.collision.addBox(-5.3, -3.7, -24.5, -22.5, 'mop_station');"), 'Mop station collider must not block entrance opening');
+
+// 7. Verify Customer Physical Movement Watchdog, Lateral Flocking Curl & Shelf Slots
+assert(entitiesSource.includes("const distMoved = pos.distanceTo(this.lastPos);"), 'Customer must track physical displacement to prevent deadlock');
+assert(entitiesSource.includes("const latX = -pushDirZ * 0.45;"), 'Customer flocking must apply lateral curl to break collinear head-on deadlock');
+assert(entitiesSource.includes("this.shelfSlotOffset = (Math.random() - 0.5) * 1.4;"), 'Customers must distribute across shelf width to prevent pileups');
+assert(entitiesSource.includes("let exitTarget = new THREE.Vector3(1.2, 0, -25.5);"), 'Departing customers must steer strictly to East exit portal');
+
 console.log('Ground geometry, walkways, and navigation safety tests passed.');

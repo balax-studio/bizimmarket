@@ -1607,8 +1607,8 @@ class MiniMartGame {
     this.unlockPads.push(pad20);
 
     // Living Neighborhood 3D Entities
-    this.mopStation = new MopStation(this.scene, -2.0, -22.5);
-    this.collision.addBox(-2.8, -1.2, -23.3, -21.7, 'mop_station');
+    this.mopStation = new MopStation(this.scene, -4.5, -23.5);
+    this.collision.addBox(-5.3, -3.7, -24.5, -22.5, 'mop_station');
 
     this.securityGate = new SecurityGate(this.scene, 0, -22.8);
     this.karabashDog = new KarabashDog(this.scene, 4.5, -23.5);
