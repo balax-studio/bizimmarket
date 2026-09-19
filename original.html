@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>My Mart - Original Unity Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Fredoka', sans-serif;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1e272e;
+    }
+    #unity-container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      top: 0;
+    }
+    #unity-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #231F20;
+    }
+    #loading-cover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #10ac84, #1dd1a1);
+      z-index: 10;
+      transition: opacity 0.5s ease;
+    }
+    .loading-card {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 32px 48px;
+      border-radius: 24px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      max-width: 420px;
+      width: 90%;
+    }
+    .game-title {
+      font-size: 32px;
+      color: #222f3e;
+      margin-bottom: 8px;
+    }
+    .game-subtitle {
+      font-size: 16px;
+      color: #576574;
+      margin-bottom: 24px;
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 18px;
+      background: #c8d6e5;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff9f43, #ee5253);
+      border-radius: 999px;
+      transition: width 0.15s ease;
+    }
+    .progress-text {
+      margin-top: 12px;
+      font-size: 15px;
+      color: #222f3e;
+      font-weight: 700;
+    }
+    .mode-switch-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.92);
+      border: 2px solid #ffffff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      color: #222f3e;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: transform 0.15s ease;
+    }
+    .mode-switch-btn:hover {
+      transform: scale(1.05);
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    
+    <div id="loading-cover">
+      <div class="loading-card">
+        <h1 class="game-title">My Mart</h1>
+        <p class="game-subtitle">Orijinal Unity WebGL Yükleniyor...</p>
+        <div class="progress-bar-bg">
+          <div id="progress-fill" class="progress-bar-fill"></div>
+        </div>
+        <div id="progress-text" class="progress-text">%0</div>
+      </div>
+    </div>
+
+    <a href="index.html" class="mode-switch-btn" title="Three.js versiyonuna geç">
+      Three.js Versiyonu ➔
+    </a>
+  </div>
+
+  <!-- Complete CrazyGames SDK Mock (Offline & Ad-free) -->
+  <script>
+    (function() {
+      const mock = {
+        init: function(options) {
+          if (options && options.onSuccess) setTimeout(options.onSuccess, 10);
+          if (typeof options === 'function') setTimeout(options, 10);
+          return Promise.resolve();
+        },
+        requestAd: function(type, cbs) {
+          if (cbs && cbs.adFinished) setTimeout(cbs.adFinished, 10);
+          if (typeof cbs === 'function') setTimeout(cbs, 10);
+        },
+        requestBanner: function() {},
+        clearBanner: function() {},
+        clearAllBanners: function() {},
+        gameplayStart: function() {},
+        gameplayStop: function() {},
+        happytime: function() {},
+        loadingStart: function() {},
+        loadingStop: function() {},
+        inviteLink: function() { return ""; },
+        showInviteButton: function() {},
+        hideInviteButton: function() {},
+        addScore: function() {},
+        hasAdblock: async function() { return false; },
+        getSystemInfo: function() {
+          return {
+            countryCode: 'TR',
+            device: { os: { name: 'Windows', version: '10' }, browser: { name: 'Chrome', version: '120' } }
+          };
+        },
+        getUser: async function() { return null; },
+        syncUnity: function() {},
+        addEventListener: function() {},
+        removeEventListener: function() {}
+      };
+
+      // Wrap in recursive proxy to handle any unexpected deep property access safely
+      function createSafeProxy(target) {
+        return new Proxy(target, {
+          get: function(obj, prop) {
+            if (prop in obj) return obj[prop];
+            if (typeof prop === 'string') {
+              if (prop === 'SDK') return createSafeProxy(target);
+              if (prop === 'ad' || prop === 'game' || prop === 'user' || prop === 'banner') return createSafeProxy(target);
+              return function() { return Promise.resolve(); };
+            }
+            return undefined;
+          }
+        });
+      }
+
+      window.Crazygames = createSafeProxy(mock);
+      window.crazygames = window.Crazygames;
+    })();
+  </script>
+
+  <!-- Unity Loader Script -->
+  <script src="Build/MyMart_Build.loader.js"></script>
+  <script>
+    const canvas = document.querySelector("#unity-canvas");
+    const loadingCover = document.querySelector("#loading-cover");
+    const progressFill = document.querySelector("#progress-fill");
+    const progressText = document.querySelector("#progress-text");
+
+    const config = {
+      dataUrl: "Build/d3effd33fbbf8df22aac5531ac7b9559.data.br",
+      frameworkUrl: "Build/89bf0ce8b5efafb77f3b027805c35618.js.br",
+      codeUrl: "Build/f488050d2050a0f0ce1917de3e8eb58d.wasm.br",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "DefaultCompany",
+      productName: "My Mart",
+      productVersion: "1.0",
+      showBanner: function(msg, type) {
+        console.log("Unity banner:", type, msg);
+      }
+    };
+
+    createUnityInstance(canvas, config, (progress) => {
+      const pct = Math.round(progress * 100);
+      progressFill.style.width = pct + "%";
+      progressText.textContent = "%" + pct;
+    }).then((unityInstance) => {
+      console.log("Unity instance created successfully!");
+      loadingCover.style.opacity = "0";
+      setTimeout(() => {
+        loadingCover.style.display = "none";
+      }, 500);
+    }).catch((message) => {
+      console.error("Unity WebGL Error:", message);
+      progressText.textContent = "Hata: " + message;
+    });
+  </script>
+</body>
+</html>

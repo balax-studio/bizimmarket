@@ -1,0 +1,41 @@
+# Retention Upgrade Checklist
+
+- [x] Phase 0: Repair remaining core mechanic issues before new systems.
+  - [x] Delivery item pool uses actual unlock keys, including `bakery` for bread.
+  - [x] Normal and VIP checkout both apply combo and Rush Hour once.
+  - [x] Partial unlock payments save immediately and final payment preserves post-payment money.
+  - [x] Salad recipe is consistent across production and wiki text.
+  - [x] Existing save data migrates without duplicate unlock rewards.
+- [x] Phase 1: Versioned save envelope for money, unlocks, upgrades, pad costs, and future systems.
+- [ ] Phase 2: Interactive first-sale-to-first-staff tutorial.
+  - [x] Real game events drive harvest, stock, sale, cash, upgrade and hire-staff steps.
+  - [ ] Add explicit skip/reopen controls and stronger world target highlight.
+- [x] Phase 3: Quest, XP, market level, and reward claiming.
+  - [x] Data-driven main quests, one-time rewards, XP and market level HUD foundation.
+  - [x] Three persistent side quests reward money, XP and unlockable sign cosmetics.
+  - [x] Later expansion pads and management unlocks require market levels 2–4; existing unlocked saves stay usable.
+- [ ] Phase 4: Five-minute game days, summaries, and accessible demand events.
+  - [x] Configurable five-minute day clock with day-end summary foundation.
+  - [x] Sales, sold items and completed quests feed day statistics.
+  - [x] Add demand variation and announced bulk orders.
+  - [ ] Expand demand events with stronger visual announcement and balancing pass.
+- [x] Phase 5: Staff priorities, shelf stock targets, pricing, and specialization.
+  - [x] Add selectable specialization modes: General, Greengrocer, Bakery, Gourmet.
+  - [x] Specialization affects real checkout price and is saved.
+  - [x] Per-product pricing modes affect checkout revenue and shopping demand, and are saved.
+  - [x] Staff priorities affect the job dispatcher and shelf stock targets affect restocking; both settings are saved.
+- [x] Phase 6: Capped offline income, rotating daily quests, and weekly cosmetic goal.
+  - [x] Offline rewards are calculated once from the previous save (5-minute minimum, 2-hour cap) and announced in the HUD.
+  - [x] Daily objectives rotate by local calendar day and award money plus XP once.
+  - [x] Weekly sales goal resets on Monday, awards money plus XP once, and unlocks a persistent gold level badge.
+- [ ] Phase 7: Playable second branch with separate stock/staff state. Deferred by user request.
+- [x] Phase 8: Visible voxel progression, transfer/cash effects, and customization.
+  - [x] Entrance sign gains level blocks and stronger illumination as the market levels up.
+  - [x] Player/staff shelf stocking and cash pickup use bounded voxel transfer effects.
+  - [x] Four saved sign colors and an effects toggle, with reduced-motion preference respected by default.
+- [ ] Phase 9: HUD/input polish and debug mode gating.
+  - [x] Mobile management drawer, compact HUD, safe-area controls and scrollable action row.
+  - [x] Pointer-based joystick/depar input with cancellation and blur reset.
+  - [x] Progress HUD updates only when values change; numeric counters align and focus states are visible.
+  - [ ] Verify the mobile layout on a real narrow viewport; browser security policy blocked the local iframe preview.
+- [ ] Phase 10: Local analytics export and retention caveat reporting.
