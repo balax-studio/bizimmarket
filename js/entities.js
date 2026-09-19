@@ -7899,7 +7899,8 @@ class AITaskDispatcher {
 
     // Job Type 5: Supply Hungry Processing Machines with Raw Farm Inputs
     if (g.flourMill && g.flourMill.currentWheat < g.flourMill.wheatCapacity && g.wheatPlot && g.wheatPlot.plantSlots.some(s => s.isRipe) && !this.isClaimed('feed_mill', helper.id)) {
-      const target = new THREE.Vector3(g.wheatPlot.x, 0, g.wheatPlot.z + 1.2);
+      const offsetX = ((helper.id % 2 === 0) ? -0.45 : 0.45);
+      const target = new THREE.Vector3(g.wheatPlot.x + offsetX, 0, g.wheatPlot.z + 1.3);
       const d = hPos.distanceTo(target);
       candidates.push({
         type: 'SUPPLY_INPUT',
@@ -7919,7 +7920,8 @@ class AITaskDispatcher {
     }
 
     if (g.cowPen && g.cowPen.currentFeed < g.cowPen.feedCapacity && g.wheatPlot && g.wheatPlot.plantSlots.some(s => s.isRipe) && !this.isClaimed('feed_cow', helper.id)) {
-      const target = new THREE.Vector3(g.wheatPlot.x, 0, g.wheatPlot.z + 1.2);
+      const offsetX = ((helper.id % 2 === 0) ? -0.45 : 0.45);
+      const target = new THREE.Vector3(g.wheatPlot.x + offsetX, 0, g.wheatPlot.z + 1.3);
       const d = hPos.distanceTo(target);
       candidates.push({
         type: 'SUPPLY_INPUT',
@@ -7953,7 +7955,8 @@ class AITaskDispatcher {
         const isRipe = (fp.plot.plantSlots && fp.plot.plantSlots.some(s => s.isRipe)) || (fp.plot.apples && fp.plot.apples.length > 0) || (fp.plot.isRipe);
         const demand = this.getShelfDemand(fp.type) + this.getFactoryInputDemand(fp.type);
         if (isRipe && demand > 0) {
-          const target = new THREE.Vector3(fp.plot.x, 0, fp.plot.z + 1.2);
+          const offsetX = ((helper.id % 2 === 0) ? -0.45 : 0.45);
+          const target = new THREE.Vector3(fp.plot.x + offsetX, 0, fp.plot.z + 1.3);
           const d = hPos.distanceTo(target);
           let roleBonus = (helper.role === 'FARMER' || helper.id === 1 || helper.id === 3) ? 25 : 0;
           candidates.push({
@@ -8038,14 +8041,14 @@ class StaffHelperAI {
     this.char.maxStack = c;
   }
 
-  moveTo(target, speed, delta) {
+  moveTo(target, speed, delta, reachDist = 1.25) {
     const pos = this.char.group.position;
     const res = moveWithDoorWaypoints(pos, target, speed, delta, this.navState);
     this.char.velocity.copy(res.velocity);
     if (res.velocity.lengthSq() > 0.01) {
       this.char.group.rotation.y = Math.atan2(res.velocity.x, res.velocity.z);
     }
-    return pos.distanceTo(target) <= 0.95;
+    return res.arrived || pos.distanceTo(target) <= reachDist;
   }
 
   getStatusInfo() {
@@ -8064,7 +8067,7 @@ class StaffHelperAI {
     if (topItem === 'WHEAT' && g.flourMill && g.flourMill.currentWheat < g.flourMill.wheatCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'DEĞİRMEN BESLE';
-      if (this.moveTo(g.flourMill.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.flourMill.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.flourMill.depositWheat();
@@ -8076,7 +8079,7 @@ class StaffHelperAI {
     } else if (topItem === 'WHEAT' && g.cowPen && g.cowPen.currentFeed < g.cowPen.feedCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'İNEK YEMLE';
-      if (this.moveTo(g.cowPen.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.cowPen.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.cowPen.feedWheat();
@@ -8088,7 +8091,7 @@ class StaffHelperAI {
     } else if (topItem === 'FLOUR' && g.bakeryOven && g.bakeryOven.currentFlour < g.bakeryOven.flourCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'FIRIN UN BESLE';
-      if (this.moveTo(g.bakeryOven.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.bakeryOven.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.bakeryOven.depositFlour();
@@ -8100,7 +8103,7 @@ class StaffHelperAI {
     } else if (topItem === 'MILK' && g.cheeseProcessor && g.cheeseProcessor.currentMilk < g.cheeseProcessor.milkCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'PEYNİR MAYALA';
-      if (this.moveTo(g.cheeseProcessor.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.cheeseProcessor.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.cheeseProcessor.depositMilk();
@@ -8112,7 +8115,7 @@ class StaffHelperAI {
     } else if (topItem === 'MILK' && g.iceCreamMachine && g.iceCreamMachine.currentMilk < g.iceCreamMachine.milkCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'DONDURMA SÜT';
-      if (this.moveTo(g.iceCreamMachine.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.iceCreamMachine.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.iceCreamMachine.depositMilk();
@@ -8124,7 +8127,7 @@ class StaffHelperAI {
     } else if (topItem === 'CORN' && g.popcornMaker && g.popcornMaker.currentCorn < g.popcornMaker.cornCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'MISIR PATLAT';
-      if (this.moveTo(g.popcornMaker.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.popcornMaker.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.popcornMaker.depositCorn();
@@ -8136,7 +8139,7 @@ class StaffHelperAI {
     } else if (topItem === 'APPLE' && g.juicer && g.juicer.currentApples < g.juicer.appleCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'ELMA SUYU SIK';
-      if (this.moveTo(g.juicer.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.juicer.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.juicer.depositApple();
@@ -8148,7 +8151,7 @@ class StaffHelperAI {
     } else if (topItem === 'STRAWBERRY' && g.iceCreamMachine && g.iceCreamMachine.currentStrawberries < g.iceCreamMachine.strawberryCapacity) {
       this.currentTask = 'SUPPLY_FACTORY';
       this.currentTaskLabel = 'ÇİLEKLİ DONDURMA';
-      if (this.moveTo(g.iceCreamMachine.inputPadPos, speed, delta)) {
+      if (this.moveTo(g.iceCreamMachine.inputPadPos, speed, delta, 1.35)) {
         if (this.cooldown <= 0) {
           this.char.removeItem();
           g.iceCreamMachine.depositStrawberry();
@@ -8166,17 +8169,25 @@ class StaffHelperAI {
     const speed = this.baseSpeed * this.speedMultiplier;
     const pos = this.char.group.position;
 
-    // 1. Anti-Stuck Jitter Physics
-    if (this.char.velocity.lengthSq() < 0.04 && this.cooldown <= 0) {
+    // 1. Anti-Stuck & Deadlock Prevention Watchdog
+    if (!this.lastPos) this.lastPos = pos.clone();
+    const distMoved = pos.distanceTo(this.lastPos);
+    if (distMoved < 0.04 * Math.max(0.2, delta * 60)) {
       this.stuckTimer += delta;
-      if (this.stuckTimer >= 1.5) {
-        pos.x += (Math.random() - 0.5) * 0.5;
-        pos.z += (Math.random() - 0.5) * 0.5;
+      if (this.stuckTimer >= 0.8) {
+        // Deterministic lateral nudge to break symmetry/clipping
+        const angle = (this.id * 1.5708) + ((this.id % 2 === 0) ? 0.3 : -0.3);
+        pos.x += Math.cos(angle) * 0.4;
+        pos.z += Math.sin(angle) * 0.4;
+        if (this.navState) {
+          this.navState.path = null; // force recalculating navigation path
+        }
         this.stuckTimer = 0;
       }
     } else {
-      this.stuckTimer = 0;
+      this.stuckTimer = Math.max(0, this.stuckTimer - delta * 2);
     }
+    this.lastPos.copy(pos);
 
     // 2. Soft Mutual Repulsion with Customers & Other Staff
     const allCharacters = [];
@@ -8185,11 +8196,18 @@ class StaffHelperAI {
     for (let i = 0; i < allCharacters.length; i++) {
       const other = allCharacters[i];
       if (!other || other === this || !other.char) continue;
-      const d = pos.distanceTo(other.char.group.position);
-      if (d < 1.30 && d > 0.05) {
-        const push = (1.30 - d) * 2.2 * delta;
-        const pushDirX = (pos.x - other.char.group.position.x) / d;
-        const pushDirZ = (pos.z - other.char.group.position.z) / d;
+      const otherPos = other.char.group.position;
+      const d = pos.distanceTo(otherPos);
+      if (d < 1.15) {
+        if (d <= 0.05) {
+          // Zero-distance un-clipping
+          pos.x += (this.id % 2 === 0 ? 0.2 : -0.2);
+          pos.z += (this.id % 4 < 2 ? 0.2 : -0.2);
+          continue;
+        }
+        const push = (1.15 - d) * 1.6 * delta;
+        const pushDirX = (pos.x - otherPos.x) / d;
+        const pushDirZ = (pos.z - otherPos.z) / d;
         pos.x += pushDirX * push;
         pos.z += pushDirZ * push;
       }
@@ -8215,14 +8233,15 @@ class StaffHelperAI {
       if (availableShelf) {
         this.currentTask = 'RESTOCK';
         this.currentTaskLabel = 'REYON DOLDUR';
-        const target = new THREE.Vector3(availableShelf.x, 0, availableShelf.z + 1.2);
-        if (this.moveTo(target, speed, delta)) {
+        const lateralOffset = ((this.id % 2 === 0) ? -0.45 : 0.45);
+        const target = new THREE.Vector3(availableShelf.x + lateralOffset, 0, availableShelf.z + 1.30);
+        if (this.moveTo(target, speed, delta, 1.35)) {
           if (this.cooldown <= 0) {
             const item = this.char.removeItem();
             availableShelf.stockItem(item);
             this.game.playTransferEffect?.(this.char.group.position, availableShelf.group.position, topItem);
             window.Sound.playStock();
-            this.cooldown = 0.12;
+            this.cooldown = 0.10;
           }
         }
         this.char.update(delta);
@@ -8233,8 +8252,8 @@ class StaffHelperAI {
       // deposit surplus items into Executive Office buffer/wholesale clearance so helper is immediately freed!
       this.currentTask = 'EXCESS_BUFFER';
       this.currentTaskLabel = 'YEDEK DEPO';
-      const bufferTarget = new THREE.Vector3(-14.8, 0, -4.6);
-      if (this.moveTo(bufferTarget, speed, delta)) {
+      const bufferTarget = new THREE.Vector3(-14.8 + (this.id % 3) * 0.4, 0, -4.6);
+      if (this.moveTo(bufferTarget, speed, delta, 1.25)) {
         if (this.cooldown <= 0) {
           const dumped = this.char.removeItem();
           const dumpedType = window.GameMechanics?.getItemType ? window.GameMechanics.getItemType(dumped) : dumped;
