@@ -72,6 +72,11 @@ assert(entitiesSource.includes('[FİYAT GÖR]'), 'Price checker kiosk must be pr
 assert(entitiesSource.includes('[DİKKAT]'), 'Wet floor cone must be present');
 assert(entitiesSource.includes('[YANGIN TÜPÜ]'), 'Fire extinguisher station must be present');
 assert(entitiesSource.includes('[DEPO - YALNIZCA PERSONEL]'), 'Warehouse double-swing doors must have personnel sign');
+assert(entitiesSource.includes('[FIRSAT]'), 'Promotional dump bin must be present');
+assert(entitiesSource.includes('[FIRIN]'), 'Artisanal bakery timber canopy must be present');
+assert(entitiesSource.includes('[DÖKME TAHIL]'), 'Bulk grain gravity dispensers must be present');
+assert(entitiesSource.includes('[MAĞAZA PLANI]'), 'Store directory navigation totem must be present');
+assert(entitiesSource.includes('[TAZE ÇİÇEK]'), 'Entrance floral stand must be present');
 
 // Logistics Warehouse Navigation & Player Geometry Verification
 assert(entitiesSource.includes("this.addNode('W_IN_DOOR', -19.2, -12.2);"), 'NavGraph must include W_IN_DOOR threshold node');

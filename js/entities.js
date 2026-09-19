@@ -10865,6 +10865,7 @@ class SupermarketVisualSystem {
     this.buildCheckoutAccessories();
     this.buildInAisleMerchandisingAndScales();
     this.buildSafetyAndHygiene();
+    this.buildMerchandisingAdditions();
 
     this.scene.add(this.group);
   }
@@ -11355,6 +11356,126 @@ class SupermarketVisualSystem {
       guard.position.set(gx > 0 ? gx - 0.25 : gx + 0.25, 0.60, gz);
       this.group.add(guard);
     });
+  }
+
+  // Category G: Advanced Visual Merchandising (Dump Bins, Bakery Canopy, Bulk Silos, Sneeze Guards, Directory Totem, Floral Stand)
+  buildMerchandisingAdditions() {
+    // 1. Promotional Action Alley Dump Bin [FIRSAT] (X = 2.4, Z = -13.5)
+    const dumpBin = new THREE.Group();
+    dumpBin.position.set(2.4, 0, -13.5);
+    const binFrame = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.78, 0.95), this.hazardMat);
+    binFrame.position.set(0, 0.39, 0);
+    const binInner = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.72, 0.85), this.blackMat);
+    binInner.position.set(0, 0.42, 0);
+    for (let i = 0; i < 4; i++) {
+      const item = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.32),
+        new THREE.MeshStandardMaterial({ color: i % 2 === 0 ? 0xff4757 : 0x00cec9, roughness: 0.3 }));
+      item.position.set((i % 2 - 0.5) * 0.38, 0.65, (Math.floor(i / 2) - 0.5) * 0.38);
+      dumpBin.add(item);
+    }
+    const binSign = createVoxelNeoSign('[FIRSAT]', '#FF4757', '#FFFFFF', 0.80, 0.28, 0.06);
+    binSign.position.set(0, 0.95, 0);
+    dumpBin.add(binFrame, binInner, binSign);
+    this.group.add(dumpBin);
+
+    // 2. Artisanal Bakery Slatted Timber Canopy (X = -8.5, Z = -15.0, Y = 2.85m)
+    const bakeryCanopy = new THREE.Group();
+    bakeryCanopy.position.set(-8.5, 2.85, -15.0);
+    [-1.8, 1.8].forEach(bx => {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 2.8), this.woodMat);
+      beam.position.set(bx, 0, 0);
+      bakeryCanopy.add(beam);
+    });
+    for (let sz = -1.2; sz <= 1.2; sz += 0.4) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.08, 0.18), this.woodMat);
+      slat.position.set(0, 0.10, sz);
+      bakeryCanopy.add(slat);
+    }
+    [-1.0, 1.0].forEach(lx => {
+      const spot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0xfffa65, emissive: 0xfffa65, emissiveIntensity: 0.7 }));
+      spot.position.set(lx, -0.05, 0);
+      bakeryCanopy.add(spot);
+    });
+    const bSign = createVoxelNeoSign('[FIRIN]', '#D35400', '#FFFFFF', 1.2, 0.35, 0.06);
+    bSign.position.set(0, 0.32, 1.4);
+    bakeryCanopy.add(bSign);
+    this.group.add(bakeryCanopy);
+
+    // 3. Bulk Grain & Legume Gravity Dispensers [DÖKME TAHIL] (X = -12.5, Z = -20.5)
+    const bulkStation = new THREE.Group();
+    bulkStation.position.set(-12.5, 0, -20.5);
+    const bFrame = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.9, 0.45), this.woodMat);
+    bFrame.position.set(0, 0.95, 0);
+    [-0.5, 0.0, 0.5].forEach((gx, idx) => {
+      const grainTube = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.90, 0.28), this.glassMat);
+      grainTube.position.set(gx, 1.20, 0.12);
+      const grainColor = idx === 0 ? 0xf1c40f : (idx === 1 ? 0xe67e22 : 0x27ae60);
+      const grainFill = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.75, 0.24),
+        new THREE.MeshStandardMaterial({ color: grainColor, roughness: 0.7 }));
+      grainFill.position.set(gx, 1.15, 0.12);
+      const spout = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.18, 0.14), this.chromeMat);
+      spout.position.set(gx, 0.65, 0.18);
+      bulkStation.add(grainTube, grainFill, spout);
+    });
+    const bHeader = createVoxelNeoSign('[DÖKME TAHIL]', '#27AE60', '#FFFFFF', 1.4, 0.32, 0.06);
+    bHeader.position.set(0, 1.95, 0.12);
+    bulkStation.add(bFrame, bHeader);
+    this.group.add(bulkStation);
+
+    // 4. Counter Sneeze Guards on Toast & Food Prep Bar (X = -15.5, Z = -15.0, Y = 0.95m)
+    const sneezeGuard = new THREE.Group();
+    sneezeGuard.position.set(-15.5, 0.95, -15.0);
+    const sShield = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 0.06), this.glassMat);
+    sShield.position.set(0, 0.35, 0.45);
+    [-0.7, 0.7].forEach(sx => {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.60, 0.06), this.chromeMat);
+      post.position.set(sx, 0.30, 0.45);
+      sneezeGuard.add(post);
+    });
+    sneezeGuard.add(sShield);
+    this.group.add(sneezeGuard);
+
+    // 5. Store Directory & Department Navigation Totem [MAĞAZA PLANI] (X = -1.8, Z = -21.2)
+    const directoryTotem = new THREE.Group();
+    directoryTotem.position.set(-1.8, 0, -21.2);
+    const totemBase = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.12, 0.45), this.blackMat);
+    totemBase.position.set(0, 0.06, 0);
+    const totemPillar = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.65, 0.18), this.enamelMat);
+    totemPillar.position.set(0, 0.90, 0);
+    const tMapHeader = createVoxelNeoSign('[MAĞAZA PLANI]', '#0984E3', '#FFFFFF', 0.85, 0.30, 0.08);
+    tMapHeader.position.set(0, 1.60, 0);
+    const deptColors = [0x2ecc71, 0x0984e3, 0xd35400, 0x8e44ad];
+    deptColors.forEach((dc, i) => {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(0.60, 0.12, 0.04),
+        new THREE.MeshStandardMaterial({ color: dc, roughness: 0.3 }));
+      block.position.set(0, 1.25 - i * 0.18, 0.10);
+      directoryTotem.add(block);
+    });
+    directoryTotem.add(totemBase, totemPillar, tMapHeader);
+    this.group.add(directoryTotem);
+
+    // 6. Entrance Floral & Potted Plants Stand (X = 1.8, Z = -21.2)
+    const floralStand = new THREE.Group();
+    floralStand.position.set(1.8, 0, -21.2);
+    for (let t = 0; t < 3; t++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.08, 0.30), this.woodMat);
+      step.position.set(0, 0.25 + t * 0.25, -0.25 + t * 0.25);
+      [-0.24, 0.24].forEach(px => {
+        const pot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.18),
+          new THREE.MeshStandardMaterial({ color: 0xd35400, roughness: 0.8 }));
+        pot.position.set(px, 0.37 + t * 0.25, -0.25 + t * 0.25);
+        const plant = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22),
+          new THREE.MeshStandardMaterial({ color: t === 0 ? 0x2ed573 : (t === 1 ? 0xff4757 : 0xfffa65), roughness: 0.5 }));
+        plant.position.set(px, 0.52 + t * 0.25, -0.25 + t * 0.25);
+        floralStand.add(pot, plant);
+      });
+      floralStand.add(step);
+    }
+    const fSign = createVoxelNeoSign('[TAZE ÇİÇEK]', '#2ECC71', '#111111', 0.85, 0.24, 0.04);
+    fSign.position.set(0, 1.15, 0.25);
+    floralStand.add(fSign);
+    this.group.add(floralStand);
   }
 
   destroy() {
