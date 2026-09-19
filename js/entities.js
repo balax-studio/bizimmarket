@@ -21,7 +21,17 @@ const ITEM_TYPES = {
   PIZZA: { name: 'Gurme Pizza', color: 0xe74c3c, price: 120 },
   ICE_CREAM: { name: 'Kremalı Dondurma', color: 0xff7675, price: 95 },
   SALAD_BOWL: { name: 'Akdeniz Salatası', color: 0x2ed573, price: 70 },
-  TOAST: { name: 'Kızarmış Tost', color: 0xcd853f, price: 34 }
+  TOAST: { name: 'Kızarmış Tost', color: 0xcd853f, price: 34 },
+  // FMCG Toptan Tedarik Ürünleri
+  WATER_PACK: { name: 'Kaynak Suyu', color: 0x3498db, price: 10 },
+  PREMIUM_WATER: { name: 'Premium Su', color: 0x74b9ff, price: 25 },
+  SODA_CAN: { name: 'Kutu Meşrubat', color: 0xe74c3c, price: 20 },
+  MINERAL_WATER: { name: 'Maden Suyu', color: 0x1abc9c, price: 12 },
+  LIQUID_DETERGENT: { name: 'Sıvı Deterjan', color: 0x9b59b6, price: 75 },
+  SURFACE_CLEANER: { name: 'Yüzey Temizleyici', color: 0x2ecc71, price: 32 },
+  DISH_SOAP: { name: 'Bulaşık Tableti', color: 0x34495e, price: 45 },
+  SHAMPOO: { name: 'Şampuan', color: 0xf39c12, price: 40 },
+  BAR_SOAP: { name: 'Banyo Sabunu', color: 0xf1c40f, price: 15 }
 };
 
 function getItemDisplayName(itemType) {
@@ -4014,6 +4024,106 @@ class ShelfUnit {
         new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.4 })
       );
       mesh.add(crust, crumb);
+    } else if (type === 'WATER_PACK') {
+      mesh = new THREE.Group();
+      // 6-pack water bottles with shrinkwrap
+      const wrap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.32, 0.26, 0.22),
+        new THREE.MeshStandardMaterial({ color: 0x74b9ff, transparent: true, opacity: 0.65 })
+      );
+      wrap.castShadow = true;
+      [-0.09, 0.0, 0.09].forEach(bx => {
+        [-0.06, 0.06].forEach(bz => {
+          const cap = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0x0984e3 }));
+          cap.position.set(bx, 0.14, bz);
+          mesh.add(cap);
+        });
+      });
+      mesh.add(wrap);
+    } else if (type === 'PREMIUM_WATER') {
+      mesh = new THREE.Group();
+      const bottle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.28, 0.22),
+        new THREE.MeshStandardMaterial({ color: 0x81ecec, transparent: true, opacity: 0.75, roughness: 0.1 })
+      );
+      bottle.castShadow = true;
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.12), new THREE.MeshStandardMaterial({ color: 0xdfe6e9, metalness: 0.8 }));
+      cap.position.y = 0.15;
+      mesh.add(bottle, cap);
+    } else if (type === 'SODA_CAN') {
+      mesh = new THREE.Group();
+      const can = new THREE.Mesh(
+        new THREE.BoxGeometry(0.20, 0.26, 0.20),
+        new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.3, metalness: 0.4 })
+      );
+      can.castShadow = true;
+      const tab = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 0.12), new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.8 }));
+      tab.position.y = 0.14;
+      mesh.add(can, tab);
+    } else if (type === 'MINERAL_WATER') {
+      mesh = new THREE.Group();
+      const bottle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, 0.26, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0x00b894, transparent: true, opacity: 0.75, roughness: 0.2 })
+      );
+      bottle.castShadow = true;
+      const crown = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.08), new THREE.MeshStandardMaterial({ color: 0xf1c40f, metalness: 0.7 }));
+      crown.position.y = 0.14;
+      mesh.add(bottle, crown);
+    } else if (type === 'LIQUID_DETERGENT') {
+      mesh = new THREE.Group();
+      // 5L heavy jug
+      const jug = new THREE.Mesh(
+        new THREE.BoxGeometry(0.28, 0.32, 0.20),
+        new THREE.MeshStandardMaterial({ color: 0x6c5ce7, roughness: 0.35 })
+      );
+      jug.castShadow = true;
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.12), new THREE.MeshStandardMaterial({ color: 0x5b4bc4 }));
+      handle.position.set(-0.13, 0.05, 0);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.10), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+      cap.position.set(0.05, 0.18, 0);
+      mesh.add(jug, handle, cap);
+    } else if (type === 'SURFACE_CLEANER') {
+      mesh = new THREE.Group();
+      const bottle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.20, 0.26, 0.16),
+        new THREE.MeshStandardMaterial({ color: 0x00cec9, roughness: 0.4 })
+      );
+      bottle.castShadow = true;
+      const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.08), new THREE.MeshStandardMaterial({ color: 0xff7675 }));
+      trigger.position.set(0.02, 0.16, 0);
+      mesh.add(bottle, trigger);
+    } else if (type === 'DISH_SOAP') {
+      mesh = new THREE.Group();
+      const bottle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.20, 0.28, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.3 })
+      );
+      bottle.castShadow = true;
+      const top = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.08), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+      top.position.y = 0.15;
+      mesh.add(bottle, top);
+    } else if (type === 'SHAMPOO') {
+      mesh = new THREE.Group();
+      const bottle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.20, 0.30, 0.16),
+        new THREE.MeshStandardMaterial({ color: 0xf39c12, roughness: 0.25 })
+      );
+      bottle.castShadow = true;
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.10), new THREE.MeshStandardMaterial({ color: 0x2d3436 }));
+      cap.position.y = 0.16;
+      mesh.add(bottle, cap);
+    } else if (type === 'BAR_SOAP') {
+      mesh = new THREE.Group();
+      for (let s = 0; s < 2; s++) {
+        const bar = new THREE.Mesh(
+          new THREE.BoxGeometry(0.22, 0.08, 0.16),
+          new THREE.MeshStandardMaterial({ color: 0x55efc4, roughness: 0.6 })
+        );
+        bar.position.y = 0.04 + s * 0.09;
+        bar.castShadow = true;
+        mesh.add(bar);
+      }
     } else {
       mesh = new THREE.Mesh(
         new THREE.BoxGeometry(0.24, 0.20, 0.24),
@@ -4147,6 +4257,141 @@ function createVoxelNeoSign(label, bgColor = '#FFE600', textColor = '#111111', w
   signGroup.add(backFace);
 
   return signGroup;
+}
+
+// --- Specialty Fixture: Beverage Chiller Display Shelf [SOĞUK MEŞRUBAT DOLABI] ---
+class BeverageChillerShelf extends ShelfUnit {
+  constructor(scene, x, z, rotationY = 0, itemType = 'SODA_CAN') {
+    super(scene, x, z, rotationY, itemType);
+    this.maxCapacity = 24;
+  }
+
+  initMesh() {
+    // Anthracite Floor Footprint Mat
+    const matGeo = new THREE.PlaneGeometry(2.8, 2.0);
+    matGeo.rotateX(-Math.PI / 2);
+    const matMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.7 });
+    const mat = new THREE.Mesh(matGeo, matMat);
+    mat.position.y = 0.005;
+    mat.receiveShadow = true;
+    this.group.add(mat);
+
+    // 1. Chiller Main Anthracite Insulated Shell
+    const shellMat = new THREE.MeshStandardMaterial({ color: 0x222f3e, roughness: 0.3 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 0.95), shellMat);
+    body.position.set(0, 1.2, -0.45);
+    body.castShadow = true;
+
+    // 2. Interior Illuminated White Refrigeration Cavity
+    const intMat = new THREE.MeshStandardMaterial({ color: 0xf1f2f6, roughness: 0.2 });
+    const cavity = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.1, 0.75), intMat);
+    cavity.position.set(0, 1.2, -0.35);
+
+    // 3. Interior Cool-White LED Light Bars (Top)
+    const ledMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3 });
+    const topLed = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.06, 0.06), ledMat);
+    topLed.position.set(0, 2.15, -0.05);
+
+    // 4. Three Powder-Coated White Wire Shelf Tiers
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.6, roughness: 0.3 });
+    [0.55, 1.15, 1.75].forEach(sy => {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.04, 0.65), wireMat);
+      shelf.position.set(0, sy, -0.35);
+      shelf.receiveShadow = true;
+      this.group.add(shelf);
+    });
+
+    // 5. Dual Clear Acrylic / Glass Doors with Vertical Black Handles
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x81ecec,
+      transparent: true,
+      opacity: 0.38,
+      roughness: 0.1
+    });
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
+
+    [-0.55, 0.55].forEach(dx => {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(1.08, 1.95, 0.04), glassMat);
+      door.position.set(dx, 1.18, 0.02);
+
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.85, 0.06), handleMat);
+      handle.position.set(dx > 0 ? dx - 0.45 : dx + 0.45, 1.15, 0.06);
+
+      this.group.add(door, handle);
+    });
+
+    // 6. Digital LED Temperature Gauge [ +4°C ]
+    const gaugePanel = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.16, 0.04), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    gaugePanel.position.set(0.85, 2.30, 0.04);
+    const tempSign = createVoxelNeoSign('[+4°C]', '#111111', '#00D2D3', 0.50, 0.14, 0.02);
+    tempSign.position.set(0.85, 2.30, 0.06);
+
+    // 7. Neo-Brutalist Marquee Header Sign
+    const headerSign = createVoxelNeoSign('[SOĞUK İÇECEK DOLABI]', '#0984E3', '#FFFFFF', 2.3, 0.38, 0.08);
+    headerSign.position.set(0, 2.65, -0.45);
+
+    this.group.add(body, cavity, topLed, gaugePanel, tempSign, headerSign);
+
+    this.initOverheadSignAndBadge();
+  }
+}
+
+// --- Specialty Fixture: Heavy-Duty Cleaning Chemical Shelf [TEMİZLİK & HİJYEN] ---
+class CleaningShelfUnit extends ShelfUnit {
+  constructor(scene, x, z, rotationY = 0, itemType = 'LIQUID_DETERGENT') {
+    super(scene, x, z, rotationY, itemType);
+    this.maxCapacity = 20;
+  }
+
+  initMesh() {
+    // Industrial Floor Footprint
+    const matGeo = new THREE.PlaneGeometry(2.8, 2.0);
+    matGeo.rotateX(-Math.PI / 2);
+    const matMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.8 });
+    const mat = new THREE.Mesh(matGeo, matMat);
+    mat.position.y = 0.005;
+    mat.receiveShadow = true;
+    this.group.add(mat);
+
+    // 1. Reinforced Steel Upright Posts (Height 2.3m)
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.5, metalness: 0.5 });
+    const hazardMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 });
+
+    [-1.15, 1.15].forEach(ux => {
+      [-0.40, 0.40].forEach(uz => {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.3, 0.12), steelMat);
+        post.position.set(ux, 1.15, uz - 0.4);
+        post.castShadow = true;
+        this.group.add(post);
+      });
+    });
+
+    // 2. Heavy-Duty Steel Shelves with Yellow Safety Lip Borders
+    [0.35, 1.05, 1.75].forEach(sy => {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.85), steelMat);
+      shelf.position.set(0, sy, -0.4);
+      shelf.receiveShadow = true;
+
+      // Yellow-black hazard border stripe along front edge
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(2.42, 0.08, 0.04), hazardMat);
+      lip.position.set(0, sy + 0.04, 0.03);
+
+      this.group.add(shelf, lip);
+    });
+
+    // 3. Yellow-Black Hazard Base Kickplate
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.22, 0.90), blackMat);
+    base.position.set(0, 0.11, -0.4);
+    this.group.add(base);
+
+    // 4. Heavy Overhead Header [TEMİZLİK & HİJYEN]
+    const header = createVoxelNeoSign('[TEMİZLİK & HİJYEN]', '#FFE600', '#111111', 2.4, 0.42, 0.10);
+    header.position.set(0, 2.65, -0.4);
+    this.group.add(header);
+
+    this.initOverheadSignAndBadge();
+  }
 }
 
 // --- Modern Motorized Supermarket Checkout Counter (Conveyor, Scanner, Dual POS, Acrylic Shield, Bagging Well, Lane Lantern) ---
@@ -5733,6 +5978,32 @@ class CustomerAI {
         this.char.head.rotation.x = Math.abs(Math.sin(this.inspectTimer * 8)) * 0.12;
 
         if (this.targetShelf && this.targetShelf.hasItems()) {
+          const itemType = this.targetShelf.itemType;
+          const currentPrice = window.gameInstance?.getSalePrice ? window.gameInstance.getSalePrice(itemType) : 10;
+          const msrp = window.GameMechanics?.WHOLESALE_CATALOG?.[itemType]?.retailRef || ITEM_TYPES[itemType]?.price || 10;
+          const elasticity = window.GameMechanics?.applyPriceElasticity ? window.GameMechanics.applyPriceElasticity(itemType, currentPrice, msrp) : { appeal: 'FAIR', dropoutChance: 0 };
+
+          if (elasticity.dropoutChance > 0 && Math.random() < elasticity.dropoutChance) {
+            if (window.gameInstance && window.gameInstance.showFloatingText) {
+              window.gameInstance.showFloatingText(elasticity.bubbleTag || '[PAHALI!]', this.char.group.position, '#FF5252');
+            }
+            this.waitingTimer = 0;
+            const foundNext = this.pickTargetShelf(false);
+            if (!foundNext) {
+              this.char.head.rotation.set(0, 0, 0);
+              this.checkout = this.getBestCheckout(allCustomers);
+              if (this.navState) this.navState.path = null;
+              this.state = this.itemsBought > 0 ? 'WALKING_TO_CHECKOUT' : 'LEAVING';
+            }
+            return;
+          }
+
+          if (elasticity.prestigeBonus && Math.random() < 0.25) {
+            if (window.gameInstance && window.gameInstance.showFloatingText) {
+              window.gameInstance.showFloatingText('[FIRSAT ÜRÜNÜ]', this.char.group.position, '#2ED573');
+            }
+          }
+
           const item = this.targetShelf.takeItem();
           if (item) {
             const added = this.char.addItemToCart(item.itemType || item);
@@ -8148,6 +8419,39 @@ class AITaskDispatcher {
                   } else {
                     break;
                   }
+                }
+                window.Sound.playPop();
+                helper.cooldown = 0.20;
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Job Type 4b: Collect Wholesale Crates from Warehouse to Stock Shelves
+    if (g.wholesaleBay && g.wholesaleBay.crates && g.wholesaleBay.crates.length > 0) {
+      for (const crate of g.wholesaleBay.crates) {
+        if (!crate || this.isClaimed(`crate_${crate.x}_${crate.z}`, helper.id)) continue;
+        const demand = this.getShelfDemand(crate.itemType);
+        if (demand > 0) {
+          const cratePos = new THREE.Vector3(crate.x, 0, crate.z);
+          const d = hPos.distanceTo(cratePos);
+          let roleBonus = (helper.role === 'STOCKER' || helper.role === 'LOGISTICS') ? 30 : 0;
+          candidates.push({
+            type: 'COLLECT_WAREHOUSE',
+            label: `${getItemDisplayName(crate.itemType)} KOLİDEN AL`,
+            key: `crate_${crate.x}_${crate.z}`,
+            priority: 78 + roleBonus + Math.min(demand * 2, 20) - d * 0.4,
+            targetPos: cratePos,
+            execute: () => {
+              if (helper.cooldown <= 0) {
+                while (helper.char.stack.length < helper.char.maxStack && crate.count > 0) {
+                  helper.char.addItem(crate.itemType);
+                  crate.count--;
+                }
+                if (crate.count <= 0) {
+                  g.wholesaleBay.removeCrate(crate);
                 }
                 window.Sound.playPop();
                 helper.cooldown = 0.20;
@@ -10701,57 +11005,124 @@ class WholesaleTruck {
     this.onDeparted = onDeparted;
     this.state = 'ARRIVING';
     this.timer = 0;
+    this.beepTimer = 0;
 
     this.group = new THREE.Group();
     this.group.position.set(startX, 0, z);
 
-    const cabMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.3 });
-    const cargoMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.8 });
+    // Three.js BoxGeometry Voxel Materials
+    const cabMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.3 }); // Mavi şoför kupası
+    const cargoMat = new THREE.MeshStandardMaterial({ color: 0xf5f6fa, roughness: 0.35 }); // Beyaz kapalı kasa
+    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.8 }); // Çelik şasi
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x74b9ff, transparent: true, opacity: 0.7 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xdfe6e9, metalness: 0.85, roughness: 0.2 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x74b9ff, transparent: true, opacity: 0.65 });
+    const redMat = new THREE.MeshBasicMaterial({ color: 0xff4757 });
 
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.3, 2.0), chassisMat);
-    chassis.position.y = 0.4;
+    // 1. Heavy Chassis (Length 5.6m)
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.35, 2.1), chassisMat);
+    chassis.position.y = 0.45;
 
-    [-1.8, 1.8].forEach(wx => {
-      [-1.0, 1.0].forEach(wz => {
-        const wheel = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.3), wheelMat);
-        wheel.position.set(wx, 0.3, wz);
-        this.group.add(wheel);
-      });
+    // 2. Steel Front Bumper & Chrome Radiator Grille
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.40, 2.2), chromeMat);
+    bumper.position.set(2.7, 0.40, 0);
+    const grille = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.70, 1.4), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    grille.position.set(2.75, 0.95, 0);
+
+    // 3. Blue Driver Cab (1.8m x 1.7m x 2.0m)
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.7, 2.0), cabMat);
+    cab.position.set(1.7, 1.35, 0);
+
+    // Windshield & Side Windows
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.70, 1.8), glassMat);
+    windshield.position.set(2.61, 1.50, 0);
+    [-1.02, 1.02].forEach(sz => {
+      const sideWin = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.06), glassMat);
+      sideWin.position.set(1.7, 1.55, sz);
+      this.group.add(sideWin);
     });
 
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.9), cabMat);
-    cab.position.set(1.7, 1.25, 0);
+    // Dual Exhaust Stacks behind Cab
+    [-0.85, 0.85].forEach(ez => {
+      const pipe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 0.12), chromeMat);
+      pipe.position.set(0.68, 1.6, ez);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.16), chromeMat);
+      cap.position.set(0.68, 2.8, ez);
+      this.group.add(pipe, cap);
+    });
 
-    const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 1.7), glassMat);
-    windshield.position.set(2.51, 1.4, 0);
+    // 4. Large White Enclosed Cargo Container (3.8m x 2.2m x 2.1m)
+    const cargo = new THREE.Mesh(new THREE.BoxGeometry(3.8, 2.2, 2.1), cargoMat);
+    cargo.position.set(-1.0, 1.65, 0);
 
-    const cargo = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.0, 2.0), cargoMat);
-    cargo.position.set(-0.8, 1.45, 0);
+    // Rear Frame & Dual Opening Doors (Hinged at left and right corners)
+    this.doorPivotL = new THREE.Group();
+    this.doorPivotL.position.set(-2.9, 1.65, -1.05);
+    const doorL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.15, 1.02), cargoMat);
+    doorL.position.set(0, 0, 0.51);
+    this.doorPivotL.add(doorL);
 
-    this.group.add(chassis, cab, windshield, cargo);
+    this.doorPivotR = new THREE.Group();
+    this.doorPivotR.position.set(-2.9, 1.65, 1.05);
+    const doorR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.15, 1.02), cargoMat);
+    doorR.position.set(0, 0, -0.51);
+    this.doorPivotR.add(doorR);
+
+    // Rear Red Brake Lights
+    [-0.9, 0.9].forEach(lz => {
+      const light = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.25), redMat);
+      light.position.set(-2.92, 0.50, lz);
+      this.group.add(light);
+    });
+
+    // 5. Six Heavy Rubber Road Wheels (2 front, 4 rear tandem)
+    const wheelPositions = [
+      [1.7, -1.05], [1.7, 1.05],
+      [-1.4, -1.05], [-1.4, 1.05],
+      [-2.3, -1.05], [-2.3, 1.05]
+    ];
+    wheelPositions.forEach(([wx, wz]) => {
+      const tire = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.32), wheelMat);
+      tire.position.set(wx, 0.325, wz);
+      const hub = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.34), chromeMat);
+      hub.position.set(wx, 0.325, wz);
+      this.group.add(tire, hub);
+    });
+
+    this.group.add(chassis, bumper, grille, cab, windshield, cargo, this.doorPivotL, this.doorPivotR);
     this.scene.add(this.group);
   }
 
   update(delta) {
     if (this.state === 'ARRIVING') {
-      this.group.position.x += 6.5 * delta;
+      this.beepTimer -= delta;
+      if (this.beepTimer <= 0) {
+        this.beepTimer = 0.55;
+        if (typeof window !== 'undefined' && window.Sound && typeof window.Sound.playReverseBeep === 'function') {
+          window.Sound.playReverseBeep();
+        }
+      }
+      this.group.position.x += 6.0 * delta;
       if (this.group.position.x >= this.targetX) {
         this.group.position.x = this.targetX;
         this.state = 'UNLOADING';
-        this.timer = 2.0;
+        this.timer = 2.4;
+        // Open rear cargo doors
+        this.doorPivotL.rotation.y = -Math.PI / 2.2;
+        this.doorPivotR.rotation.y = Math.PI / 2.2;
         if (this.onArrived) this.onArrived();
       }
     } else if (this.state === 'UNLOADING') {
       this.timer -= delta;
       if (this.timer <= 0) {
         this.state = 'DEPARTING';
+        // Close rear cargo doors
+        this.doorPivotL.rotation.y = 0;
+        this.doorPivotR.rotation.y = 0;
       }
     } else if (this.state === 'DEPARTING') {
-      this.group.position.x += 7.0 * delta;
-      if (this.group.position.x >= 20.0) {
+      this.group.position.x += 7.5 * delta;
+      if (this.group.position.x >= 24.0) {
         this.state = 'FINISHED';
         if (this.onDeparted) this.onDeparted();
         this.destroy();
@@ -10771,6 +11142,8 @@ class WholesaleTruck {
     this.scene.remove(this.group);
   }
 }
+
+const WholesaleTruck3D = WholesaleTruck;
 
 class WholesaleBay {
   constructor(scene, x = -24.0, z = -10.0) {
@@ -11865,6 +12238,9 @@ if (typeof window !== 'undefined') {
   window.WholesaleBay = WholesaleBay;
   window.VoxelCrate = VoxelCrate;
   window.WholesaleTruck = WholesaleTruck;
+  window.WholesaleTruck3D = WholesaleTruck3D;
+  window.BeverageChillerShelf = BeverageChillerShelf;
+  window.CleaningShelfUnit = CleaningShelfUnit;
   window.TeaStation = TeaStation;
   window.VoxelRadio = VoxelRadio;
   window.VoxelNeonSign = VoxelNeonSign;
@@ -11882,6 +12258,9 @@ if (typeof module !== 'undefined' && module.exports) {
     WholesaleBay,
     VoxelCrate,
     WholesaleTruck,
+    WholesaleTruck3D,
+    BeverageChillerShelf,
+    CleaningShelfUnit,
     TeaStation,
     VoxelRadio,
     VoxelNeonSign,

@@ -1270,7 +1270,14 @@ class MiniMartGame {
     this.eggShelf = new ShelfUnit(this.scene, 4.0, -9.5, 0, 'EGG');
     this.collision.addBox(2.7, 5.3, -10.3, -8.7, 'shelf_egg');
 
-    this.shelves.push(this.tomatoShelf, this.eggShelf);
+    // Dedicated FMCG Specialty Fixtures (Faz 4)
+    this.beverageChiller = new BeverageChillerShelf(this.scene, 18.2, -16.0, -Math.PI / 2, 'SODA_CAN');
+    this.collision.addBox(17.4, 19.0, -17.3, -14.7, 'shelf_beverage_chiller');
+
+    this.cleaningShelf = new CleaningShelfUnit(this.scene, 15.5, -9.5, 0, 'LIQUID_DETERGENT');
+    this.collision.addBox(14.2, 16.8, -10.3, -8.7, 'shelf_cleaning');
+
+    this.shelves.push(this.tomatoShelf, this.eggShelf, this.beverageChiller, this.cleaningShelf);
 
     // Front Modern Supermarket Triple-Checkout Concourse (Z = -19.5)
     this.checkout1 = new CheckoutCounter(this.scene, 3.5, -19.5, 1);
@@ -1706,15 +1713,27 @@ class MiniMartGame {
       this.keys[e.code] = true;
       window.Sound.ensureContext();
       if (e.code === 'Escape') {
+        if (this.isProcurementOpen) {
+          this.closeProcurementTerminal();
+          return;
+        }
         if (this.isNeighborhoodOpen) this.closeNeighborhoodModal();
         if (this.isWikiOpen) this.closeWikiModal();
         if (this.isManagementOpen) this.closeManagementModal();
         if (this.isDayChoiceOpen && this.closeDayChoiceModal) this.closeDayChoiceModal();
-        if (this.isWholesaleOpen) this.closeWholesaleModal();
-      } else if (e.code === 'KeyE') {
-        if (this.pendingVeresiyeCheckout) {
+      } else if (e.code === 'KeyE' || e.key === 'e' || e.key === 'E') {
+        if (this.isNearOfficeDesk) {
+          if (this.isProcurementOpen) {
+            this.closeProcurementTerminal();
+          } else {
+            this.openProcurementTerminal();
+          }
+          return;
+        } else if (this.pendingVeresiyeCheckout) {
           this.confirmVeresiyeCheckout();
         }
+      } else if (e.code === 'KeyC' || e.key === 'c' || e.key === 'C') {
+        this.toggleCameraAngle();
       } else if (e.code === 'KeyH' || e.code === 'Tab') {
         e.preventDefault();
         this.toggleWikiModal();
@@ -1839,6 +1858,10 @@ class MiniMartGame {
     this.hygieneDisplay = document.getElementById('hygiene-display');
     this.prestigeDisplay = document.getElementById('prestige-display');
     this.initWholesaleUI();
+    this.initProcurementUI();
+
+    const cameraBtn = document.getElementById('camera-btn');
+    cameraBtn?.addEventListener('click', () => this.toggleCameraAngle());
 
     const managementToggle = document.getElementById('management-toggle');
     managementToggle?.addEventListener('click', () => {
@@ -3545,8 +3568,23 @@ class MiniMartGame {
 
     if (this.upgradeDesk) {
       if (this.upgradePadCooldown > 0) this.upgradePadCooldown -= delta;
-      const distToDesk = this.player.group.position.distanceTo(this.upgradeDesk.triggerPadPos);
-      if (distToDesk < 1.4 && !this.isUpgradeModalOpen && this.upgradePadCooldown <= 0) {
+      const deskPos = new THREE.Vector3(-15.8, 0, -4.8);
+      const distToDesk = this.player.group.position.distanceTo(deskPos);
+      this.isNearOfficeDesk = distToDesk < 2.4;
+
+      const padPos = this.upgradeDesk.triggerPadPos || new THREE.Vector3(-15.8, 0, -3.8);
+      const distToPad = this.player.group.position.distanceTo(padPos);
+
+      const promptEl = document.getElementById('office-terminal-prompt');
+      if (promptEl) {
+        if (this.isNearOfficeDesk && !this.isProcurementOpen && !this.isUpgradeModalOpen) {
+          promptEl.classList.remove('hidden');
+        } else {
+          promptEl.classList.add('hidden');
+        }
+      }
+
+      if (distToPad < 0.8 && distToDesk > 1.25 && !this.isUpgradeModalOpen && !this.isProcurementOpen && this.upgradePadCooldown <= 0) {
         this.openUpgradeModal();
       }
     }
@@ -3554,15 +3592,54 @@ class MiniMartGame {
     this.player.update(delta);
   }
 
-  // Smooth camera follow & dynamic sprint speed FOV warp
+  // Camera Angle Preset Toggle: 0: Standart İzometrik (24m), 1: Geniş Kuşbakışı (36m), 2: Yakın Takip (16m)
+  toggleCameraAngle() {
+    this.cameraMode = ((this.cameraMode || 0) + 1) % 3;
+    const modeNames = ['STANDART İZOMETRİK', 'GENİŞ KUŞBAKIŞI', 'YAKIN TAKİP'];
+    const name = modeNames[this.cameraMode];
+    this.showFloatingText(`KAMERA AÇISI: [${name}]`, this.player.group.position, '#00D2D3');
+    window.Sound?.playPop?.();
+  }
+
+  // Smooth camera follow & dynamic sprint speed FOV warp & CRT Terminal zoom
   updateCamera() {
+    if (this.isProcurementOpen) {
+      // Focus directly on CRT screen at executive office desk (-15.8, -4.8)
+      this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, -15.8, 0.12);
+      this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, 1.45, 0.12);
+      this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, -3.9, 0.12);
+      this.camera.lookAt(-15.8, 1.25, -5.05);
+      if (Math.abs(this.camera.fov - 32.0) > 0.05) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 32.0, 0.12);
+        this.camera.updateProjectionMatrix();
+      }
+      return;
+    }
+
     const pPos = this.player.group.position;
+    let targetY = 24.0;
+    let offsetZ = 17.0;
+    let baseFov = 40.0;
+
+    if (this.cameraMode === 1) {
+      // High Strategic Overview
+      targetY = 36.0;
+      offsetZ = 24.0;
+      baseFov = 48.0;
+    } else if (this.cameraMode === 2) {
+      // Close Action Follow
+      targetY = 16.0;
+      offsetZ = 11.5;
+      baseFov = 44.0;
+    }
+
     this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, pPos.x * 0.70, 0.08);
-    this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, pPos.z * 0.70 + 17, 0.08);
-    this.camera.lookAt(this.camera.position.x, 0, this.camera.position.z - 17);
+    this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetY, 0.08);
+    this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, pPos.z * 0.70 + offsetZ, 0.08);
+    this.camera.lookAt(this.camera.position.x, 0, this.camera.position.z - offsetZ);
 
     // Dynamic FOV speed-warp during sprint dashes
-    const targetFov = this.isSprinting && (this.player.velocity.lengthSq() > 0.1) ? 45.0 : 40.0;
+    const targetFov = this.isSprinting && (this.player.velocity.lengthSq() > 0.1) ? baseFov + 5.0 : baseFov;
     if (Math.abs(this.camera.fov - targetFov) > 0.05) {
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, 0.1);
       this.camera.updateProjectionMatrix();
@@ -4843,6 +4920,8 @@ class MiniMartGame {
           wholesale: this.wholesaleState || window.GameMechanics.createWholesaleState(),
           staffFatigue: this.staffFatigue || window.GameMechanics.createStaffFatigueState(),
           decoration: this.decorationState || window.GameMechanics.createDecorationState(),
+          retailPrices: this.retailPrices || {},
+          warehouseInventory: this.warehouseInventory || {},
           lastSavedAt: Date.now()
         }
       };
@@ -4860,6 +4939,8 @@ class MiniMartGame {
         if (typeof data.money === 'number') this.money = data.money;
         this.updateMoneyUI();
 
+        this.retailPrices = data.retailPrices || {};
+        this.warehouseInventory = data.warehouseInventory || {};
         this.saveMeta = data.meta || {};
         this.stats = data.stats || {};
         this.progression = window.GameMechanics.createProgressionState(data.quests || {});
@@ -4952,7 +5033,12 @@ class MiniMartGame {
   // Pricing & brand calculation for item checkouts
   getSalePrice(type, basePrice = null, soldItem = null) {
     const item = ITEM_TYPES[type] || ITEM_TYPES.TOMATO;
-    const base = typeof basePrice === 'number' ? basePrice : item.price;
+    let base;
+    if (this.retailPrices && typeof this.retailPrices[type] === 'number') {
+      base = this.retailPrices[type];
+    } else {
+      base = typeof basePrice === 'number' ? basePrice : item.price;
+    }
     let price = base;
 
     if (soldItem && window.GameMechanics?.getFreshItemPricedAmount) {
@@ -5859,6 +5945,492 @@ class MiniMartGame {
         this.renderWholesaleCatalog();
       }
     );
+  }
+
+  // --- Retro CRT B2B Procurement Terminal & Dynamic Pricing (Faz 1, 2, 3, 4) ---
+
+  initProcurementUI() {
+    this.procurementModal = document.getElementById('procurement-modal');
+    this.procurementCloseBtn = document.getElementById('procurement-close-btn');
+    this.procurementContent = document.getElementById('procurement-content');
+    this.crtMoneyDisplay = document.getElementById('crt-money-display');
+    this.crtDockStatus = document.getElementById('crt-dock-status');
+    this.crtTabs = Array.from(document.querySelectorAll('.crt-tab'));
+
+    this.activeProcurementTab = 'orders';
+    this.procurementOrderQuantities = {};
+    this.retailPrices = this.retailPrices || {};
+    this.warehouseInventory = this.warehouseInventory || {};
+
+    if (this.procurementCloseBtn) {
+      this.procurementCloseBtn.addEventListener('click', () => this.closeProcurementTerminal());
+    }
+    if (this.procurementModal) {
+      this.procurementModal.addEventListener('click', (e) => {
+        if (e.target === this.procurementModal) this.closeProcurementTerminal();
+      });
+    }
+
+    const promptEl = document.getElementById('office-terminal-prompt');
+    if (promptEl) {
+      promptEl.style.cursor = 'pointer';
+      promptEl.addEventListener('click', () => {
+        if (this.isProcurementOpen) this.closeProcurementTerminal();
+        else this.openProcurementTerminal();
+      });
+    }
+
+    this.crtTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabKey = tab.getAttribute('data-proc-tab');
+        this.setProcurementTab(tabKey);
+      });
+    });
+  }
+
+  setProcurementTab(tabKey) {
+    this.activeProcurementTab = tabKey || 'orders';
+    this.crtTabs.forEach(tab => {
+      const match = tab.getAttribute('data-proc-tab') === this.activeProcurementTab;
+      tab.classList.toggle('active', match);
+      tab.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+    this.renderProcurementTerminal();
+    window.Sound?.playPop?.();
+  }
+
+  openProcurementTerminal() {
+    this.isProcurementOpen = true;
+    if (this.procurementModal) {
+      this.procurementModal.classList.remove('hidden');
+      this.procurementModal.classList.add('open');
+    }
+    const promptEl = document.getElementById('office-terminal-prompt');
+    if (promptEl) promptEl.classList.add('hidden');
+
+    this.setProcurementTab(this.activeProcurementTab || 'orders');
+    window.Sound?.playUnlock?.();
+  }
+
+  closeProcurementTerminal() {
+    this.isProcurementOpen = false;
+    if (this.procurementModal) {
+      this.procurementModal.classList.remove('open');
+      this.procurementModal.classList.add('hidden');
+    }
+  }
+
+  renderProcurementTerminal() {
+    if (!this.procurementContent) return;
+
+    if (this.crtMoneyDisplay) {
+      this.crtMoneyDisplay.textContent = Math.floor(this.money);
+    }
+
+    if (this.crtDockStatus) {
+      if (this.wholesaleBay && this.wholesaleBay.activeTruck) {
+        const truck = this.wholesaleBay.activeTruck;
+        this.crtDockStatus.textContent = truck.state === 'UNLOADING'
+          ? 'İSKELE: [MAL İNDİRİLİYOR]'
+          : 'İSKELE: [SEVKİYAT YOLDA]';
+      } else {
+        this.crtDockStatus.textContent = 'İSKELE: [W_DOCK BOŞTA]';
+      }
+    }
+
+    switch (this.activeProcurementTab) {
+      case 'pricing':
+        this.renderProcurementPricingTab();
+        break;
+      case 'trends':
+        this.renderProcurementTrendsTab();
+        break;
+      case 'inventory':
+        this.renderProcurementInventoryTab();
+        break;
+      case 'orders':
+      default:
+        this.renderProcurementOrdersTab();
+        break;
+    }
+  }
+
+  renderProcurementOrdersTab() {
+    this.procurementContent.replaceChildren();
+
+    const catalog = window.GameMechanics.WHOLESALE_CATALOG || {};
+    const categories = [
+      { key: 'BEVERAGES', label: '[İÇECEK REYONU & SOĞUTUCU VİTRİN]' },
+      { key: 'CLEANING', label: '[TEMİZLİK & KİMYASAL BAKIM]' },
+      { key: 'PERSONAL_CARE', label: '[KİŞİSEL BAKIM & HİJYEN]' },
+      { key: 'FOOD_STAPLES', label: '[TEMEL GIDA & FIRIN STOKLARI]' }
+    ];
+
+    const isTruckBusy = !!(this.wholesaleBay && this.wholesaleBay.activeTruck);
+
+    categories.forEach(cat => {
+      const items = Object.entries(catalog).filter(([_, item]) => item.category === cat.key);
+      if (items.length === 0) return;
+
+      const header = document.createElement('div');
+      header.style.cssText = 'color: #2ED573; font-weight: 900; font-size: 13px; margin: 10px 0 6px 0; border-bottom: 1px solid #2ED573; padding-bottom: 2px;';
+      header.textContent = `>>> ${cat.label}`;
+      this.procurementContent.appendChild(header);
+
+      const table = document.createElement('table');
+      table.className = 'crt-table';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>ÜRÜN &amp; MARKA</th>
+            <th>KOLİ ADEDİ</th>
+            <th>KOLİ FİYATI</th>
+            <th>SİPARİŞ (KOLİ)</th>
+            <th>İSKONTO</th>
+            <th>TUTAR</th>
+            <th>İŞLEM</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector('tbody');
+
+      items.forEach(([itemKey, item]) => {
+        const row = document.createElement('tr');
+        if (!this.procurementOrderQuantities[itemKey]) {
+          this.procurementOrderQuantities[itemKey] = 1;
+        }
+        let qty = this.procurementOrderQuantities[itemKey];
+
+        const updateRowView = () => {
+          const discountRate = window.GameMechanics.calculateBulkDiscount(qty);
+          const totalCost = Math.round(item.cost * qty * (1 - discountRate));
+          const canAfford = this.money >= totalCost;
+          const discountLabel = discountRate >= 0.20 ? '-%20 (10+)' : (discountRate >= 0.10 ? '-%10 (5+)' : '%0 (5+ %10)');
+
+          row.innerHTML = `
+            <td>
+              <strong style="color:#FFFDF5;">${item.name}</strong>
+              <div style="font-size:11px; color:#2ED573; opacity:0.8;">Marka: ${item.brand || 'Yerel'}</div>
+            </td>
+            <td>${item.count} Adet</td>
+            <td>$${item.cost}</td>
+            <td>
+              <div class="crt-qty-controls">
+                <button type="button" class="crt-qty-btn btn-dec">[-]</button>
+                <span class="crt-qty-val">${qty}</span>
+                <button type="button" class="crt-qty-btn btn-inc">[+]</button>
+              </div>
+            </td>
+            <td><span class="crt-discount-tag">${discountLabel}</span></td>
+            <td><strong class="crt-total-text">$${totalCost}</strong></td>
+            <td>
+              <button type="button" class="crt-btn crt-btn-amber btn-order" ${!canAfford || isTruckBusy ? 'disabled' : ''}>
+                ${isTruckBusy ? '[KAMYON YOLDA]' : (canAfford ? `[SİPARİŞ: $${totalCost}]` : '[BAKİYE YETERSİZ]')}
+              </button>
+            </td>
+          `;
+
+          row.querySelector('.btn-dec').addEventListener('click', () => {
+            if (qty > 1) {
+              qty--;
+              this.procurementOrderQuantities[itemKey] = qty;
+              updateRowView();
+            }
+          });
+
+          row.querySelector('.btn-inc').addEventListener('click', () => {
+            if (qty < 50) {
+              qty++;
+              this.procurementOrderQuantities[itemKey] = qty;
+              updateRowView();
+            }
+          });
+
+          row.querySelector('.btn-order').addEventListener('click', () => {
+            if (!canAfford || isTruckBusy) return;
+            this.submitWholesaleOrder(itemKey, qty);
+          });
+        };
+
+        updateRowView();
+        tbody.appendChild(row);
+      });
+
+      this.procurementContent.appendChild(table);
+    });
+  }
+
+  submitWholesaleOrder(itemKey, qty = 1) {
+    const catalog = window.GameMechanics.WHOLESALE_CATALOG || {};
+    const item = catalog[itemKey];
+    if (!item) return;
+
+    if (this.wholesaleBay && this.wholesaleBay.activeTruck) {
+      this.showFloatingText('KAMYON İSKELEDE BEKLENİYOR!', this.player.group.position, '#FFAA00');
+      return;
+    }
+
+    const discountRate = window.GameMechanics.calculateBulkDiscount(qty);
+    const totalCost = Math.round(item.cost * qty * (1 - discountRate));
+
+    if (this.money < totalCost) {
+      this.showFloatingText('YETERSİZ KASA BAKİYESİ!', this.player.group.position, '#FF5252');
+      return;
+    }
+
+    this.money -= totalCost;
+    this.updateMoneyUI();
+    this.wholesaleState = window.GameMechanics.orderWholesaleCrate(this.wholesaleState, itemKey, totalCost);
+    this.spawnWholesaleDeliveryTruck(itemKey, qty, item.count * qty);
+    this.showFloatingText(`TOPTAN SEVKİYAT: ${item.name} (${qty} Koli)`, this.player.group.position, '#2ECC71');
+    window.Sound?.playCashRegister?.();
+    this.renderProcurementTerminal();
+    this.saveState();
+  }
+
+  spawnWholesaleDeliveryTruck(itemType, cartonCount = 1, totalUnits = 6) {
+    if (!this.wholesaleBay || this.wholesaleBay.activeTruck) return;
+
+    this.wholesaleBay.activeTruck = new WholesaleTruck(
+      this.scene,
+      -36.0,
+      -24.0,
+      -10.0,
+      () => {
+        // Truck docked: unload crates onto pallet dock
+        this.wholesaleBay.spawnCrate(itemType, totalUnits);
+        this.warehouseInventory[itemType] = (this.warehouseInventory[itemType] || 0) + cartonCount;
+        window.Sound?.playStock?.();
+        this.showFloatingText(`[SEVKİYAT İNDİRİLDİ: ${cartonCount} KOLİ]`, new THREE.Vector3(-24.0, 1.2, -10.0), '#FFE600');
+        if (this.isProcurementOpen) this.renderProcurementTerminal();
+        this.saveState();
+      },
+      () => {
+        // Truck departed
+        this.wholesaleBay.activeTruck = null;
+        this.wholesaleDeliveryTruck = null;
+        if (this.isProcurementOpen) this.renderProcurementTerminal();
+        this.saveState();
+      }
+    );
+
+    this.wholesaleDeliveryTruck = this.wholesaleBay.activeTruck;
+  }
+
+  renderProcurementPricingTab() {
+    this.procurementContent.replaceChildren();
+
+    const catalog = window.GameMechanics.WHOLESALE_CATALOG || {};
+
+    const infoBox = document.createElement('div');
+    infoBox.style.cssText = 'background: #08170c; border: 1px solid #2ED573; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #FFFDF5;';
+    infoBox.innerHTML = `
+      <strong style="color: #2ED573;">[FİYAT ESNEKLİĞİ VE KÂR MARJI REHBERİ]</strong><br>
+      Etiket fiyatını değiştirerek anlık kâr marjını (% MARJ) ve müşteri satın alma tepkisini optimize edin.<br>
+      - MSRP +%20 üzeri: Müşteriler duraklar, başını sallar, [PAHALI!] balonu çıkar ve %35 vazgeçer.<br>
+      - MSRP +%40 üzeri: [FAHİŞ!] şikayeti, hırsızlık riski artar.<br>
+      - MSRP -%10 altı: [FIRSAT ÜRÜNÜ] rozetiyle yüksek sürüm ve mağaza prestiji kazandırır.
+    `;
+    this.procurementContent.appendChild(infoBox);
+
+    const table = document.createElement('table');
+    table.className = 'crt-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>ÜRÜN &amp; MARKA</th>
+          <th>BİRİM MALİYET</th>
+          <th>TÜFE (MSRP)</th>
+          <th>ETİKET SATIŞ FİYATI</th>
+          <th>KÂR MARJI</th>
+          <th>MÜŞTERİ TEPKİSİ</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+
+    Object.entries(catalog).forEach(([itemKey, item]) => {
+      const row = document.createElement('tr');
+      const unitCost = Math.round((item.cost / item.count) * 100) / 100;
+      let price = Number(this.retailPrices[itemKey] !== undefined ? this.retailPrices[itemKey] : item.retailRef);
+
+      const updatePricingRow = () => {
+        const margin = window.GameMechanics.calculateMargin(unitCost, price);
+        const elasticity = window.GameMechanics.applyPriceElasticity(itemKey, price, item.retailRef);
+
+        let badgeHtml = '';
+        if (elasticity.appeal === 'BARGAIN') {
+          badgeHtml = '<span class="crt-badge-bargain">[FIRSAT ÜRÜNÜ] (Sürüm + Prestij)</span>';
+        } else if (elasticity.appeal === 'FAIR') {
+          badgeHtml = '<span class="crt-badge-fair">[DENGELİ] (Standart Akış)</span>';
+        } else if (elasticity.appeal === 'EXPENSIVE') {
+          badgeHtml = '<span class="crt-badge-expensive">[PAHALI!] (%35 İade / Tereddüt)</span>';
+        } else {
+          badgeHtml = '<span class="crt-badge-gouge">[FAHİŞ!] (%70 İade / Şikayet)</span>';
+        }
+
+        row.innerHTML = `
+          <td>
+            <strong>${item.name}</strong>
+            <div style="font-size:11px; color:#2ED573; opacity:0.8;">Marka: ${item.brand || 'Standart'}</div>
+          </td>
+          <td>$${unitCost.toFixed(2)}</td>
+          <td>$${item.retailRef.toFixed(2)}</td>
+          <td>
+            <div class="crt-qty-controls">
+              <button type="button" class="crt-qty-btn btn-p-dec">[-]</button>
+              <span class="crt-qty-val" style="min-width:44px;">$${price.toFixed(2)}</span>
+              <button type="button" class="crt-qty-btn btn-p-inc">[+]</button>
+            </div>
+          </td>
+          <td>
+            <strong style="color: ${margin >= 40 ? '#2ED573' : (margin >= 15 ? '#FFAA00' : '#FF5252')};">
+              %${margin.toFixed(1)}
+            </strong>
+          </td>
+          <td>${badgeHtml}</td>
+        `;
+
+        row.querySelector('.btn-p-dec').addEventListener('click', () => {
+          if (price > 0.50) {
+            price = Math.max(0.50, Math.round((price - 0.50) * 100) / 100);
+            this.retailPrices[itemKey] = price;
+            updatePricingRow();
+            window.Sound?.playPop?.();
+            this.saveState();
+          }
+        });
+
+        row.querySelector('.btn-p-inc').addEventListener('click', () => {
+          if (price < 500) {
+            price = Math.round((price + 0.50) * 100) / 100;
+            this.retailPrices[itemKey] = price;
+            updatePricingRow();
+            window.Sound?.playPop?.();
+            this.saveState();
+          }
+        });
+      };
+
+      updatePricingRow();
+      tbody.appendChild(row);
+    });
+
+    this.procurementContent.appendChild(table);
+  }
+
+  renderProcurementTrendsTab() {
+    this.procurementContent.replaceChildren();
+
+    const currentDay = this.dayState ? this.dayState.day : 1;
+    const trend = window.GameMechanics.getDailyMarketTrend(currentDay);
+    const nextTrend = window.GameMechanics.getDailyMarketTrend(currentDay + 1);
+
+    const trendBox = document.createElement('div');
+    trendBox.className = 'crt-trend-box';
+    trendBox.innerHTML = `
+      <div class="crt-trend-title">
+        <span>&gt;&gt;&gt;</span>
+        <span>GÜNLÜK PİYASA BÜLTENİ: ${trend.title}</span>
+      </div>
+      <div class="crt-trend-desc">
+        ${trend.description}
+      </div>
+    `;
+    this.procurementContent.appendChild(trendBox);
+
+    const forecastBox = document.createElement('div');
+    forecastBox.style.cssText = 'border: 2px dashed #2ED573; background: #08170c; padding: 12px; margin-bottom: 12px; color: #FFFDF5; font-size: 13px;';
+    forecastBox.innerHTML = `
+      <strong style="color: #2ED573;">[YARINKİ PİYASA TAHMİNİ &amp; ERKEN İSTİHBARAT]</strong>
+      <div style="margin-top: 6px; color: #FFAA00;">${nextTrend.title}</div>
+      <div style="margin-top: 4px; font-size: 12px; color: #DFE6E9;">${nextTrend.description}</div>
+    `;
+    this.procurementContent.appendChild(forecastBox);
+
+    const tipsBox = document.createElement('div');
+    tipsBox.style.cssText = 'border: 1px solid rgba(46, 213, 115, 0.4); padding: 10px; font-size: 12px; color: #2ED573; line-height: 1.6;';
+    tipsBox.innerHTML = `
+      <strong>[STRATEJİK TOPTANCI TAVSİYELERİ]</strong><br>
+      - Sıcak hava dalgasında soğutucu dolaptaki meşrubat ve sular iki kat hızlı tükenir. Reyon boş kalmasın!<br>
+      - Kimya grevinde deterjan toptan alış fiyatı %30 yükselir; önceden stok yaparak kâr marjınızı koruyun.<br>
+      - Hafta başı kampanyasında kişisel bakım toptan alımı %15 daha ucuzdur.
+    `;
+    this.procurementContent.appendChild(tipsBox);
+  }
+
+  renderProcurementInventoryTab() {
+    this.procurementContent.replaceChildren();
+
+    const catalog = window.GameMechanics.WHOLESALE_CATALOG || {};
+
+    const summaryBox = document.createElement('div');
+    summaryBox.style.cssText = 'background: #08170c; border: 1px solid #2ED573; padding: 10px; margin-bottom: 12px; font-size: 12px; color: #FFFDF5;';
+    summaryBox.innerHTML = `
+      <strong style="color: #2ED573;">[YÜKSEK PALET RAFLARI &amp; DEPO ENVANTERİ (HIGH-BAY STORAGE)]</strong><br>
+      Kamyonla indirilen toptan koliler burada depolanır. Reyon görevlisi personelleriniz (STOCKER) veya siz depodan doğrudan reyonlara aktarım yapabilirsiniz.
+    `;
+    this.procurementContent.appendChild(summaryBox);
+
+    const table = document.createElement('table');
+    table.className = 'crt-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>ÜRÜN</th>
+          <th>DEPO STOKU (KOLİ)</th>
+          <th>KOLİ BAŞINA ADET</th>
+          <th>HEDEF REYON</th>
+          <th>REYON DOLULUĞU</th>
+          <th>İŞLEM</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+
+    Object.entries(catalog).forEach(([itemKey, item]) => {
+      const cartons = this.warehouseInventory[itemKey] || 0;
+      const targetShelf = this.shelves.find(s => s && s.itemType === itemKey);
+      const shelfStock = targetShelf ? `${targetShelf.currentStock}/${targetShelf.maxStock}` : 'Reyon Yok';
+      const canRestock = cartons > 0 && targetShelf && targetShelf.currentStock < targetShelf.maxStock;
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><strong>${item.name}</strong></td>
+        <td><strong style="color: ${cartons > 0 ? '#2ED573' : '#FFAA00'};">${cartons} Koli</strong></td>
+        <td>${item.count} Adet</td>
+        <td>${targetShelf ? getItemDisplayName(targetShelf.itemType) : 'Genel Raf'}</td>
+        <td>${shelfStock}</td>
+        <td>
+          <button type="button" class="crt-btn crt-btn-amber btn-transfer" ${!canRestock ? 'disabled' : ''}>
+            ${cartons === 0 ? '[STOK YOK]' : (!targetShelf ? '[REYON YOK]' : (targetShelf.currentStock >= targetShelf.maxStock ? '[REYON DOLU]' : '[REYONA AKTAR]'))}
+          </button>
+        </td>
+      `;
+
+      if (canRestock) {
+        row.querySelector('.btn-transfer').addEventListener('click', () => {
+          if (!canRestock) return;
+          const transferUnits = Math.min(item.count, targetShelf.maxStock - targetShelf.currentStock);
+          targetShelf.addStock(transferUnits);
+          this.warehouseInventory[itemKey] = Math.max(0, cartons - 1);
+          window.Sound?.playStock?.();
+          this.showFloatingText(`[DEPODAN REYONA AKTARILDI: +${transferUnits} ADET]`, targetShelf.group.position, '#2ECC71');
+          this.renderProcurementInventoryTab();
+          this.saveState();
+        });
+      }
+
+      tbody.appendChild(row);
+    });
+
+    this.procurementContent.appendChild(table);
   }
 
   showVeresiyePrompt(customer, resident) {

@@ -1578,14 +1578,127 @@
 
   // --- FAZ 7: TOPTANCI KAMYONU & KOLİLEME ---
   const WHOLESALE_CATALOG = {
-    FLOUR: { id: 'FLOUR', itemType: 'FLOUR', name: 'Un Çuvalı', count: 6, cost: 72, retailRef: 18, icon: 'FLOUR' },
-    MILK: { id: 'MILK', itemType: 'MILK', name: 'Süt Kolisi', count: 6, cost: 48, retailRef: 12, icon: 'MILK' },
-    CHEESE: { id: 'CHEESE', itemType: 'CHEESE', name: 'Peynir Sandığı', count: 6, cost: 96, retailRef: 24, icon: 'CHEESE' },
-    BREAD: { id: 'BREAD', itemType: 'BREAD', name: 'Toptan Ekmek Kasası', count: 6, cost: 35, retailRef: 10, icon: 'BREAD' },
-    APPLE_JUICE: { id: 'APPLE_JUICE', itemType: 'APPLE_JUICE', name: 'Meyve Suyu Kolisi', count: 6, cost: 70, retailRef: 18, icon: 'APPLE_JUICE' },
-    APPLE_PIE: { id: 'APPLE_PIE', itemType: 'APPLE_PIE', name: 'Turta Sandığı', count: 6, cost: 85, retailRef: 22, icon: 'APPLE_PIE' },
-    TOAST: { id: 'TOAST', itemType: 'TOAST', name: 'Çıtır Tost Paketi', count: 6, cost: 95, retailRef: 25, icon: 'TOAST' }
+    // İçecek Kategorisi (BEVERAGES)
+    WATER_PACK: { id: 'WATER_PACK', itemType: 'WATER_PACK', name: "Kaynak Suyu (6'lı)", category: 'BEVERAGES', count: 6, cost: 4, retailRef: 1.50, brand: 'Öz Pınar', icon: 'WATER_PACK' },
+    PREMIUM_WATER: { id: 'PREMIUM_WATER', itemType: 'PREMIUM_WATER', name: "Premium Cam Su (6'lı)", category: 'BEVERAGES', count: 6, cost: 12, retailRef: 4.00, brand: 'Alp Kristal', icon: 'PREMIUM_WATER' },
+    SODA_CAN: { id: 'SODA_CAN', itemType: 'SODA_CAN', name: "Kutu Meşrubat / Kola (24'lü)", category: 'BEVERAGES', count: 24, cost: 18, retailRef: 1.75, brand: 'KolaTurka', icon: 'SODA_CAN' },
+    MINERAL_WATER: { id: 'MINERAL_WATER', itemType: 'MINERAL_WATER', name: "Maden Suyu (12'li)", category: 'BEVERAGES', count: 12, cost: 8, retailRef: 1.50, brand: 'Kızılay', icon: 'MINERAL_WATER' },
+    // Temizlik & Ev Bakımı (CLEANING)
+    LIQUID_DETERGENT: { id: 'LIQUID_DETERGENT', itemType: 'LIQUID_DETERGENT', name: "Sıvı Çamaşır Deterjanı (4'lü 5L)", category: 'CLEANING', count: 4, cost: 24, retailRef: 11.00, brand: 'Akgül Hijyen', icon: 'LIQUID_DETERGENT' },
+    SURFACE_CLEANER: { id: 'SURFACE_CLEANER', itemType: 'SURFACE_CLEANER', name: "Yüzey Temizleyici & Çamaşır Suyu (8'li)", category: 'CLEANING', count: 8, cost: 16, retailRef: 4.50, brand: 'Domestik', icon: 'SURFACE_CLEANER' },
+    DISH_SOAP: { id: 'DISH_SOAP', itemType: 'DISH_SOAP', name: "Bulaşık Tableti & Sıvısı (6'lı)", category: 'CLEANING', count: 6, cost: 20, retailRef: 6.50, brand: 'Parlak Tablet', icon: 'DISH_SOAP' },
+    // Kişisel Bakım (PERSONAL_CARE)
+    SHAMPOO: { id: 'SHAMPOO', itemType: 'SHAMPOO', name: "Şampuan & Saç Kremi (12'li)", category: 'PERSONAL_CARE', count: 12, cost: 30, retailRef: 5.50, brand: 'İpek Özü', icon: 'SHAMPOO' },
+    BAR_SOAP: { id: 'BAR_SOAP', itemType: 'BAR_SOAP', name: "Banyo Sabunu (24'lü)", category: 'PERSONAL_CARE', count: 24, cost: 12, retailRef: 1.25, brand: 'Zeytin Dalı', icon: 'BAR_SOAP' },
+    // Temel Gıda & Fırın (FOOD_STAPLES)
+    FLOUR: { id: 'FLOUR', itemType: 'FLOUR', name: 'Un Çuvalı', category: 'FOOD_STAPLES', count: 6, cost: 72, retailRef: 18, brand: 'Altın Değirmen', icon: 'FLOUR' },
+    MILK: { id: 'MILK', itemType: 'MILK', name: 'Süt Kolisi', category: 'FOOD_STAPLES', count: 6, cost: 48, retailRef: 12, brand: 'Çiftlik Süt', icon: 'MILK' },
+    CHEESE: { id: 'CHEESE', itemType: 'CHEESE', name: 'Peynir Sandığı', category: 'FOOD_STAPLES', count: 6, cost: 96, retailRef: 24, brand: 'Köy Mandıra', icon: 'CHEESE' },
+    BREAD: { id: 'BREAD', itemType: 'BREAD', name: 'Toptan Ekmek Kasası', category: 'FOOD_STAPLES', count: 6, cost: 35, retailRef: 10, brand: 'Halk Ekmek', icon: 'BREAD' },
+    APPLE_JUICE: { id: 'APPLE_JUICE', itemType: 'APPLE_JUICE', name: 'Meyve Suyu Kolisi', category: 'BEVERAGES', count: 6, cost: 70, retailRef: 18, brand: 'Doğa Bahçe', icon: 'APPLE_JUICE' },
+    APPLE_PIE: { id: 'APPLE_PIE', itemType: 'APPLE_PIE', name: 'Turta Sandığı', category: 'FOOD_STAPLES', count: 6, cost: 85, retailRef: 22, brand: 'Usta Fırın', icon: 'APPLE_PIE' },
+    TOAST: { id: 'TOAST', itemType: 'TOAST', name: 'Çıtır Tost Paketi', category: 'FOOD_STAPLES', count: 6, cost: 95, retailRef: 25, brand: 'Büfe Tost', icon: 'TOAST' }
   };
+
+  // Hacim / Koli iskontosu: 5+ koli %10, 10+ koli %20
+  function calculateBulkDiscount(quantity) {
+    const qty = Number(quantity) || 0;
+    if (qty >= 10) return 0.20;
+    if (qty >= 5) return 0.10;
+    return 0.0;
+  }
+
+  // Kâr marjı hesabı: ((Satış - Alış) / Satış) * 100
+  function calculateMargin(wholesaleUnitCost, retailPrice) {
+    const cost = Number(wholesaleUnitCost) || 0;
+    const retail = Number(retailPrice) || 0;
+    if (retail <= 0) return 0;
+    return Math.max(-100, Math.min(100, ((retail - cost) / retail) * 100));
+  }
+
+  // Fiyat esnekliği algoritması: MSRP'ye göre müşteri tepkisi
+  function applyPriceElasticity(itemKey, retailPrice, baseMsrp) {
+    const price = Number(retailPrice) || 0;
+    const catItem = WHOLESALE_CATALOG[itemKey] || Object.values(WHOLESALE_CATALOG).find(c => c.itemType === itemKey);
+    const msrp = Number(baseMsrp) || (catItem && catItem.retailRef) || price || 1;
+    const ratio = msrp > 0 ? (price / msrp) : 1.0;
+
+    if (ratio <= 0.90) {
+      return {
+        appeal: 'BARGAIN',
+        ratio,
+        discountMultiplier: 1.35,
+        dropoutChance: 0.0,
+        prestigeBonus: true,
+        theftRiskIncrease: 0.0,
+        bubbleTag: '[FIRSAT ÜRÜNÜ]'
+      };
+    } else if (ratio <= 1.15) {
+      return {
+        appeal: 'FAIR',
+        ratio,
+        discountMultiplier: 1.0,
+        dropoutChance: 0.0,
+        prestigeBonus: false,
+        theftRiskIncrease: 0.0,
+        bubbleTag: ''
+      };
+    } else if (ratio <= 1.30) {
+      return {
+        appeal: 'EXPENSIVE',
+        ratio,
+        discountMultiplier: 0.75,
+        dropoutChance: 0.35,
+        prestigeBonus: false,
+        theftRiskIncrease: 0.10,
+        bubbleTag: '[PAHALI!]'
+      };
+    } else {
+      return {
+        appeal: 'GOUGE',
+        ratio,
+        discountMultiplier: 0.40,
+        dropoutChance: 0.70,
+        prestigeBonus: false,
+        theftRiskIncrease: 0.50,
+        hygienePenalty: 10,
+        bubbleTag: '[FAHİŞ!]'
+      };
+    }
+  }
+
+  // Dönemsel piyasa bülteni & şoklar
+  const DAILY_MARKET_TRENDS = [
+    {
+      id: 'FACTORY_STRIKE',
+      title: 'Kimya Fabrikası Grevi',
+      description: 'Deterjan ve temizlik kimyasalları toptan alış fiyatı %30 arttı!',
+      categoryModifiers: { CLEANING: { costMult: 1.30, demandMult: 1.10 } }
+    },
+    {
+      id: 'HEAT_WAVE',
+      title: 'Sıcak Hava Dalgası',
+      description: 'Termometreler 38 dereceyi vurdu, soğuk içecek talebi 2 katına çıktı!',
+      categoryModifiers: { BEVERAGES: { costMult: 1.0, demandMult: 2.0 } }
+    },
+    {
+      id: 'WEEKSTART_PROMO',
+      title: 'Hafta Başı Toptan Kampanyası',
+      description: 'Tüm kişisel bakım ve gıda ürünlerinde ekstra %15 hacim primi.',
+      categoryModifiers: { PERSONAL_CARE: { costMult: 0.85, demandMult: 1.25 } }
+    },
+    {
+      id: 'STABLE_MARKET',
+      title: 'Durgun & İstikrarlı Piyasa',
+      description: 'Toptancı piyasasında fiyatlar ve sevkiyatlar olağan dengesinde seyrediyor.',
+      categoryModifiers: {}
+    }
+  ];
+
+  function getDailyMarketTrend(dayIndex = 1) {
+    const idx = Math.abs(Math.floor(Number(dayIndex) || 0)) % DAILY_MARKET_TRENDS.length;
+    return DAILY_MARKET_TRENDS[idx];
+  }
 
   function createWholesaleState(seed = {}) {
     return {
@@ -2212,10 +2325,14 @@
     getHygieneEffects,
     createSecurityDogState,
     triggerSecurityAlarm,
-    // Faz 7 (Toptancı, Personel Çay Ocağı)
+    // Faz 7 (Toptancı, Personel Çay Ocağı & Dinamik Fiyatlama)
     WHOLESALE_CATALOG,
     createWholesaleState,
     orderWholesaleCrate,
+    calculateBulkDiscount,
+    calculateMargin,
+    applyPriceElasticity,
+    getDailyMarketTrend,
     STAFF_FATIGUE_CONFIG,
     createStaffFatigueState,
     drainStaffStamina,

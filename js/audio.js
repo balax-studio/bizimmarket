@@ -243,6 +243,29 @@ class SoundEngine {
     }
   }
 
+  // Truck reversing warning beep (BEEP-BEEP)
+  playReverseBeep() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1050, now);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.setValueAtTime(0.08, now + 0.10);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.14);
+  }
+
   // Esnaf Retro Radio (Chiptune, Lo-Fi, Anatolian Synth)
   setRadioChannel(channelIndex = 0) {
     this.radioChannel = channelIndex;
