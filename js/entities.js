@@ -5485,9 +5485,12 @@ class CustomerAI {
             }
           }
         } else {
-          // Shelf is empty; wait up to patience duration (2.2s)
+          // Shelf is empty; wait up to patience duration
+          const patienceMult = (window.gameInstance && typeof window.gameInstance.hygieneScore === 'number')
+            ? (window.gameInstance.hygieneScore < 40 ? 0.5 : (window.gameInstance.hygieneScore >= 80 ? 1.25 : 1.0))
+            : 1.0;
           this.waitingTimer += delta;
-          if (this.waitingTimer >= this.patience) {
+          if (this.waitingTimer >= this.patience * patienceMult) {
             this.waitingTimer = 0;
             this.char.head.rotation.set(0, 0, 0);
 
@@ -5695,6 +5698,13 @@ class CustomerAI {
           comboMultiplier: window.gameInstance.comboMultiplier,
           isRushHour: window.gameInstance.isRushHour
         });
+        if (typeof window.gameInstance.hygieneScore === 'number' && window.gameInstance.hygieneScore >= 80) {
+          const tip = Math.round(totalCash * 0.15);
+          totalCash += tip;
+          if (window.gameInstance.showFloatingText) {
+            window.gameInstance.showFloatingText(`TEMİZLİK BAHŞİŞİ +$${tip}`, this.char.group.position, '#2ECC71');
+          }
+        }
       }
       this.checkout.addCash(totalCash);
       window.Sound.playCashRegister();
@@ -9979,3 +9989,679 @@ class VoxelGym {
     this.scene.add(this.group);
   }
 }
+
+// --- Living Neighborhood Phase 1, 2, 3 Procedural Voxel Entities ---
+
+class MopStation {
+  constructor(scene, x = -2.0, z = -22.5) {
+    this.scene = scene;
+    this.x = x;
+    this.z = z;
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    const standMat = new THREE.MeshStandardMaterial({ color: 0x2f3542, roughness: 0.5 });
+    const bucketMat = new THREE.MeshStandardMaterial({ color: 0x00d2d3, roughness: 0.4 });
+    const mopStickMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.3 });
+    const spongeMat = new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.9 });
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.8 });
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 1.4), baseMat);
+    base.position.y = 0.03;
+
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.4, 0.12), standMat);
+    post.position.set(-0.4, 0.7, 0);
+
+    const bucket = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), bucketMat);
+    bucket.position.set(0.2, 0.28, 0);
+
+    const mopStick = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.5, 0.06), mopStickMat);
+    mopStick.position.set(-0.25, 0.9, 0);
+    mopStick.rotation.z = -0.15;
+
+    const sponge = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.28), spongeMat);
+    sponge.position.set(-0.15, 0.18, 0);
+
+    const signBoard = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.06), standMat);
+    signBoard.position.set(0, 1.35, 0);
+
+    this.group.add(base, post, bucket, mopStick, sponge, signBoard);
+    this.scene.add(this.group);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class TrashItem {
+  constructor(scene, x, z, type = 'trash') {
+    this.scene = scene;
+    this.x = x;
+    this.z = z;
+    this.type = type;
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    if (type === 'puddle') {
+      const puddleMat = new THREE.MeshStandardMaterial({
+        color: 0x57606f,
+        roughness: 0.15,
+        metalness: 0.3,
+        transparent: true,
+        opacity: 0.75
+      });
+      const puddle = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.02, 0.6), puddleMat);
+      puddle.position.y = 0.015;
+      this.group.add(puddle);
+    } else {
+      const trashColor = Math.random() > 0.5 ? 0xced6e0 : 0xeccc68;
+      const trashMat = new THREE.MeshStandardMaterial({ color: trashColor, roughness: 0.8 });
+      const mainCube = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.22, 0.25), trashMat);
+      mainCube.position.y = 0.11;
+      mainCube.rotation.y = Math.random() * Math.PI;
+
+      const sideCube = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), trashMat);
+      sideCube.position.set(0.1, 0.07, 0.08);
+      sideCube.rotation.z = 0.3;
+
+      this.group.add(mainCube, sideCube);
+    }
+
+    this.scene.add(this.group);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class SecurityGate {
+  constructor(scene, x = 0, z = -22.8) {
+    this.scene = scene;
+    this.x = x;
+    this.z = z;
+    this.isAlarming = false;
+    this.alarmTimer = 0;
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x2f3542, roughness: 0.4 });
+    this.lightMat = new THREE.MeshStandardMaterial({
+      color: 0x2ed573,
+      emissive: 0x2ed573,
+      emissiveIntensity: 0.3,
+      roughness: 0.3
+    });
+
+    const leftPost = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.2, 0.3), frameMat);
+    leftPost.position.set(-1.4, 1.1, 0);
+
+    const leftLight = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.18), this.lightMat);
+    leftLight.position.set(-1.4, 2.0, 0);
+
+    const rightPost = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.2, 0.3), frameMat);
+    rightPost.position.set(1.4, 1.1, 0);
+
+    const rightLight = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 0.18), this.lightMat);
+    rightLight.position.set(1.4, 2.0, 0);
+
+    const sensorStrip = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.03, 0.3), frameMat);
+    sensorStrip.position.set(0, 0.015, 0);
+
+    this.group.add(leftPost, leftLight, rightPost, rightLight, sensorStrip);
+    this.scene.add(this.group);
+  }
+
+  triggerAlarm() {
+    this.isAlarming = true;
+    this.alarmTimer = 3.0;
+  }
+
+  update(delta) {
+    if (this.isAlarming) {
+      this.alarmTimer -= delta;
+      const flash = Math.sin(Date.now() * 0.02) > 0;
+      this.lightMat.color.setHex(flash ? 0xff4757 : 0xffffff);
+      this.lightMat.emissive.setHex(flash ? 0xff4757 : 0x000000);
+      this.lightMat.emissiveIntensity = flash ? 1.0 : 0.0;
+      if (this.alarmTimer <= 0) {
+        this.isAlarming = false;
+        this.lightMat.color.setHex(0x2ed573);
+        this.lightMat.emissive.setHex(0x2ed573);
+        this.lightMat.emissiveIntensity = 0.3;
+      }
+    }
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class KarabashDog {
+  constructor(scene, kennelX = 4.5, kennelZ = -23.5) {
+    this.scene = scene;
+    this.homeX = kennelX;
+    this.homeZ = kennelZ;
+    this.state = 'GUARDING';
+    this.speed = 7.0;
+    this.targetThief = null;
+    this.onTackled = null;
+    this.tackleTimer = 0;
+
+    this.group = new THREE.Group();
+    this.group.position.set(kennelX, 0, kennelZ);
+
+    this.kennelGroup = new THREE.Group();
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.6 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0xb71540, roughness: 0.5 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.7 });
+
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 1.8), woodMat);
+    walls.position.set(0, 0.7, 0);
+
+    const doorTrim = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.1), trimMat);
+    doorTrim.position.set(0, 0.45, 0.88);
+
+    const roofL = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.15, 2.0), roofMat);
+    roofL.position.set(-0.5, 1.6, 0);
+    roofL.rotation.z = -0.4;
+    const roofR = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.15, 2.0), roofMat);
+    roofR.position.set(0.5, 1.6, 0);
+    roofR.rotation.z = 0.4;
+
+    this.kennelGroup.add(walls, doorTrim, roofL, roofR);
+    this.group.add(this.kennelGroup);
+
+    this.dogModel = new THREE.Group();
+    this.dogModel.position.set(0, 0, 1.2);
+
+    const furMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.8 });
+    const muzzleMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.7 });
+    const collarMat = new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.4 });
+
+    this.torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.9), furMat);
+    this.torso.position.set(0, 0.55, 0);
+
+    this.head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.4, 0.45), furMat);
+    this.head.position.set(0, 0.85, 0.45);
+
+    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.22, 0.3), muzzleMat);
+    muzzle.position.set(0, 0.78, 0.72);
+
+    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.12, 0.46), collarMat);
+    collar.position.set(0, 0.72, 0.35);
+
+    const earL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.14), muzzleMat);
+    earL.position.set(-0.24, 0.92, 0.42);
+    const earR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.14), muzzleMat);
+    earR.position.set(0.24, 0.92, 0.42);
+
+    this.legFL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), furMat);
+    this.legFL.position.set(-0.2, 0.2, 0.3);
+    this.legFR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), furMat);
+    this.legFR.position.set(0.2, 0.2, 0.3);
+    this.legBL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), furMat);
+    this.legBL.position.set(-0.2, 0.2, -0.3);
+    this.legBR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), furMat);
+    this.legBR.position.set(0.2, 0.2, -0.3);
+
+    this.tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 0.12), furMat);
+    this.tail.position.set(0, 0.8, -0.45);
+    this.tail.rotation.x = -0.6;
+
+    this.dogModel.add(this.torso, this.head, muzzle, collar, earL, earR, this.legFL, this.legFR, this.legBL, this.legBR, this.tail);
+    this.group.add(this.dogModel);
+
+    this.scene.add(this.group);
+  }
+
+  chaseThief(thief, onTackled) {
+    if (this.state === 'TACKLING') return;
+    this.targetThief = thief;
+    this.onTackled = onTackled;
+    this.state = 'CHASING';
+    if (window.Sound && window.Sound.playBark) window.Sound.playBark();
+  }
+
+  update(delta) {
+    if (this.state === 'CHASING' || this.state === 'RETURNING') {
+      const trot = Math.sin(Date.now() * 0.015);
+      this.legFL.rotation.x = trot * 0.6;
+      this.legFR.rotation.x = -trot * 0.6;
+      this.legBL.rotation.x = -trot * 0.6;
+      this.legBR.rotation.x = trot * 0.6;
+      this.tail.rotation.y = trot * 0.4;
+    } else {
+      this.legFL.rotation.x = 0;
+      this.legFR.rotation.x = 0;
+      this.legBL.rotation.x = 0;
+      this.legBR.rotation.x = 0;
+    }
+
+    if (this.state === 'CHASING') {
+      if (!this.targetThief || this.targetThief.isCaught || this.targetThief.isFinished) {
+        this.state = 'RETURNING';
+        return;
+      }
+      const thiefPos = this.targetThief.char.group.position;
+      const worldDogPos = new THREE.Vector3().setFromMatrixPosition(this.dogModel.matrixWorld);
+      const dir = new THREE.Vector3().subVectors(thiefPos, worldDogPos);
+      dir.y = 0;
+      const dist = dir.length();
+
+      if (dist < 1.4) {
+        this.state = 'TACKLING';
+        this.tackleTimer = 1.2;
+        if (this.onTackled) this.onTackled(this.targetThief);
+      } else {
+        dir.normalize();
+        this.dogModel.position.x += dir.x * this.speed * delta;
+        this.dogModel.position.z += dir.z * this.speed * delta;
+        this.dogModel.rotation.y = Math.atan2(dir.x, dir.z);
+      }
+    } else if (this.state === 'TACKLING') {
+      this.tackleTimer -= delta;
+      if (this.tackleTimer <= 0) {
+        this.state = 'RETURNING';
+      }
+    } else if (this.state === 'RETURNING') {
+      const targetLocal = new THREE.Vector3(0, 0, 1.2);
+      const cur = this.dogModel.position;
+      const dir = new THREE.Vector3().subVectors(targetLocal, cur);
+      const dist = dir.length();
+      if (dist < 0.2) {
+        cur.copy(targetLocal);
+        this.dogModel.rotation.y = 0;
+        this.state = 'GUARDING';
+      } else {
+        dir.normalize();
+        cur.x += dir.x * (this.speed * 0.6) * delta;
+        cur.z += dir.z * (this.speed * 0.6) * delta;
+        this.dogModel.rotation.y = Math.atan2(dir.x, dir.z);
+      }
+    }
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class VoxelCrate {
+  constructor(scene, x, y, z, itemType = 'FLOUR', count = 6) {
+    this.scene = scene;
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.itemType = itemType;
+    this.count = count;
+    this.group = new THREE.Group();
+    this.group.position.set(x, y, z);
+
+    const boxMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, roughness: 0.8 });
+    const tapeMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, roughness: 0.4 });
+    const itemInfo = ITEM_TYPES[itemType] || ITEM_TYPES.TOMATO;
+    const badgeMat = new THREE.MeshStandardMaterial({ color: itemInfo.color || 0xff4757, roughness: 0.3 });
+
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.6, 0.75), boxMat);
+    box.position.y = 0.3;
+
+    const tape = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.1, 0.76), tapeMat);
+    tape.position.y = 0.3;
+
+    const badge = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.77), badgeMat);
+    badge.position.y = 0.3;
+
+    this.group.add(box, tape, badge);
+    this.scene.add(this.group);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class WholesaleTruck {
+  constructor(scene, startX = -36.0, targetX = -24.0, z = -10.0, onArrived, onDeparted) {
+    this.scene = scene;
+    this.targetX = targetX;
+    this.z = z;
+    this.onArrived = onArrived;
+    this.onDeparted = onDeparted;
+    this.state = 'ARRIVING';
+    this.timer = 0;
+
+    this.group = new THREE.Group();
+    this.group.position.set(startX, 0, z);
+
+    const cabMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.3 });
+    const cargoMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.8 });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x74b9ff, transparent: true, opacity: 0.7 });
+
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.3, 2.0), chassisMat);
+    chassis.position.y = 0.4;
+
+    [-1.8, 1.8].forEach(wx => {
+      [-1.0, 1.0].forEach(wz => {
+        const wheel = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.3), wheelMat);
+        wheel.position.set(wx, 0.3, wz);
+        this.group.add(wheel);
+      });
+    });
+
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.9), cabMat);
+    cab.position.set(1.7, 1.25, 0);
+
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 1.7), glassMat);
+    windshield.position.set(2.51, 1.4, 0);
+
+    const cargo = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.0, 2.0), cargoMat);
+    cargo.position.set(-0.8, 1.45, 0);
+
+    this.group.add(chassis, cab, windshield, cargo);
+    this.scene.add(this.group);
+  }
+
+  update(delta) {
+    if (this.state === 'ARRIVING') {
+      this.group.position.x += 6.5 * delta;
+      if (this.group.position.x >= this.targetX) {
+        this.group.position.x = this.targetX;
+        this.state = 'UNLOADING';
+        this.timer = 2.0;
+        if (this.onArrived) this.onArrived();
+      }
+    } else if (this.state === 'UNLOADING') {
+      this.timer -= delta;
+      if (this.timer <= 0) {
+        this.state = 'DEPARTING';
+      }
+    } else if (this.state === 'DEPARTING') {
+      this.group.position.x += 7.0 * delta;
+      if (this.group.position.x >= 20.0) {
+        this.state = 'FINISHED';
+        if (this.onDeparted) this.onDeparted();
+        this.destroy();
+      }
+    }
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class WholesaleBay {
+  constructor(scene, x = -24.0, z = -10.0) {
+    this.scene = scene;
+    this.x = x;
+    this.z = z;
+    this.crates = [];
+    this.activeTruck = null;
+
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.7 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
+
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.1, 4.0), woodMat);
+    platform.position.y = 0.05;
+
+    const marker = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.02, 0.2), lineMat);
+    marker.position.set(0, 0.11, 2.0);
+
+    this.group.add(platform, marker);
+    this.scene.add(this.group);
+  }
+
+  spawnCrate(itemType, count = 6) {
+    const offsetX = (this.crates.length % 2) * 1.0 - 0.5;
+    const offsetZ = Math.floor(this.crates.length / 2) * 1.0 - 0.5;
+    const crate = new VoxelCrate(this.scene, this.x + offsetX, 0.1, this.z + offsetZ, itemType, count);
+    this.crates.push(crate);
+    return crate;
+  }
+
+  removeCrate(crate) {
+    const idx = this.crates.indexOf(crate);
+    if (idx !== -1) {
+      this.crates.splice(idx, 1);
+      crate.destroy();
+    }
+  }
+
+  destroy() {
+    this.crates.forEach(c => c.destroy());
+    this.crates = [];
+    if (this.activeTruck) {
+      this.activeTruck.destroy();
+      this.activeTruck = null;
+    }
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class TeaStation {
+  constructor(scene, x = -16.0, z = -8.0) {
+    this.scene = scene;
+    this.x = x;
+    this.z = z;
+    this.restSpot = new THREE.Vector3(x, 0, z + 0.8);
+
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    const counterMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.6 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.85, roughness: 0.15 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, transparent: true, opacity: 0.8 });
+    const stoolMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.5 });
+
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 0.8), counterMat);
+    counter.position.set(0, 0.45, 0);
+
+    const potBottom = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), chromeMat);
+    potBottom.position.set(0, 1.08, 0);
+    const potTop = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.25, 0.24), chromeMat);
+    potTop.position.set(0, 1.38, 0);
+
+    [-0.5, 0.5].forEach(cx => {
+      const cup = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.12), glassMat);
+      cup.position.set(cx, 0.99, 0);
+      this.group.add(cup);
+    });
+
+    const stool = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), stoolMat);
+    stool.position.set(0, 0.25, 0.8);
+
+    this.group.add(counter, potBottom, potTop, stool);
+    this.scene.add(this.group);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class VoxelRadio {
+  constructor(scene, x = 1.8, z = -18.2) {
+    this.scene = scene;
+    this.x = x;
+    this.z = z;
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb8860b, roughness: 0.6 });
+    const dialMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 });
+    const antennaMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
+
+    const table = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.6), dialMat);
+    table.position.y = 0.4;
+
+    const radio = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.3), bodyMat);
+    radio.position.set(0, 0.98, 0);
+
+    const antenna = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.6, 0.04), antennaMat);
+    antenna.position.set(-0.2, 1.35, 0);
+    antenna.rotation.z = -0.2;
+
+    const grill = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.2, 0.02), dialMat);
+    dialMat.roughness = 0.9;
+    grill.position.set(0.1, 0.98, 0.16);
+
+    this.group.add(table, radio, antenna, grill);
+    this.scene.add(this.group);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+class VoxelNeonSign {
+  constructor(scene, x = 0, y = 4.2, z = -23.8, text = 'BİZİM MARKET', hexColor = 0xffe600) {
+    this.scene = scene;
+    this.group = new THREE.Group();
+    this.group.position.set(x, y, z);
+
+    this.frameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+    this.neonMat = new THREE.MeshStandardMaterial({
+      color: hexColor,
+      emissive: hexColor,
+      emissiveIntensity: 0.8,
+      roughness: 0.2
+    });
+
+    const backBar = new THREE.Mesh(new THREE.BoxGeometry(9.0, 1.2, 0.2), this.frameMat);
+    backBar.position.set(0, 0, 0);
+
+    const glowFace = new THREE.Mesh(new THREE.BoxGeometry(8.6, 0.9, 0.24), this.neonMat);
+    glowFace.position.set(0, 0, 0.03);
+
+    this.group.add(backBar, glowFace);
+    this.scene.add(this.group);
+  }
+
+  setColor(hexColor) {
+    this.neonMat.color.setHex(hexColor);
+    this.neonMat.emissive.setHex(hexColor);
+  }
+
+  destroy() {
+    if (!this.group) return;
+    this.group.traverse(child => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+    this.scene.remove(this.group);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.MopStation = MopStation;
+  window.TrashItem = TrashItem;
+  window.SecurityGate = SecurityGate;
+  window.KarabashDog = KarabashDog;
+  window.WholesaleBay = WholesaleBay;
+  window.VoxelCrate = VoxelCrate;
+  window.WholesaleTruck = WholesaleTruck;
+  window.TeaStation = TeaStation;
+  window.VoxelRadio = VoxelRadio;
+  window.VoxelNeonSign = VoxelNeonSign;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ITEM_TYPES,
+    MopStation,
+    TrashItem,
+    SecurityGate,
+    KarabashDog,
+    WholesaleBay,
+    VoxelCrate,
+    WholesaleTruck,
+    TeaStation,
+    VoxelRadio,
+    VoxelNeonSign
+  };
+}
+

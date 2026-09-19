@@ -190,6 +190,107 @@ class SoundEngine {
     osc.start(startTime);
     osc.stop(startTime + 0.04);
   }
+
+  // Karabash Dog Bark sound
+  playBark() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const startTime = this.ctx.currentTime;
+    [0, 0.12].forEach((offset) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(280, startTime + offset);
+      osc.frequency.exponentialRampToValueAtTime(80, startTime + offset + 0.08);
+
+      gain.gain.setValueAtTime(0.2, startTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + offset + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(startTime + offset);
+      osc.stop(startTime + offset + 0.08);
+    });
+  }
+
+  // Security Gate Alarm Siren
+  playAlarmSiren() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const startTime = this.ctx.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = startTime + i * 0.25;
+      const freq = (i % 2 === 0) ? 960 : 680;
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.22);
+    }
+  }
+
+  // Esnaf Retro Radio (Chiptune, Lo-Fi, Anatolian Synth)
+  setRadioChannel(channelIndex = 0) {
+    this.radioChannel = channelIndex;
+    if (this.radioTimer) {
+      clearInterval(this.radioTimer);
+      this.radioTimer = null;
+    }
+    if (channelIndex === 0 || this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const scales = {
+      1: [261.63, 329.63, 392.00, 523.25, 587.33, 659.25], // Retro Chiptune (C major pentatonic)
+      2: [220.00, 261.63, 293.66, 329.63, 392.00, 440.00], // Lo-Fi Esnaf (A minor pentatonic)
+      3: [246.94, 277.18, 329.63, 369.99, 440.00, 493.88]  // Anadolu Synth (Hicaz/Modal)
+    };
+    const scale = scales[channelIndex] || scales[1];
+    let noteIdx = 0;
+
+    this.radioTimer = setInterval(() => {
+      if (this.muted || !this.ctx || this.radioChannel === 0) return;
+      try {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const freq = scale[noteIdx % scale.length];
+        noteIdx = (noteIdx + 1 + Math.floor(Math.random() * 2)) % scale.length;
+
+        osc.type = this.radioChannel === 1 ? 'square' : (this.radioChannel === 2 ? 'triangle' : 'sine');
+        const now = this.ctx.currentTime;
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } catch (err) {}
+    }, 320);
+  }
 }
 
-window.Sound = new SoundEngine();
+if (typeof window !== 'undefined') {
+  window.Sound = new SoundEngine();
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = SoundEngine;
+}
+

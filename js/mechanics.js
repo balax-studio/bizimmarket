@@ -68,6 +68,13 @@
       neighborhoodBuildings: Array.isArray(source.neighborhoodBuildings) ? source.neighborhoodBuildings : []
     };
 
+    if (source.veresiye && typeof source.veresiye === 'object') state.veresiye = source.veresiye;
+    if (source.hygiene && typeof source.hygiene === 'object') state.hygiene = source.hygiene;
+    if (source.securityDog && typeof source.securityDog === 'object') state.securityDog = source.securityDog;
+    if (source.wholesale && typeof source.wholesale === 'object') state.wholesale = source.wholesale;
+    if (source.staffFatigue && typeof source.staffFatigue === 'object') state.staffFatigue = source.staffFatigue;
+    if (source.decoration && typeof source.decoration === 'object') state.decoration = source.decoration;
+
     return { version: 2, state };
   }
 
@@ -1116,6 +1123,252 @@
     return effects;
   }
 
+  // --- FAZ 6: VERESİYE DEFTERİ & ESNAF İTİMATİ ---
+  function createVeresiyeState(source = {}) {
+    const srcDebts = (source && source.debts && typeof source.debts === 'object') ? source.debts : ((source && source.ledger && typeof source.ledger === 'object') ? source.ledger : {});
+    const debts = {};
+    Object.keys(srcDebts).forEach(id => {
+      const val = srcDebts[id];
+      const amount = typeof val === 'number' ? val : (val && val.amount ? val.amount : 0);
+      debts[id] = {
+        amount: Math.max(0, amount),
+        dayIssued: (val && val.dayIssued) || 1,
+        claimed: !!(val && val.claimed)
+      };
+    });
+    const totalCollected = (source && typeof source.totalCollected === 'number') ? source.totalCollected : 0;
+    return { debts, ledger: debts, totalCollected };
+  }
+
+  function issueVeresiye(state, residentId, amount, currentDay = 1) {
+    const next = createVeresiyeState(state);
+    const cur = next.debts[residentId] || { amount: 0, dayIssued: currentDay, claimed: false };
+    next.debts[residentId] = {
+      amount: cur.amount + Math.max(1, Math.round(amount)),
+      dayIssued: currentDay,
+      claimed: false
+    };
+    next.ledger = next.debts;
+    return next;
+  }
+
+  function collectVeresiye(state, residentId, currentDay = 2) {
+    const next = createVeresiyeState(state);
+    if (!next.debts[residentId] || next.debts[residentId].amount <= 0) {
+      return { state: next, collectedAmount: 0, paid: 0, reward: null, giftName: '' };
+    }
+    const debt = next.debts[residentId];
+    const collectedAmount = debt.amount;
+    debt.amount = 0;
+    debt.claimed = true;
+    next.totalCollected = (next.totalCollected || 0) + collectedAmount;
+    const reward = {
+      type: 'HOME_TREAT',
+      label: 'Ev Yapımı İkram (+%15 Satış Primi)',
+      salesMultiplier: 1.15
+    };
+    return { state: next, collectedAmount, paid: collectedAmount, reward, giftName: reward.label };
+  }
+
+  function getVeresiyeTotal(state) {
+    const s = createVeresiyeState(state);
+    return Object.values(s.debts).reduce((acc, d) => acc + (d.amount || 0), 0);
+  }
+
+  // --- FAZ 6: DÜKKAN HİJYENİ & PASPAS SİSTEMİ ---
+  function calculateHygieneScore(activeTrashCount, maxTrash = 6) {
+    const count = Math.max(0, Math.min(maxTrash, activeTrashCount));
+    return Math.max(0, Math.round(100 - count * 10));
+  }
+
+  function getHygieneEffects(hygieneScore) {
+    if (hygieneScore >= 80) {
+      return { tipBonus: 0.15, patienceMultiplier: 1.25, label: 'Kusursuz Temizlik' };
+    }
+    if (hygieneScore <= 40) {
+      return { tipBonus: 0, patienceMultiplier: 0.50, label: 'Kirli Mağaza' };
+    }
+    return { tipBonus: 0, patienceMultiplier: 1.0, label: 'Standart Hijyen' };
+  }
+
+  // --- FAZ 6: GÜVENLİK KAPISI & KARABAŞ KÖPEK ---
+  function createSecurityDogState(seed = {}) {
+    return {
+      level: seed.level || 1,
+      hasKennel: seed.hasKennel !== undefined ? !!seed.hasKennel : true,
+      state: seed.state || 'GUARDING',
+      alarmTriggered: !!seed.alarmTriggered,
+      interceptCount: seed.interceptCount || 0
+    };
+  }
+
+  function triggerSecurityAlarm(dogState) {
+    const next = createSecurityDogState(dogState);
+    if (next.hasKennel) {
+      next.state = 'CHASING';
+      next.alarmTriggered = true;
+    }
+    return next;
+  }
+
+  // --- FAZ 7: TOPTANCI KAMYONU & KOLİLEME ---
+  const WHOLESALE_CATALOG = {
+    FLOUR: { id: 'FLOUR', itemType: 'FLOUR', name: 'Un Çuvalı', count: 6, cost: 72, retailRef: 18, icon: 'FLOUR' },
+    MILK: { id: 'MILK', itemType: 'MILK', name: 'Süt Kolisi', count: 6, cost: 48, retailRef: 12, icon: 'MILK' },
+    CHEESE: { id: 'CHEESE', itemType: 'CHEESE', name: 'Peynir Sandığı', count: 6, cost: 96, retailRef: 24, icon: 'CHEESE' },
+    BREAD: { id: 'BREAD', itemType: 'BREAD', name: 'Toptan Ekmek Kasası', count: 6, cost: 35, retailRef: 10, icon: 'BREAD' },
+    APPLE_JUICE: { id: 'APPLE_JUICE', itemType: 'APPLE_JUICE', name: 'Meyve Suyu Kolisi', count: 6, cost: 70, retailRef: 18, icon: 'APPLE_JUICE' },
+    APPLE_PIE: { id: 'APPLE_PIE', itemType: 'APPLE_PIE', name: 'Turta Sandığı', count: 6, cost: 85, retailRef: 22, icon: 'APPLE_PIE' },
+    TOAST: { id: 'TOAST', itemType: 'TOAST', name: 'Çıtır Tost Paketi', count: 6, cost: 95, retailRef: 25, icon: 'TOAST' }
+  };
+
+  function createWholesaleState(seed = {}) {
+    return {
+      totalCratesOrdered: seed.totalCratesOrdered || (Array.isArray(seed.orders) ? seed.orders.length : 0),
+      pendingDeliveries: Array.isArray(seed.pendingDeliveries) ? seed.pendingDeliveries : [],
+      activeCrates: Array.isArray(seed.activeCrates) ? seed.activeCrates : [],
+      orders: Array.isArray(seed.orders) ? seed.orders : [],
+      deliveryCooldown: seed.deliveryCooldown || 0
+    };
+  }
+
+  function orderWholesaleCrate(state, wholesaleKeyOrId, cost) {
+    const next = createWholesaleState(state);
+    const item = WHOLESALE_CATALOG[wholesaleKeyOrId] || Object.values(WHOLESALE_CATALOG).find(w => w.id === wholesaleKeyOrId || w.itemType === wholesaleKeyOrId) || { itemType: wholesaleKeyOrId, count: 6, cost: cost || 50, name: wholesaleKeyOrId };
+    const actualCost = typeof cost === 'number' ? cost : item.cost;
+    const delivery = {
+      id: `${item.itemType || wholesaleKeyOrId}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      wholesaleId: wholesaleKeyOrId,
+      itemType: item.itemType || wholesaleKeyOrId,
+      count: item.count || 6,
+      cost: actualCost,
+      orderedAt: Date.now()
+    };
+    next.totalCratesOrdered = (next.totalCratesOrdered || 0) + 1;
+    next.pendingDeliveries.push(delivery);
+    next.orders.push(delivery);
+    return next;
+  }
+
+  // --- FAZ 7: PERSONEL DİNLENME & ÇAY OCAĞI ---
+  const STAFF_FATIGUE_CONFIG = {
+    maxStamina: 100,
+    drainRate: 0.8,
+    teaRefillRate: 15.0
+  };
+
+  function createStaffFatigueState(seed = {}) {
+    const state = { helpers: {} };
+    const defaultIds = ['1', '2', '3'];
+    const keys = new Set([...defaultIds, ...Object.keys(seed || {}), ...Object.keys(seed?.helpers || {})]);
+
+    keys.forEach(k => {
+      if (k === 'helpers') return;
+      const src = (seed && seed[k]) || (seed && seed.helpers && seed.helpers[k]) || {};
+      const stamina = typeof src.stamina === 'number' ? Math.max(0, Math.min(100, src.stamina)) : 100;
+      const helperObj = {
+        id: k,
+        stamina: stamina,
+        isTired: stamina < 60,
+        isExhausted: stamina < 20,
+        isResting: !!src.isResting,
+        specialty: src.specialty || 'GENERAL'
+      };
+      state[k] = helperObj;
+      state.helpers[k] = helperObj;
+    });
+
+    return state;
+  }
+
+  function drainStaffStamina(state, helperId, amount = 5) {
+    const next = createStaffFatigueState(state);
+    const key = String(helperId);
+    const h = next[key] || { id: key, stamina: 100, isTired: false, isExhausted: false, isResting: false, specialty: 'GENERAL' };
+    const drain = typeof amount === 'number' ? amount : 5;
+    h.stamina = Math.max(0, h.stamina - drain);
+    h.isTired = h.stamina < 60;
+    h.isExhausted = h.stamina < 20;
+    if (h.stamina <= 0) {
+      h.isResting = true;
+    }
+    next[key] = h;
+    next.helpers[key] = h;
+    return next;
+  }
+
+  function refillStaffStamina(state, helperId, amount = 15) {
+    const next = createStaffFatigueState(state);
+    const key = String(helperId);
+    const h = next[key] || { id: key, stamina: 0, isTired: true, isExhausted: true, isResting: true, specialty: 'GENERAL' };
+    const refill = typeof amount === 'number' ? amount * 1.5 : 15;
+    h.stamina = Math.min(100, h.stamina + refill);
+    h.isTired = h.stamina < 60;
+    h.isExhausted = h.stamina < 20;
+    if (h.stamina >= 100) {
+      h.isResting = false;
+    }
+    next[key] = h;
+    next.helpers[key] = h;
+    return next;
+  }
+
+  // --- FAZ 8: DEKORASYON & PRESTİJ ---
+  const DECORATION_TIERS = {
+    classic: { id: 'classic', name: 'Klasik Karo', cost: 0, prestige: 1, floorColor: 0xe0e0e0 },
+    wood: { id: 'wood', name: 'Doğal Ahşap Parke', cost: 350, prestige: 3, floorColor: 0x8b5a2b },
+    mosaic: { id: 'mosaic', name: 'Retro Çini Deseni', cost: 650, prestige: 4, floorColor: 0x00d2d3 },
+    granite: { id: 'granite', name: 'Cilalı Granit Mermer', cost: 1200, prestige: 5, floorColor: 0x2c3e50 },
+    marble: { id: 'marble', name: 'Cilalı Granit Mermer', cost: 1200, prestige: 5, floorColor: 0x2c3e50 }
+  };
+
+  function createDecorationState(seed = {}) {
+    return {
+      activeFloor: seed.activeFloor || seed.floor || 'classic',
+      floor: seed.activeFloor || seed.floor || 'classic',
+      neonColor: seed.neonColor || '#FF0055',
+      radioChannel: seed.radioChannel !== undefined ? seed.radioChannel : 1,
+      unlockedFloors: Array.isArray(seed.unlockedFloors) ? seed.unlockedFloors : ['classic']
+    };
+  }
+
+  function calculateStorePrestige(arg1, arg2, arg3) {
+    let hygieneScore = 100;
+    let floorTier = 'classic';
+    let brandReputationAverage = 1;
+
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      const decState = arg1;
+      floorTier = decState.activeFloor || decState.floor || 'classic';
+      hygieneScore = typeof arg2 === 'number' ? arg2 : 100;
+    } else if (typeof arg1 === 'number') {
+      hygieneScore = arg1;
+      floorTier = typeof arg2 === 'string' ? arg2 : ((arg2 && (arg2.activeFloor || arg2.floor)) || 'classic');
+      brandReputationAverage = typeof arg3 === 'number' ? arg3 : 1;
+    }
+
+    const floorTierObj = DECORATION_TIERS[floorTier] || DECORATION_TIERS.classic;
+    const floorPts = (floorTierObj.prestige || 1) * 10;
+    const hygienePts = (hygieneScore / 100) * 40;
+    const brandPts = Math.min(5, brandReputationAverage) * 2;
+    const total = Math.min(100, Math.round(floorPts + hygienePts + brandPts));
+
+    let stars = 1;
+    if (total >= 85 || (floorTierObj.prestige >= 4 && hygieneScore >= 80)) {
+      stars = floorTierObj.prestige >= 5 ? 5 : 4;
+    } else if (total >= 65) {
+      stars = 3;
+    } else if (total >= 40) {
+      stars = 2;
+    }
+
+    return {
+      score: total,
+      stars,
+      isVIPEligible: stars >= 4
+    };
+  }
+
   const api = {
     removeItemByType,
     getAvailableItemPool,
@@ -1186,7 +1439,28 @@
     createNeighborhoodBuildingState,
     canBuildNeighborhood,
     purchaseNeighborhoodBuilding,
-    getActiveNeighborhoodEffects
+    getActiveNeighborhoodEffects,
+    // Faz 6 (Veresiye, Hijyen, Karabaş)
+    createVeresiyeState,
+    issueVeresiye,
+    collectVeresiye,
+    getVeresiyeTotal,
+    calculateHygieneScore,
+    getHygieneEffects,
+    createSecurityDogState,
+    triggerSecurityAlarm,
+    // Faz 7 (Toptancı, Personel Çay Ocağı)
+    WHOLESALE_CATALOG,
+    createWholesaleState,
+    orderWholesaleCrate,
+    STAFF_FATIGUE_CONFIG,
+    createStaffFatigueState,
+    drainStaffStamina,
+    refillStaffStamina,
+    // Faz 8 (Dekorasyon, Prestij)
+    DECORATION_TIERS,
+    createDecorationState,
+    calculateStorePrestige
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.GameMechanics = api;

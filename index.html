@@ -54,6 +54,16 @@
           <span id="demand-progress">0 / 0</span>
         </div>
 
+        <div id="hygiene-badge" class="hud-pill hygiene-badge" title="Dükkan Hijyen Skoru">
+          <span class="hygiene-label">HİJYEN</span>
+          <span id="hygiene-display">100%</span>
+        </div>
+
+        <div id="prestige-badge" class="hud-pill prestige-badge" title="Esnaf Prestiji">
+          <span class="prestige-label">PRESTİJ</span>
+          <span id="prestige-display">[P1]</span>
+        </div>
+
         <!-- Compact HUD Actions -->
         <div class="top-menu">
           <button id="hud-menu-toggle" class="hud-menu-toggle" type="button" aria-expanded="false" aria-controls="top-actions" title="Menü">
@@ -64,6 +74,14 @@
             </svg>
           </button>
           <div id="top-actions" class="top-actions" aria-label="HUD menüsü">
+          <button id="wholesale-btn" class="hud-action-btn" title="Toptancı Bilgisayarı & Koli Siparişi">
+            <svg class="brutal-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="6" width="20" height="14" fill="#FFE600" stroke="#000000" stroke-width="2.5"/>
+              <line x1="2" y1="11" x2="22" y2="11" stroke="#000000" stroke-width="2"/>
+              <rect x="8" y="2" width="8" height="4" fill="#FF5252" stroke="#000000" stroke-width="2"/>
+            </svg>
+            <span>TOPTANCI</span>
+          </button>
           <button id="neighborhood-btn" class="hud-action-btn" title="Mahalle Sakinleri, Markam ve Yatırımlar">
             <svg class="brutal-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="2" y="9" width="20" height="13" fill="#FFE600" stroke="#000000" stroke-width="2.5"/>
@@ -272,6 +290,7 @@
             <button class="upgrade-tab active" data-tab="player">Oyuncu</button>
             <button class="upgrade-tab" data-tab="staff">Personel</button>
             <button class="upgrade-tab" data-tab="facility">Tesis & Tarla</button>
+            <button class="upgrade-tab" data-tab="decoration">DEKORASYON</button>
           </div>
           <div id="upgrade-content" class="upgrade-content">
             <!-- Dynamically populated via Game.renderUpgrades() -->
@@ -385,6 +404,7 @@
           </div>
           <div class="neighborhood-tabs" role="tablist">
             <button class="neighborhood-tab active" data-neighborhood-tab="residents" type="button" role="tab" aria-selected="true">SAKİNLER</button>
+            <button class="neighborhood-tab" data-neighborhood-tab="veresiye" type="button" role="tab" aria-selected="false">VERESİYE</button>
             <button class="neighborhood-tab" data-neighborhood-tab="brands" type="button" role="tab" aria-selected="false">KENDİ MARKAM</button>
             <button class="neighborhood-tab" data-neighborhood-tab="buildings" type="button" role="tab" aria-selected="false">YATIRIMLAR</button>
           </div>
@@ -408,6 +428,42 @@
           <div class="day-choice-subtext">Bugünkü müşteri akınını ve üretim festivalini belirle:</div>
           <div id="day-choice-cards" class="day-choice-cards">
             <!-- Dynamically populated 3 choice cards -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Wholesale Computer Terminal Neo-Brutalist Modal -->
+      <div id="wholesale-modal" class="wholesale-modal" role="dialog" aria-modal="true" aria-labelledby="wholesale-title">
+        <div class="wholesale-box">
+          <div class="wholesale-header">
+            <div class="wholesale-title" id="wholesale-title">
+              <svg class="brutal-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="6" width="20" height="14" fill="#FFE600" stroke="#000000" stroke-width="2.5"/>
+                <line x1="2" y1="11" x2="22" y2="11" stroke="#000000" stroke-width="2"/>
+                <rect x="8" y="2" width="8" height="4" fill="#FF5252" stroke="#000000" stroke-width="2"/>
+              </svg>
+              <span>TOPTANCI BİLGİSAYARI</span>
+            </div>
+            <button id="wholesale-close-btn" class="upgrade-close-btn" title="Kapat">X</button>
+          </div>
+          <div class="wholesale-subtext">İndirimli toptan koli siparişi ver; sarı kamyon arka rampaya yanaşsın:</div>
+          <div id="wholesale-content" class="wholesale-content">
+            <!-- Dynamically populated crate catalog -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Cashier Veresiye Quick Action Prompt -->
+      <div id="veresiye-prompt" class="veresiye-prompt hidden">
+        <div class="veresiye-prompt-box">
+          <div class="veresiye-header">
+            <span class="veresiye-badge">[ESNAF İTİMATI]</span>
+            <span class="veresiye-name" id="veresiye-resident-name">Ayşe Teyze</span>
+          </div>
+          <div class="veresiye-msg" id="veresiye-resident-msg">"Cüzdanım evde kalmış evladım, deftere yazsan olur mu?"</div>
+          <div class="veresiye-actions">
+            <button id="veresiye-accept-btn" class="veresiye-btn-accept" type="button">VERESİYE YAZ [E]</button>
+            <button id="veresiye-decline-btn" class="veresiye-btn-decline" type="button">NAKİT AL</button>
           </div>
         </div>
       </div>

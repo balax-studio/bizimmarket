@@ -1197,11 +1197,13 @@ a:focus-visible {
 .debug-modal,
 .neighborhood-modal,
 .day-choice-modal,
+.wholesale-modal,
 #wiki-modal,
 #upgrade-modal,
 #debug-modal,
 #neighborhood-modal,
-#day-choice-modal {
+#day-choice-modal,
+#wholesale-modal {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
@@ -1218,11 +1220,13 @@ a:focus-visible {
 .debug-modal.open,
 .neighborhood-modal.open,
 .day-choice-modal.open,
+.wholesale-modal.open,
 #wiki-modal.open,
 #upgrade-modal.open,
 #debug-modal.open,
 #neighborhood-modal.open,
-#day-choice-modal.open {
+#day-choice-modal.open,
+#wholesale-modal.open {
   display: flex !important;
 }
 
@@ -1230,7 +1234,8 @@ a:focus-visible {
 .upgrade-box,
 .debug-box,
 .neighborhood-box,
-.day-choice-box {
+.day-choice-box,
+.wholesale-box {
   width: 100%;
   max-width: 820px;
   max-height: 90vh;
@@ -2620,8 +2625,370 @@ a:focus-visible {
     grid-template-columns: 1fr;
   }
   .resident-grid,
-  .building-grid {
+  .building-grid,
+  .wholesale-grid,
+  .decoration-grid {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Phase 1, 2, 3: Living Neighborhood Neo-Brutalist Styles --- */
+
+/* HUD Hygiene & Prestige Badges */
+.hygiene-badge {
+  background: var(--color-mint);
+  border: 3px solid var(--color-black);
+  box-shadow: 3px 3px 0 var(--color-black);
+  color: var(--color-black);
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 0px !important;
+}
+
+.hygiene-label {
+  font-size: 10px;
+  background: var(--color-black);
+  color: #ffffff;
+  padding: 1px 4px;
+}
+
+.prestige-badge {
+  background: var(--color-yellow);
+  border: 3px solid var(--color-black);
+  box-shadow: 3px 3px 0 var(--color-black);
+  color: var(--color-black);
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 0px !important;
+}
+
+.prestige-label {
+  font-size: 10px;
+  background: var(--color-black);
+  color: var(--color-yellow);
+  padding: 1px 4px;
+}
+
+/* Wholesale Computer Terminal Modal & Catalog */
+.wholesale-box {
+  background: var(--color-cream);
+  border: 4px solid var(--color-black);
+  box-shadow: 8px 8px 0 var(--color-black);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-radius: 0px !important;
+}
+
+.wholesale-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid var(--color-black);
+  padding-bottom: 12px;
+}
+
+.wholesale-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--color-black);
+  text-transform: uppercase;
+}
+
+.wholesale-subtext {
+  font-size: 13px;
+  font-weight: 800;
+  color: #444444;
+  background: #ffffff;
+  border: 2px solid var(--color-black);
+  padding: 8px 12px;
+  border-radius: 0px !important;
+}
+
+.wholesale-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.wholesale-card {
+  background: #ffffff;
+  border: 3px solid var(--color-black);
+  box-shadow: 4px 4px 0 var(--color-black);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 0px !important;
+  transition: transform 0.1s ease;
+}
+
+.wholesale-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--color-black);
+}
+
+.wholesale-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wholesale-item-name {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--color-black);
+}
+
+.wholesale-badge {
+  font-size: 10px;
+  font-weight: 900;
+  background: var(--color-yellow);
+  border: 1.5px solid var(--color-black);
+  padding: 2px 5px;
+}
+
+.wholesale-pricing {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wholesale-price {
+  font-size: 18px;
+  font-weight: 900;
+  color: #27ae60;
+}
+
+.wholesale-retail-comp {
+  font-size: 11px;
+  color: #7f8c8d;
+  text-decoration: line-through;
+}
+
+.wholesale-order-btn {
+  background: var(--color-yellow);
+  border: 2.5px solid var(--color-black);
+  box-shadow: 3px 3px 0 var(--color-black);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: auto;
+  border-radius: 0px !important;
+}
+
+.wholesale-order-btn:hover:not(:disabled) {
+  background: var(--color-mint);
+}
+
+.wholesale-order-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--color-black);
+}
+
+.wholesale-order-btn:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Veresiye Prompt at Cashier */
+.veresiye-prompt {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  pointer-events: auto;
+}
+
+.veresiye-prompt.hidden {
+  display: none;
+}
+
+.veresiye-prompt-box {
+  background: var(--color-yellow);
+  border: 4px solid var(--color-black);
+  box-shadow: 6px 6px 0 var(--color-black);
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 0px !important;
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.veresiye-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.veresiye-badge {
+  font-size: 11px;
+  font-weight: 900;
+  background: var(--color-black);
+  color: var(--color-yellow);
+  padding: 2px 6px;
+}
+
+.veresiye-name {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--color-black);
+}
+
+.veresiye-msg {
+  font-size: 13px;
+  font-weight: 800;
+  color: #2c3e50;
+  background: #ffffff;
+  border: 2px solid var(--color-black);
+  padding: 8px 10px;
+}
+
+.veresiye-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.veresiye-btn-accept {
+  flex: 1;
+  background: var(--color-mint);
+  border: 2.5px solid var(--color-black);
+  box-shadow: 3px 3px 0 var(--color-black);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 0px !important;
+}
+
+.veresiye-btn-accept:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--color-black);
+}
+
+.veresiye-btn-decline {
+  background: #ffffff;
+  border: 2.5px solid var(--color-black);
+  box-shadow: 3px 3px 0 var(--color-black);
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-radius: 0px !important;
+}
+
+/* Veresiye Tab in Neighborhood Modal */
+.veresiye-card {
+  background: #ffffff;
+  border: 3px solid var(--color-black);
+  box-shadow: 4px 4px 0 var(--color-black);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 0px !important;
+}
+
+.veresiye-debt-badge {
+  font-size: 12px;
+  font-weight: 900;
+  background: #ff7675;
+  color: #ffffff;
+  border: 1.5px solid var(--color-black);
+  padding: 2px 6px;
+  width: fit-content;
+}
+
+.veresiye-clear-badge {
+  font-size: 12px;
+  font-weight: 900;
+  background: #2ed573;
+  color: #ffffff;
+  border: 1.5px solid var(--color-black);
+  padding: 2px 6px;
+  width: fit-content;
+}
+
+/* Decoration Studio Styles in Management Modal */
+.decoration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.decoration-card {
+  background: #ffffff;
+  border: 3px solid var(--color-black);
+  box-shadow: 4px 4px 0 var(--color-black);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 0px !important;
+}
+
+.decoration-preview {
+  height: 60px;
+  border: 2px solid var(--color-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+/* Staff Fatigue Bar */
+.staff-fatigue-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.staff-stamina-track {
+  width: 100%;
+  height: 10px;
+  background: #dfe6e9;
+  border: 1.5px solid var(--color-black);
+  position: relative;
+}
+
+.staff-stamina-fill {
+  height: 100%;
+  background: var(--color-mint);
+  transition: width 0.2s ease;
+}
+
+.staff-stamina-fill.tired {
+  background: #e67e22;
+}
+
+.staff-stamina-fill.exhausted {
+  background: #ff4757;
+}
+
 

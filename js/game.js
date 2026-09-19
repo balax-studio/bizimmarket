@@ -504,6 +504,21 @@ class MiniMartGame {
     this.isNeighborhoodOpen = false;
     this.activeNeighborhoodTab = 'residents';
 
+    // Living Neighborhood: Veresiye, Wholesale, Hygiene, Security & Decoration
+    this.veresiyeState = window.GameMechanics.createVeresiyeState();
+    this.wholesaleState = window.GameMechanics.createWholesaleState();
+    this.staffFatigue = window.GameMechanics.createStaffFatigueState();
+    this.decorationState = window.GameMechanics.createDecorationState();
+    this.hygieneScore = 100;
+    this.trashPool = [];
+    this.hasMopEquipped = false;
+    this.trashSpawnTimer = 18.0;
+    this.mopCooldown = 0;
+    this.pendingVeresiyeCheckout = null;
+    this.veresiyePromptCooldown = 0;
+    this.activeRadioChannel = 0;
+    this.isWholesaleOpen = false;
+
     // Wiki & Guide State
     this.isWikiOpen = false;
     this.activeWikiTab = 'recipes';
@@ -666,6 +681,7 @@ class MiniMartGame {
       roughness: 0.25,
       metalness: 0.05
     });
+    this.storeFloorMat = storeFloorMat;
     const storeFloor = new THREE.Mesh(storeFloorGeo, storeFloorMat);
     storeFloor.position.set(0, 0.01, -12.5);
     storeFloor.receiveShadow = true;
@@ -1580,6 +1596,21 @@ class MiniMartGame {
       this.saveState();
     });
     this.unlockPads.push(pad20);
+
+    // Living Neighborhood 3D Entities
+    this.mopStation = new MopStation(this.scene, -2.0, -22.5);
+    this.collision.addBox(-2.8, -1.2, -23.3, -21.7, 'mop_station');
+
+    this.securityGate = new SecurityGate(this.scene, 0, -22.8);
+    this.karabashDog = new KarabashDog(this.scene, 4.5, -23.5);
+    this.collision.addBox(3.4, 5.6, -24.5, -22.5, 'karabash_kennel');
+
+    this.wholesaleBay = new WholesaleBay(this.scene, -24.0, -10.0);
+    this.teaStation = new TeaStation(this.scene, -16.0, -8.0);
+    this.collision.addBox(-17.0, -15.0, -8.6, -7.4, 'tea_station');
+
+    this.voxelRadio = new VoxelRadio(this.scene, 1.8, -18.2);
+    this.neonSign = new VoxelNeonSign(this.scene, 0, 4.2, -23.8, 'BİZİM MARKET', 0xffe600);
   }
 
   // --- Controls & Inputs (Keyboard, Mouse Drag, Touch) ---
@@ -1599,6 +1630,11 @@ class MiniMartGame {
         if (this.isWikiOpen) this.closeWikiModal();
         if (this.isManagementOpen) this.closeManagementModal();
         if (this.isDayChoiceOpen && this.closeDayChoiceModal) this.closeDayChoiceModal();
+        if (this.isWholesaleOpen) this.closeWholesaleModal();
+      } else if (e.code === 'KeyE') {
+        if (this.pendingVeresiyeCheckout) {
+          this.confirmVeresiyeCheckout();
+        }
       } else if (e.code === 'KeyH' || e.code === 'Tab') {
         e.preventDefault();
         this.toggleWikiModal();
@@ -1719,6 +1755,11 @@ class MiniMartGame {
     this.offlineNoticeEl = document.getElementById('offline-notice');
     this.offlineNoticeTextEl = document.getElementById('offline-notice-text');
     document.getElementById('offline-notice-close')?.addEventListener('click', () => this.offlineNoticeEl?.classList.add('hidden'));
+
+    this.hygieneDisplay = document.getElementById('hygiene-display');
+    this.prestigeDisplay = document.getElementById('prestige-display');
+    this.initWholesaleUI();
+
     const managementToggle = document.getElementById('management-toggle');
     managementToggle?.addEventListener('click', () => {
       const panel = document.getElementById('specialization-panel');
@@ -2009,6 +2050,7 @@ class MiniMartGame {
       this.dailyDemand = null;
       this.ensureDailyDemand();
       this.presentDayChoices();
+      this.processVeresiyeMorningCollection();
       this.saveState();
     }
     this.renderDayHud();
@@ -2846,6 +2888,10 @@ class MiniMartGame {
     this.upgradeContent.innerHTML = '';
 
     const currentTab = this.activeUpgradeTab || 'player';
+    if (currentTab === 'decoration') {
+      this.renderDecorationStudio();
+      return;
+    }
     const keys = Object.keys(UPGRADE_CONFIG).filter(k => UPGRADE_CONFIG[k].category === currentTab);
 
     keys.forEach(key => {
@@ -3113,6 +3159,11 @@ class MiniMartGame {
     this.updateHelpers(delta);
     this.updateDeliveryDesk(delta);
     this.updateShoplifterCatch(delta);
+    this.updateHygieneAndMop(delta);
+    this.updateSecurityAndDog(delta);
+    this.updateWholesaleAndTruck(delta);
+    this.updateStaffFatigue(delta);
+    this.updatePrestigeAndVIP(delta);
     this.updateCapacityIndicator();
     this.updatePlayerGroundRing(elapsedTime);
     this.updateGuidanceAndObjective(elapsedTime);
@@ -3859,6 +3910,14 @@ class MiniMartGame {
       if (waitingCustomer.char.group.position.distanceTo(frontPos) < 1.1) {
         if (cashierActive) {
           waitingCustomer.startCheckoutProcess(isFastBonus);
+          if (waitingCustomer.residentData && isPlayerAtRegister && !this.pendingVeresiyeCheckout) {
+            const rId = waitingCustomer.residentData.id;
+            const curDebt = (this.veresiyeState && this.veresiyeState.ledger && this.veresiyeState.ledger[rId]) || 0;
+            if (curDebt === 0 && !this.veresiyePromptCooldown) {
+              this.showVeresiyePrompt(waitingCustomer, waitingCustomer.residentData);
+              this.veresiyePromptCooldown = 15.0;
+            }
+          }
         } else {
           waitingCustomer.isCashierWaiting = true;
         }
@@ -3868,6 +3927,7 @@ class MiniMartGame {
         this.checkout.hideProgress();
       }
     }
+    if (this.veresiyePromptCooldown > 0) this.veresiyePromptCooldown -= delta;
 
     // Money pickup on tray
     const cashPickupPos = new THREE.Vector3(this.checkout.x + 0.92, 0, this.checkout.z - 0.15);
@@ -4558,6 +4618,10 @@ class MiniMartGame {
           brands: this.brandState || window.GameMechanics.createBrandState(),
           dayChoice: this.activeDayChoice || null,
           neighborhoodBuildings: this.neighborhoodBuildingsState || window.GameMechanics.createNeighborhoodBuildingState(),
+          veresiye: this.veresiyeState || window.GameMechanics.createVeresiyeState(),
+          wholesale: this.wholesaleState || window.GameMechanics.createWholesaleState(),
+          staffFatigue: this.staffFatigue || window.GameMechanics.createStaffFatigueState(),
+          decoration: this.decorationState || window.GameMechanics.createDecorationState(),
           lastSavedAt: Date.now()
         }
       };
@@ -4599,6 +4663,11 @@ class MiniMartGame {
         if (this.neighborhoodBuildingsState.built && Array.isArray(this.neighborhoodBuildingsState.built)) {
           this.neighborhoodBuildingsState.built.forEach(bId => this.spawnNeighborhoodBuildingMesh(bId));
         }
+        this.veresiyeState = window.GameMechanics.createVeresiyeState(data.veresiye || {});
+        this.wholesaleState = window.GameMechanics.createWholesaleState(data.wholesale || {});
+        this.staffFatigue = window.GameMechanics.createStaffFatigueState(data.staffFatigue || {});
+        this.decorationState = window.GameMechanics.createDecorationState(data.decoration || {});
+        this.applyDecorationEffects();
         if (this.brandState && this.brandState.brands) {
           Object.entries(this.brandState.brands).forEach(([cat, bInfo]) => {
             if (bInfo && bInfo.color) {
@@ -4782,6 +4851,8 @@ class MiniMartGame {
       this.renderBrandsTab(container);
     } else if (tab === 'buildings') {
       this.renderBuildingsTab(container);
+    } else if (tab === 'veresiye') {
+      this.renderVeresiyeTab(container);
     }
   }
 
@@ -5079,6 +5150,511 @@ class MiniMartGame {
     window.Sound.playCoin();
     this.showFloatingText(`${choice.name} AKTİF!`, this.player.group.position, '#FFE600');
     this.saveState();
+  }
+
+  // --- Living Neighborhood Phase 1, 2, 3 Implementation Methods ---
+
+  initWholesaleUI() {
+    this.wholesaleBtn = document.getElementById('wholesale-btn');
+    this.wholesaleModal = document.getElementById('wholesale-modal');
+    this.wholesaleCloseBtn = document.getElementById('wholesale-close-btn');
+    this.wholesaleContent = document.getElementById('wholesale-content');
+
+    if (this.wholesaleBtn) {
+      this.wholesaleBtn.addEventListener('click', () => this.openWholesaleModal());
+    }
+    if (this.wholesaleCloseBtn) {
+      this.wholesaleCloseBtn.addEventListener('click', () => this.closeWholesaleModal());
+    }
+    if (this.wholesaleModal) {
+      this.wholesaleModal.addEventListener('click', (e) => {
+        if (e.target === this.wholesaleModal) this.closeWholesaleModal();
+      });
+    }
+
+    this.veresiyePrompt = document.getElementById('veresiye-prompt');
+    this.veresiyeResidentName = document.getElementById('veresiye-resident-name');
+    this.veresiyeResidentMsg = document.getElementById('veresiye-resident-msg');
+    this.veresiyeAcceptBtn = document.getElementById('veresiye-accept-btn');
+    this.veresiyeDeclineBtn = document.getElementById('veresiye-decline-btn');
+
+    if (this.veresiyeAcceptBtn) {
+      this.veresiyeAcceptBtn.addEventListener('click', () => this.confirmVeresiyeCheckout());
+    }
+    if (this.veresiyeDeclineBtn) {
+      this.veresiyeDeclineBtn.addEventListener('click', () => this.declineVeresiyeCheckout());
+    }
+  }
+
+  openWholesaleModal() {
+    this.isWholesaleOpen = true;
+    if (this.wholesaleModal) {
+      this.wholesaleModal.classList.add('open');
+      this.wholesaleModal.classList.remove('hidden');
+    }
+    this.renderWholesaleCatalog();
+    window.Sound.playUnlock();
+  }
+
+  closeWholesaleModal() {
+    this.isWholesaleOpen = false;
+    if (this.wholesaleModal) {
+      this.wholesaleModal.classList.remove('open');
+      this.wholesaleModal.classList.add('hidden');
+    }
+  }
+
+  renderWholesaleCatalog() {
+    if (!this.wholesaleContent) return;
+    this.wholesaleContent.replaceChildren();
+
+    const grid = document.createElement('div');
+    grid.className = 'wholesale-grid';
+
+    const catalog = window.GameMechanics.WHOLESALE_CATALOG || {};
+    Object.entries(catalog).forEach(([itemKey, itemInfo]) => {
+      const card = document.createElement('div');
+      card.className = 'wholesale-card';
+
+      const retailComp = itemInfo.retailRef * itemInfo.count;
+      const discount = Math.round((1 - itemInfo.cost / retailComp) * 100);
+      const canAfford = this.money >= itemInfo.cost;
+      const isTruckBusy = !!(this.wholesaleBay && this.wholesaleBay.activeTruck);
+
+      card.innerHTML = `
+        <div class="wholesale-card-header">
+          <div class="wholesale-item-name">${itemInfo.name} (${itemInfo.count} Adet)</div>
+          <span class="wholesale-badge">-%${discount} İNDİRİM</span>
+        </div>
+        <div class="wholesale-pricing">
+          <span class="wholesale-price">$${itemInfo.cost}</span>
+          <span class="wholesale-retail-comp">Piyasa: $${retailComp}</span>
+        </div>
+        <button class="wholesale-order-btn" ${!canAfford || isTruckBusy ? 'disabled' : ''}>
+          ${isTruckBusy ? 'KAMYON YOLDA' : (canAfford ? 'KOLİ SİPARİŞ ET' : 'YETERSİZ BAKİYE')}
+        </button>
+      `;
+
+      const btn = card.querySelector('.wholesale-order-btn');
+      btn.addEventListener('click', () => {
+        if (!canAfford || isTruckBusy) return;
+        this.money -= itemInfo.cost;
+        this.updateMoneyUI();
+        this.wholesaleState = window.GameMechanics.orderWholesaleCrate(this.wholesaleState, itemKey, itemInfo.cost);
+        this.spawnWholesaleTruck(itemKey, itemInfo.count);
+        this.showFloatingText(`TOPTANCI SİPARİŞİ: ${itemInfo.name}`, this.player.group.position, '#2ECC71');
+        window.Sound.playCoin();
+        this.renderWholesaleCatalog();
+        this.saveState();
+      });
+
+      grid.appendChild(card);
+    });
+
+    this.wholesaleContent.appendChild(grid);
+  }
+
+  spawnWholesaleTruck(itemType, count = 6) {
+    if (!this.wholesaleBay || this.wholesaleBay.activeTruck) return;
+    this.wholesaleBay.activeTruck = new WholesaleTruck(
+      this.scene,
+      -36.0,
+      -24.0,
+      -10.0,
+      () => {
+        this.wholesaleBay.spawnCrate(itemType, count);
+        window.Sound.playStock();
+        this.showFloatingText('KOLİ PALETE İNDİRİLDİ!', new THREE.Vector3(-24.0, 1.2, -10.0), '#FFE600');
+        this.renderWholesaleCatalog();
+      },
+      () => {
+        this.wholesaleBay.activeTruck = null;
+        this.renderWholesaleCatalog();
+      }
+    );
+  }
+
+  showVeresiyePrompt(customer, resident) {
+    this.pendingVeresiyeCheckout = { customer, resident };
+    if (this.veresiyePrompt) {
+      this.veresiyePrompt.classList.remove('hidden');
+    }
+    if (this.veresiyeResidentName) {
+      this.veresiyeResidentName.textContent = resident.name;
+    }
+  }
+
+  confirmVeresiyeCheckout() {
+    if (!this.pendingVeresiyeCheckout) return;
+    const { customer, resident } = this.pendingVeresiyeCheckout;
+    const amount = 35;
+    this.veresiyeState = window.GameMechanics.issueVeresiye(this.veresiyeState, resident.id, amount);
+    this.neighborhoodState = window.GameMechanics.recordResidentVisit(this.neighborhoodState, resident.id);
+    customer.processPayment();
+    window.Sound.playCashRegister();
+    this.showFloatingText(`[VERESİYE YAZILDI] ${resident.name}: $${amount} (+1 SADAKAT)`, this.checkout.group.position, '#FFE600');
+    if (this.veresiyePrompt) this.veresiyePrompt.classList.add('hidden');
+    this.pendingVeresiyeCheckout = null;
+    this.saveState();
+  }
+
+  declineVeresiyeCheckout() {
+    if (this.veresiyePrompt) this.veresiyePrompt.classList.add('hidden');
+    this.pendingVeresiyeCheckout = null;
+  }
+
+  processVeresiyeMorningCollection() {
+    if (!this.veresiyeState || !this.veresiyeState.ledger) return;
+    const residentIds = Object.keys(this.veresiyeState.ledger);
+    let totalCollected = 0;
+    residentIds.forEach(id => {
+      const debt = this.veresiyeState.ledger[id];
+      if (debt > 0) {
+        const res = window.GameMechanics.collectVeresiye(this.veresiyeState, id);
+        if (res && res.paid > 0) {
+          totalCollected += res.paid;
+          this.money += res.paid;
+          const residentObj = (window.GameMechanics.NEIGHBORHOOD_RESIDENTS || []).find(r => r.id === id);
+          const rName = residentObj ? residentObj.name : id;
+          this.showFloatingText(`[BORÇ ÖDENDİ] ${rName}: +$${res.paid} ve ${res.giftName}!`, this.checkout.group.position, '#2ECC71');
+        }
+      }
+    });
+    if (totalCollected > 0) {
+      this.updateMoneyUI();
+      window.Sound.playCoin();
+      this.saveState();
+    }
+  }
+
+  renderVeresiyeTab(container) {
+    const totalDebt = window.GameMechanics.getVeresiyeTotal(this.veresiyeState);
+    const totalColl = (this.veresiyeState && this.veresiyeState.totalCollected) || 0;
+
+    const summaryBox = document.createElement('div');
+    summaryBox.className = 'veresiye-card';
+    summaryBox.style.background = '#FFE600';
+    summaryBox.innerHTML = `
+      <div style="font-size: 16px; font-weight: 900;">MAHALLE VERESİYE DEFTERİ</div>
+      <div style="display: flex; gap: 20px; font-weight: 800; font-size: 14px;">
+        <div>AÇIK BORÇ: <span style="color: #e74c3c; font-weight: 900;">$${totalDebt}</span></div>
+        <div>TOPLAM TAHSİLAT: <span style="color: #27ae60; font-weight: 900;">$${totalColl}</span></div>
+      </div>
+      <div style="font-size: 12px; color: #333;">Fidye/veresiye yazılan mahalle sakinleri ertesi sabah markete gelip borçlarını öder ve sadakat hediyesi (satış bonusu / tohum) getirir.</div>
+    `;
+    container.appendChild(summaryBox);
+
+    const grid = document.createElement('div');
+    grid.className = 'resident-grid';
+    grid.style.marginTop = '12px';
+
+    const residents = window.GameMechanics.NEIGHBORHOOD_RESIDENTS || [];
+    residents.forEach(res => {
+      const debt = (this.veresiyeState && this.veresiyeState.ledger && this.veresiyeState.ledger[res.id]) || 0;
+      const aff = window.GameMechanics.getResidentAffinity(this.neighborhoodState, res.id);
+      const card = document.createElement('div');
+      card.className = 'veresiye-card';
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong style="font-size: 15px;">${res.name}</strong>
+          <span style="font-size: 11px; background: #000; color: #ffe600; padding: 2px 5px;">[LV${aff}]</span>
+        </div>
+        <div>${debt > 0 ? `<span class="veresiye-debt-badge">BORÇ: $${debt}</span>` : '<span class="veresiye-clear-badge">BORCU YOK</span>'}</div>
+        <div style="font-size: 12px; color: #555;">Sadakat Ödülü: <strong>${aff >= 3 ? 'Nadir Tohum + İkram' : 'Ev Yapımı İkram'}</strong></div>
+      `;
+      grid.appendChild(card);
+    });
+
+    container.appendChild(grid);
+  }
+
+  renderDecorationStudio() {
+    if (!this.upgradeContent) return;
+    this.upgradeContent.replaceChildren();
+
+    const decBox = document.createElement('div');
+    decBox.style.display = 'flex';
+    decBox.style.flexDirection = 'column';
+    decBox.style.gap = '14px';
+
+    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore);
+    const prestigeCard = document.createElement('div');
+    prestigeCard.className = 'decoration-card';
+    prestigeCard.style.background = '#FFE600';
+    prestigeCard.innerHTML = `
+      <div style="font-size: 16px; font-weight: 900;">ESNAF PRESTİJİ: [P${prestige.stars}] (${prestige.stars}/5 YILDIZ)</div>
+      <div style="font-size: 13px; font-weight: 800;">Zemin: ${prestige.floorName} · Hijyen Skoru: %${prestige.hygieneScore}</div>
+      <div style="font-size: 12px; color: #333;">Yüksek prestij VIP zengin müşterilerin gelmesini ve sepetlerini 3 katı fiyata doldurmasını sağlar.</div>
+    `;
+    decBox.appendChild(prestigeCard);
+
+    const floorTitle = document.createElement('div');
+    floorTitle.style.fontWeight = '900';
+    floorTitle.style.fontSize = '14px';
+    floorTitle.textContent = 'ZEMİN KAPLAMASI';
+    decBox.appendChild(floorTitle);
+
+    const floorGrid = document.createElement('div');
+    floorGrid.className = 'decoration-grid';
+
+    Object.entries(window.GameMechanics.DECORATION_TIERS).forEach(([fKey, fData]) => {
+      const isSelected = this.decorationState.activeFloor === fKey;
+      const isOwned = this.decorationState.unlockedFloors && this.decorationState.unlockedFloors.includes(fKey);
+      const canAfford = this.money >= fData.cost;
+
+      const fCard = document.createElement('div');
+      fCard.className = 'decoration-card';
+      fCard.innerHTML = `
+        <div class="decoration-preview" style="background: ${fData.colorHex}; color: #000;">
+          ${fData.name}
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong style="font-size: 13px;">${fData.name}</strong>
+          <span style="font-size: 11px; font-weight: 900; color: #27ae60;">${isOwned ? 'SAHİP' : `$${fData.cost}`}</span>
+        </div>
+        <button class="upgrade-buy-btn ${isSelected ? 'maxed' : ''}" type="button">
+          ${isSelected ? 'SEÇİLİ' : (isOwned ? 'KULLAN' : (canAfford ? `$${fData.cost} SATIN AL` : 'YETERSİZ BAKİYE'))}
+        </button>
+      `;
+      const btn = fCard.querySelector('button');
+      btn.addEventListener('click', () => {
+        if (isSelected) return;
+        if (isOwned) {
+          this.decorationState.activeFloor = fKey;
+          this.applyDecorationEffects();
+          this.renderDecorationStudio();
+          this.saveState();
+        } else if (canAfford) {
+          this.money -= fData.cost;
+          this.updateMoneyUI();
+          this.decorationState.unlockedFloors.push(fKey);
+          this.decorationState.activeFloor = fKey;
+          this.applyDecorationEffects();
+          this.renderDecorationStudio();
+          this.saveState();
+          window.Sound.playUnlock();
+        }
+      });
+      floorGrid.appendChild(fCard);
+    });
+    decBox.appendChild(floorGrid);
+
+    const radioTitle = document.createElement('div');
+    radioTitle.style.fontWeight = '900';
+    radioTitle.style.fontSize = '14px';
+    radioTitle.style.marginTop = '10px';
+    radioTitle.textContent = 'ESNAF RADYOSU KANALLARI';
+    decBox.appendChild(radioTitle);
+
+    const radioChannels = [
+      { id: 0, name: 'KAPALI' },
+      { id: 1, name: 'RETRO CHIPTUNE 8-BIT' },
+      { id: 2, name: 'LO-FI ESNAF' },
+      { id: 3, name: 'ANADOLU SYNTH' }
+    ];
+    const radioRow = document.createElement('div');
+    radioRow.style.display = 'flex';
+    radioRow.style.gap = '8px';
+    radioRow.style.flexWrap = 'wrap';
+
+    radioChannels.forEach(ch => {
+      const active = this.activeRadioChannel === ch.id;
+      const rBtn = document.createElement('button');
+      rBtn.className = `upgrade-buy-btn ${active ? 'maxed' : ''}`;
+      rBtn.style.padding = '8px 12px';
+      rBtn.textContent = ch.name;
+      rBtn.addEventListener('click', () => {
+        this.activeRadioChannel = ch.id;
+        this.decorationState.radioChannel = ch.id;
+        if (window.Sound && window.Sound.setRadioChannel) {
+          window.Sound.setRadioChannel(ch.id);
+        }
+        this.renderDecorationStudio();
+        this.saveState();
+      });
+      radioRow.appendChild(rBtn);
+    });
+    decBox.appendChild(radioRow);
+
+    this.upgradeContent.appendChild(decBox);
+  }
+
+  applyDecorationEffects() {
+    if (!this.decorationState) return;
+    const tier = window.GameMechanics.DECORATION_TIERS[this.decorationState.activeFloor] || window.GameMechanics.DECORATION_TIERS.classic;
+    if (this.storeFloorMat && tier) {
+      this.storeFloorMat.color.setHex(parseInt(tier.colorHex.replace('#', '0x')));
+    }
+    if (this.neonSign && this.decorationState.neonColor) {
+      const colorMap = {
+        yellow: 0xffe600,
+        mint: 0x25d366,
+        coral: 0xff5252,
+        violet: 0x9b59b6
+      };
+      this.neonSign.setColor(colorMap[this.decorationState.neonColor] || 0xffe600);
+    }
+    if (this.decorationState.radioChannel !== undefined) {
+      this.activeRadioChannel = this.decorationState.radioChannel;
+      if (window.Sound && window.Sound.setRadioChannel) {
+        window.Sound.setRadioChannel(this.activeRadioChannel);
+      }
+    }
+  }
+
+  updateHygieneAndMop(delta) {
+    this.trashSpawnTimer -= delta;
+    if (this.trashSpawnTimer <= 0) {
+      this.trashSpawnTimer = 20.0 + Math.random() * 15.0;
+      if (this.trashPool.length < 6) {
+        const tx = (Math.random() - 0.5) * 22.0;
+        const tz = -6.0 - Math.random() * 14.0;
+        const type = Math.random() > 0.4 ? 'trash' : 'puddle';
+        const trash = new TrashItem(this.scene, tx, tz, type);
+        this.trashPool.push(trash);
+      }
+    }
+
+    this.hygieneScore = window.GameMechanics.calculateHygieneScore(this.trashPool.length);
+    if (this.hygieneDisplay) {
+      this.hygieneDisplay.textContent = `${this.hygieneScore}%`;
+    }
+
+    const pPos = this.player.group.position;
+    const mopDist = pPos.distanceTo(new THREE.Vector3(-2.0, 0, -22.5));
+    if (mopDist < 1.4) {
+      if (!this.mopCooldown || this.mopCooldown <= 0) {
+        this.hasMopEquipped = !this.hasMopEquipped;
+        this.mopCooldown = 1.5;
+        window.Sound.playPop();
+        this.showFloatingText(this.hasMopEquipped ? 'PASPAS ALINDI (TEMİZLİK ZAMANI)' : 'PASPAS BIRAKILDI', pPos, '#00D2D3');
+      }
+    }
+    if (this.mopCooldown > 0) this.mopCooldown -= delta;
+
+    if (this.hasMopEquipped) {
+      for (let i = this.trashPool.length - 1; i >= 0; i--) {
+        const item = this.trashPool[i];
+        if (pPos.distanceTo(new THREE.Vector3(item.x, 0, item.z)) < 1.4) {
+          item.destroy();
+          this.trashPool.splice(i, 1);
+          window.Sound.playPop();
+          this.showFloatingText('TEMİZLENDİ!', pPos, '#2ECC71');
+          this.hygieneScore = window.GameMechanics.calculateHygieneScore(this.trashPool.length);
+          if (this.hygieneDisplay) this.hygieneDisplay.textContent = `${this.hygieneScore}%`;
+        }
+      }
+    }
+  }
+
+  updateSecurityAndDog(delta) {
+    if (this.securityGate) this.securityGate.update(delta);
+    if (this.karabashDog) this.karabashDog.update(delta);
+
+    const thief = this.customers.find(c => c instanceof ShoplifterAI && !c.isCaught && !c.isFinished);
+    if (thief && this.securityGate && this.karabashDog) {
+      const thiefZ = thief.char.group.position.z;
+      if ((thief.state === 'FLEEING_PANIC' || thiefZ <= -20.0) && !this.securityGate.isAlarming && this.karabashDog.state === 'GUARDING') {
+        this.securityGate.triggerAlarm();
+        window.Sound.playAlarmSiren();
+        this.showFloatingText('GÜVENLİK ALARMI! KARABAŞ HAREKETE GEÇTİ!', thief.char.group.position, '#FF5252');
+        this.karabashDog.chaseThief(thief, (caughtThief) => {
+          const bounty = caughtThief.onHitByPlayer ? caughtThief.onHitByPlayer(this.karabashDog) : caughtThief.catchThief();
+          if (bounty > 0) {
+            this.money += bounty;
+            this.updateMoneyUI();
+            window.Sound.playCoin();
+            this.showFloatingText(`KARABAŞ HIRSIZI ETKİSİZ HALE GETİRDİ! +$${bounty}`, caughtThief.char.group.position, '#2ECC71');
+          }
+        });
+      }
+    }
+  }
+
+  updateWholesaleAndTruck(delta) {
+    if (this.wholesaleBay && this.wholesaleBay.activeTruck) {
+      this.wholesaleBay.activeTruck.update(delta);
+    }
+    if (!this.wholesaleBay || !this.wholesaleBay.crates || this.wholesaleBay.crates.length === 0) return;
+
+    const pPos = this.player.group.position;
+    for (let i = this.wholesaleBay.crates.length - 1; i >= 0; i--) {
+      const crate = this.wholesaleBay.crates[i];
+      if (pPos.distanceTo(new THREE.Vector3(crate.x, 0, crate.z)) < 1.4) {
+        const shelf = this.shelves.find(s => s && s.itemType === crate.itemType);
+        if (shelf) {
+          if (shelf.currentStock < shelf.maxStock) {
+            shelf.addStock(crate.count);
+            this.wholesaleBay.removeCrate(crate);
+            window.Sound.playStock();
+            this.showFloatingText(`KOLİ RAFA DİZİLDİ! (+${crate.count} ${getItemDisplayName(crate.itemType)})`, shelf.group.position, '#2ECC71');
+            this.saveState();
+            break;
+          }
+        } else {
+          let added = 0;
+          for (let k = 0; k < crate.count; k++) {
+            if (this.player.stack.length < this.player.maxStack) {
+              this.player.addItem(crate.itemType);
+              added++;
+            }
+          }
+          if (added > 0) {
+            this.wholesaleBay.removeCrate(crate);
+            window.Sound.playPop();
+            this.showFloatingText(`KOLİDEN +${added} ${getItemDisplayName(crate.itemType)} ALINDI`, pPos, '#FFE600');
+            this.saveState();
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  updateStaffFatigue(delta) {
+    if (!this.helpers || this.helpers.length === 0) return;
+    this.helpers.forEach(helper => {
+      const hId = helper.id;
+      const isResting = helper.currentTask === 'TEA_REST';
+      if (isResting) {
+        this.staffFatigue = window.GameMechanics.refillStaffStamina(this.staffFatigue, hId, delta * 3.0);
+        const fatigue = (this.staffFatigue && this.staffFatigue[hId]) || { stamina: 100 };
+        if (fatigue.stamina >= 100) {
+          helper.currentTask = 'IDLE';
+          helper.currentTaskLabel = 'HAZIRDA';
+          helper.speedMultiplier = 1.0;
+          this.showFloatingText('PERSONEL ÇAY MOLASINDAN DÖNDÜ!', helper.char.group.position, '#2ECC71');
+        }
+      } else {
+        const isWorking = helper.currentTask !== 'IDLE';
+        if (isWorking) {
+          this.staffFatigue = window.GameMechanics.drainStaffStamina(this.staffFatigue, hId, delta);
+        }
+        const fatigue = (this.staffFatigue && this.staffFatigue[hId]) || { stamina: 100 };
+        if (fatigue.isExhausted) {
+          helper.currentTask = 'TEA_REST';
+          helper.currentTaskLabel = 'ÇAY MOLASI';
+          helper.speedMultiplier = 0.5;
+          if (this.teaStation) {
+            helper.moveTo(this.teaStation.restSpot, 3.0, delta);
+          }
+        } else if (fatigue.isTired) {
+          helper.speedMultiplier = 0.7;
+        } else {
+          helper.speedMultiplier = 1.0;
+        }
+      }
+    });
+  }
+
+  updatePrestigeAndVIP(delta) {
+    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore);
+    if (this.prestigeDisplay) {
+      this.prestigeDisplay.textContent = `[P${prestige.stars}]`;
+    }
+    if (prestige.isVIPEligible && this.vipSpawnTimer > 15.0) {
+      this.vipSpawnTimer -= delta * 0.5;
+    }
   }
 }
 
