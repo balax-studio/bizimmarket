@@ -9,7 +9,7 @@ const entitiesSource = fs.readFileSync(path.join(root, 'js', 'entities.js'), 'ut
 // 1. Verify Ground Y-Elevation Hierarchy (Eliminates Z-Fighting)
 assert(gameSource.includes('baseTerrain.position.set(0, -0.02, 0)'), 'Base terrain must be at Y = -0.02');
 assert(gameSource.includes('innerLawn.position.set(0, -0.01, 0)'), 'Inner lawn must be at Y = -0.01');
-assert(gameSource.includes('storeFloor.position.set(0, 0.00, -12.5)'), 'Store floor must be at Y = 0.00');
+assert(gameSource.includes('storeFloor.position.set(MARKET_LAYOUT.centerX, 0.00, MARKET_LAYOUT.centerZ)'), 'Expanded store floor must be at Y = 0.00');
 assert(gameSource.includes('mainPath.position.set(0, 0.015, 11.5)'), 'Main path must be at Y = 0.015');
 assert(entitiesSource.includes('tile.position.set(-1.62 + col * 1.08, 0.030,'), 'Production floor tiles must sit at Y = 0.030 above ground walkways');
 assert(entitiesSource.includes('this.group.position.set(x, 0.035, z)'), 'UnlockPad group must be at Y = 0.035');
@@ -33,6 +33,11 @@ assert(gameSource.includes("label: 'FIRIN'"), 'Row 2 west department must be FIR
 assert(gameSource.includes("label: 'BÜFE & PİZZA'"), 'Row 2 east department must be BÜFE & PİZZA');
 assert(gameSource.includes("label: 'ORGANİK'"), 'Row 3 west department must be ORGANİK');
 assert(gameSource.includes("label: 'GURME & DELİ'"), 'Row 3 east department must be GURME & DELİ');
+assert(gameSource.includes('createDepartmentDecor(label, x, z, width, depth, color)'), 'Each department zone must receive unique decor');
+assert(gameSource.includes("case 'MANAV':"), 'Produce department must have custom decor');
+assert(gameSource.includes("case 'ŞARKÜTERİ':"), 'Deli department must have custom decor');
+assert(gameSource.includes("case 'FIRIN':"), 'Bakery department must have custom decor');
+assert(gameSource.includes("case 'BÜFE & PİZZA':"), 'Pizza/buffet department must have custom decor');
 
 // 5. Verify Neighborhood Buildings Spawn in Safe Zone (North of Highway Traffic)
 assert(gameSource.includes("new VoxelGym(this.scene, 0.0, -39.5)"), 'Gym must be safely placed at Z = -39.5');
@@ -56,13 +61,14 @@ assert(entitiesSource.includes("let exitTarget = new THREE.Vector3(1.2, 0, -25.5
 // 8. Verify Supermarket Architectural Redesign, Visual Rigging & Logistics Warehouse
 assert(entitiesSource.includes('class SupermarketVisualSystem'), 'entities.js must define SupermarketVisualSystem');
 assert(entitiesSource.includes('class WarehouseZone'), 'entities.js must define WarehouseZone');
-assert(gameSource.includes('this.supermarketVisuals = new SupermarketVisualSystem(this.scene);'), 'game.js must instantiate SupermarketVisualSystem');
+assert(gameSource.includes('this.supermarketVisuals = new SupermarketVisualSystem(this.scene, this.collision);'), 'game.js must instantiate SupermarketVisualSystem with collision registration');
 assert(gameSource.includes('this.warehouseZone = new WarehouseZone(this.scene);'), 'game.js must instantiate WarehouseZone');
 
 // Visual Elements Verification (Ceiling, Refrigeration, Welcome, Checkout, Merchandising, Safety)
-assert(entitiesSource.includes('[1. REYON: TEMEL GIDA & MANAV]'), 'Overhead category banner 1 must be present');
-assert(entitiesSource.includes('[2. REYON: ŞARKÜTERİ & SÜT]'), 'Overhead category banner 2 must be present');
-assert(entitiesSource.includes('[3. REYON: ORGANİK & FIRIN]'), 'Overhead category banner 3 must be present');
+assert(entitiesSource.includes('TEMEL GIDA\\nMANAV'), 'Overhead category banner 1 must use readable stacked text');
+assert(entitiesSource.includes('ŞARKÜTERİ\\nSÜT & SOĞUK'), 'Overhead category banner 2 must use readable stacked text');
+assert(entitiesSource.includes('ORGANİK\\nFIRIN & GURME'), 'Overhead category banner 3 must use readable stacked text');
+assert(entitiesSource.includes('wrapSupermarketLabelLines'), 'Supermarket signs must wrap long label text for readability');
 assert(entitiesSource.includes('[KASA 1: AÇIK]'), 'Checkout overhead indicator light must be present');
 assert(entitiesSource.includes('[SEPETLER]'), 'Hand basket stack must be present');
 assert(entitiesSource.includes('[ARABALAR]'), 'Shopping trolley corral must be present');
@@ -83,7 +89,7 @@ assert(entitiesSource.includes("this.addNode('W_IN_DOOR', -19.2, -12.2);"), 'Nav
 assert(entitiesSource.includes("this.addNode('W_CENTER', -22.5, -12.2);"), 'NavGraph must include W_CENTER node');
 assert(entitiesSource.includes("this.addNode('W_DOCK', -24.0, -10.0);"), 'NavGraph must include W_DOCK loading bay node');
 assert(entitiesSource.includes("this.addEdge('M_Z2_X0', 'W_IN_DOOR');"), 'NavGraph must link store concourse to warehouse door');
-assert(gameSource.includes('this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, 19.5);'), 'Player movement bounds must allow walking into warehouse');
+assert(gameSource.includes('this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, MARKET_LAYOUT.maxX - 0.6);'), 'Player movement bounds must allow warehouse and expanded market walking');
 
 // 9. Verify North Concourse Modern Triple Checkout Line (Z = -19.5), Cashiers & High Ceiling Rigging
 assert(gameSource.includes('this.checkout1 = new CheckoutCounter(this.scene, 3.5, -19.5, 1);'), 'Checkout 1 must be at X = 3.5, Z = -19.5');
@@ -99,8 +105,10 @@ assert(gameSource.includes('BoxGeometry(12.0, 0.02, 5.2)'), 'Checkout parquet fl
 assert(gameSource.includes('BoxGeometry(0.45, 4.2, 23.4)'), 'Store outer wall height must be elevated to 4.2m');
 assert(gameSource.includes('BoxGeometry(0.7, 4.4, 0.7)'), 'Store perimeter pillars must be elevated to 4.4m');
 assert(entitiesSource.includes('getBestCheckout'), 'CustomerAI must implement getBestCheckout queue optimization');
-assert(entitiesSource.includes('const trussY = 4.80;'), 'Ceiling truss system must be elevated to Y = 4.80m');
-assert(entitiesSource.includes('const ductY = 4.95;'), 'HVAC ventilation ducts must be elevated to Y = 4.95m');
+assert(!entitiesSource.includes('this.buildCeilingRiggingAndLighting();'), 'Ceiling truss and lighting channels should not be instantiated');
+assert(!entitiesSource.includes('this.buildHVACDuctsAndDiffusers();'), 'HVAC ceiling ducts should not be instantiated');
+assert(!entitiesSource.includes('const trussY = 4.80;'), 'Ceiling truss system should be removed');
+assert(!entitiesSource.includes('const ductY = 4.95;'), 'HVAC duct system should be removed');
 assert(entitiesSource.includes('createVoxelNeoSign(`[KASA ${this.laneNumber}: AÇIK]`'), 'Overhead status lantern must be generated per lane number');
 assert(entitiesSource.includes('lockers.position.set(-6.5, 0, -23.2);'), 'Customer lockers must be safely placed on West entrance lobby wall');
 

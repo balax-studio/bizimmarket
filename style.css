@@ -31,14 +31,18 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   background-color: #A0E2FF;
 }
 
 #game-container {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 #game-canvas {
@@ -1862,93 +1866,48 @@ a:focus-visible {
   transition: width 0.25s ease-out;
 }
 
-@media (max-width: 600px) {
-  #ui-overlay { padding: 8px; }
-  .top-bar {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-    align-items: stretch;
-  }
-  .top-bar .hud-pill { min-width: 0; padding: 5px 6px; gap: 4px; }
-  .money-badge { grid-column: 1; }
-  .money-icon-circle { width: 24px; height: 24px; flex: 0 0 24px; }
-  .hud-value { font-size: 17px; }
-  .level-badge, .day-badge { font-size: 11px; justify-content: center; flex-wrap: wrap; }
-  .level-label { font-size: 9px; }
-  .demand-badge { grid-column: 1 / -1; font-size: 11px; justify-content: center; }
-  .top-menu {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-    min-width: 0;
-    align-items: stretch;
-    justify-content: flex-end;
-    gap: 6px;
-  }
-  .top-menu > .icon-btn,
-  .hud-menu-toggle { width: 44px; height: 44px; min-height: 44px; }
-  .top-actions {
-    right: 0;
-    top: calc(100% + 8px);
-    min-width: min(228px, calc(100vw - 18px));
-  }
-  .hud-action-btn { min-height: 44px; padding: 7px 10px; font-size: 12px; }
-  .combo-badge { position: absolute; top: 116px; left: 8px; z-index: 125; }
-  .delivery-widget { top: 180px; bottom: auto; right: 9px; width: min(170px, 44vw); }
 
-  .specialization-panel {
-    right: 9px;
-    bottom: calc(209px + env(safe-area-inset-bottom));
-    width: min(250px, 64vw);
-    max-height: calc(100dvh - 230px);
-    overflow-y: auto;
-    padding: 5px;
-  }
-  .management-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    min-height: 44px;
-    padding: 6px 9px;
-    border: 3px solid #000;
-    background: var(--color-cyan);
-    box-shadow: 2px 2px 0 #000;
-    font-weight: 900;
-    cursor: pointer;
-  }
-  .management-toggle:active { transform: translate(2px, 2px); box-shadow: none; }
-  #management-content { display: none; }
-  .specialization-panel.open #management-content { display: block; padding: 9px 3px 3px; }
-  .management-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-  .management-tab { min-height: 38px; font-size: 9px; padding: 4px 2px; }
-  .management-panel { max-height: min(38dvh, 280px); overflow-y: auto; padding-right: 3px; }
-
-  .bottom-objective-card {
-    bottom: calc(109px + env(safe-area-inset-bottom));
-    width: min(360px, calc(100vw - 20px));
-    min-height: 58px;
-    padding: 7px 10px;
-    gap: 7px;
-    justify-content: center;
-  }
-  .bottom-objective-card .objective-title { white-space: normal; text-wrap: balance; line-height: 1.15; }
-  .bottom-objective-card .objective-icon { display: none; }
-  .bottom-objective-card .quest-progress, .bottom-objective-card .quest-reward { flex: 0 0 auto; font-size: 10px; }
-  #joystick-container { bottom: calc(13px + env(safe-area-inset-bottom)); left: 14px; width: 88px; height: 88px; }
-  #joystick-stick { width: 42px; height: 42px; }
-  .sprint-btn { bottom: calc(14px + env(safe-area-inset-bottom)); right: 14px; width: 76px; height: 76px; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .objective-icon, .combo-badge { animation: none; }
   .sprint-btn, .hud-pill, .bottom-objective-card { transition-duration: 0.01ms; }
 }
 
+@media (max-width: 768px) {
+  .wiki-box,
+  .upgrade-box,
+  .debug-box,
+  .neighborhood-box,
+  .day-choice-box,
+  .wholesale-box,
+  .crt-monitor-bezel {
+    max-width: min(100%, calc(100vw - 20px));
+    max-height: calc(100dvh - 22px);
+  }
+
+  .resident-grid,
+  .building-grid,
+  .wholesale-grid,
+  .decoration-grid,
+  .catalog-grid,
+  .station-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+}
+
 @media (max-width: 600px) {
   :root {
     --mobile-top-zone: 118px;
     --mobile-control-zone: 112px;
+  }
+
+  #game-container,
+  #ui-overlay {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   #ui-overlay {
@@ -2035,6 +1994,12 @@ a:focus-visible {
     overflow-y: auto;
   }
 
+  .hud-action-btn {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
   .delivery-widget {
     top: calc(118px + env(safe-area-inset-top));
     right: 8px;
@@ -2061,16 +2026,73 @@ a:focus-visible {
   }
 
   .specialization-panel {
+    left: 8px;
     right: 8px;
-    bottom: calc(var(--mobile-control-zone) + 84px + env(safe-area-inset-bottom));
-    width: min(270px, calc(100vw - 22px));
-    max-height: calc(100dvh - var(--mobile-top-zone) - var(--mobile-control-zone) - 106px);
-    padding: 5px;
-    z-index: 122;
+    width: auto;
+    bottom: calc(var(--mobile-control-zone) + 12px + env(safe-area-inset-bottom));
+    max-height: min(62dvh, calc(100dvh - var(--mobile-top-zone) - var(--mobile-control-zone) - 24px));
+    padding: 0;
+    overflow: hidden;
+    transform: translateY(calc(100% - 52px));
+    transition-property: transform, box-shadow;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+    z-index: 150;
   }
 
   .specialization-panel.open {
-    width: min(310px, calc(100vw - 18px));
+    transform: translateY(0);
+    box-shadow: 5px 5px 0 #000;
+  }
+
+  .management-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 52px;
+    padding: 6px 12px;
+    border-width: 0 0 3px 0;
+    border-style: solid;
+    border-color: #000;
+    box-shadow: none;
+    background: var(--color-yellow);
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  #management-content {
+    max-height: calc(min(62dvh, 430px) - 52px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 9px 8px 10px;
+    scrollbar-width: thin;
+  }
+
+  .specialization-panel:not(.open) #management-content {
+    display: none;
+    pointer-events: none;
+  }
+
+  .specialization-panel.open #management-content {
+    display: block;
+  }
+
+  .management-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .management-tab {
+    min-height: 38px;
+    font-size: 10px;
+    padding: 4px 2px;
+  }
+
+  .management-panel,
+  .pricing-products {
+    max-height: none;
+    overflow: visible;
   }
 
   .bottom-objective-card {
@@ -2140,6 +2162,363 @@ a:focus-visible {
     font-size: 12px;
     padding: 5px 8px;
   }
+
+  /* Universal Mobile Modal & Popup System (Neo-Brutalist Game Sheets) */
+  .wiki-modal,
+  .upgrade-modal,
+  .debug-modal,
+  .neighborhood-modal,
+  .day-choice-modal,
+  .wholesale-modal,
+  .procurement-modal,
+  #wiki-modal,
+  #upgrade-modal,
+  #debug-modal,
+  #neighborhood-modal,
+  #day-choice-modal,
+  #wholesale-modal {
+    align-items: flex-end;
+    justify-content: center;
+    padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom)) 8px;
+    overflow: hidden;
+    overscroll-behavior: none;
+    z-index: 150;
+  }
+
+  .wiki-box,
+  .upgrade-box,
+  .debug-box,
+  .neighborhood-box,
+  .day-choice-box,
+  .wholesale-box,
+  .crt-monitor-bezel {
+    width: min(100%, calc(100vw - 16px));
+    max-width: none;
+    max-height: calc(100dvh - 22px);
+    box-shadow: 5px 5px 0 #000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .upgrade-header,
+  .wiki-header,
+  .debug-header,
+  .neighborhood-header,
+  .day-choice-header,
+  .wholesale-header,
+  .crt-header {
+    flex-shrink: 0;
+    padding: 10px 12px;
+    min-height: 46px;
+  }
+
+  .upgrade-title,
+  .wiki-title,
+  .debug-title,
+  .neighborhood-title,
+  .day-choice-title,
+  .wholesale-title,
+  .crt-title {
+    font-size: clamp(13px, 3.8vw, 16px);
+    gap: 6px;
+  }
+
+  .upgrade-close-btn,
+  #procurement-close-btn,
+  #offline-notice-close,
+  .day-summary-close-btn {
+    min-width: 40px;
+    min-height: 40px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .upgrade-tabs,
+  .wiki-tabs,
+  .neighborhood-tabs,
+  .crt-tabs {
+    flex-shrink: 0;
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .upgrade-tab,
+  .wiki-tab,
+  .neighborhood-tab,
+  .crt-tab {
+    min-width: fit-content;
+    min-height: 42px;
+    padding: 8px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .wiki-content,
+  .upgrade-content,
+  .debug-content,
+  .neighborhood-content,
+  .wholesale-content,
+  .crt-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100dvh - 150px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 10px 12px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .day-choice-cards {
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  /* Card Item Stacking & Button Ergonomics on Mobile */
+  .upgrade-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .upgrade-info {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .upgrade-buy-btn {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  .wholesale-card {
+    padding: 12px;
+  }
+
+  .wholesale-order-btn {
+    width: 100%;
+    min-height: 42px;
+    font-size: 13px;
+  }
+
+  .building-card {
+    padding: 12px;
+  }
+
+  .building-buy-btn {
+    width: 100%;
+    min-height: 42px;
+    font-size: 13px;
+  }
+
+  .branch-actions-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .branch-action-btn {
+    min-height: 42px;
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .branch-unlock-btn {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .brand-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .brand-label {
+    width: 100%;
+  }
+
+  .brand-input {
+    min-width: 0;
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .brand-save-btn {
+    width: 100%;
+    min-height: 44px;
+    text-align: center;
+  }
+
+  .debug-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .debug-btn {
+    min-height: 42px;
+    padding: 8px 10px;
+    font-size: 11px;
+    text-align: center;
+  }
+
+  /* CRT B2B Terminal Mobile Layout */
+  .crt-monitor-bezel {
+    padding: 8px;
+    border-width: 3.5px;
+  }
+
+  .crt-screen {
+    min-height: 0;
+    max-height: calc(100dvh - 38px);
+    padding: 8px;
+  }
+
+  .crt-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .crt-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .crt-table {
+    font-size: 11px;
+  }
+
+  .crt-table th,
+  .crt-table td {
+    padding: 6px 4px;
+  }
+
+  .crt-qty-controls {
+    gap: 4px;
+  }
+
+  .crt-qty-btn {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    font-size: 16px;
+  }
+
+  .crt-price-row {
+    grid-template-columns: 1.5fr repeat(4, 1fr);
+    gap: 4px;
+    font-size: 11px;
+    padding: 6px 2px;
+  }
+
+  .crt-summary-panel {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .crt-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  /* Prompts & Bottom Sheets */
+  .veresiye-prompt {
+    bottom: calc(var(--mobile-control-zone) + 8px + env(safe-area-inset-bottom));
+    width: min(calc(100vw - 16px), 440px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 140;
+  }
+
+  .veresiye-prompt-box {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px;
+  }
+
+  .veresiye-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .veresiye-btn-accept,
+  .veresiye-btn-decline {
+    min-height: 44px;
+    flex: 1;
+    font-size: 12px;
+  }
+
+  .office-terminal-prompt {
+    bottom: calc(var(--mobile-control-zone) + 12px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: calc(100vw - 24px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 135;
+  }
+
+  .office-prompt-box {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .floating-popup {
+    max-width: 42vw;
+    font-size: 16px;
+    line-height: 1.05;
+    text-align: center;
+    overflow-wrap: anywhere;
+    -webkit-text-stroke: 1px var(--color-black);
+    text-shadow: 2px 2px 0 var(--color-black);
+  }
+
+  .offline-notice,
+  .day-summary-card {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    transform: none;
+    max-width: none;
+  }
+
+  .day-summary-card {
+    max-height: calc(100dvh - 30px);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .day-choice-cards,
+  .resident-grid,
+  .building-grid,
+  .wholesale-grid,
+  .decoration-grid,
+  .catalog-grid,
+  .station-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .debug-btn-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 420px) {
@@ -2173,6 +2552,27 @@ a:focus-visible {
 
   .bottom-objective-card .quest-reward {
     display: none;
+  }
+
+  .wiki-modal,
+  .upgrade-modal,
+  .debug-modal,
+  .neighborhood-modal,
+  .day-choice-modal,
+  .wholesale-modal,
+  .procurement-modal {
+    padding: calc(4px + env(safe-area-inset-top)) 4px calc(4px + env(safe-area-inset-bottom)) 4px;
+  }
+
+  .wiki-box,
+  .upgrade-box,
+  .debug-box,
+  .neighborhood-box,
+  .day-choice-box,
+  .wholesale-box,
+  .crt-monitor-bezel {
+    width: 100%;
+    border-width: 3px;
   }
 }
 
@@ -3739,6 +4139,3 @@ a:focus-visible {
 .crt-separator {
   color: #2ED573;
 }
-
-
-

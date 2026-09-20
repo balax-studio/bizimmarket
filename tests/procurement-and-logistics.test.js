@@ -149,6 +149,8 @@ assert(htmlCode.includes('id="camera-btn"'), 'HTML must contain camera angle swi
 assert(gameCode.includes('toggleCameraAngle()'), 'MiniMartGame must implement toggleCameraAngle');
 assert(gameCode.includes('targetY = 24.0'), 'updateCamera must restore isometric height targetY 24.0');
 assert(gameCode.includes('this.cameraMode'), 'MiniMartGame must track cameraMode');
+assert(gameCode.includes('this.cameraPresets = ['), 'MiniMartGame must define camera angle presets');
+assert(gameCode.includes('offsetX'), 'Camera presets must support horizontal angle changes');
+assert(gameCode.includes('% this.cameraPresets.length'), 'Camera toggle must cycle through every configured preset');
 
 console.log('Procurement and logistics tests passed successfully!');
-

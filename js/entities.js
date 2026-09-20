@@ -94,7 +94,7 @@ function getResidentBadgeTexture(name, affinity = 0) {
 // collision geometry, so existing navigation and interaction pads stay unchanged.
 function createProductionFlowArrow(parent, x, direction, color) {
   const arrow = new THREE.Group();
-  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.65 });
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.78, transparent: true, opacity: 0.54 });
   const stem = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.025, 0.13), material);
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.025, 0.34), material);
   const tip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.025, 0.16), material);
@@ -112,14 +112,15 @@ function createProductionFlowArrow(parent, x, direction, color) {
 function createProductionFloorKit(machineGroup, accentColor = 0xffe600) {
   const floorKit = new THREE.Group();
   floorKit.userData.productionZone = true;
+  floorKit.userData.minimalistFloor = true;
 
-  const darkTile = new THREE.MeshStandardMaterial({ color: 0x5d6670, roughness: 0.95 });
-  const lightTile = new THREE.MeshStandardMaterial({ color: 0x747f8b, roughness: 0.95 });
+  const darkTile = new THREE.MeshStandardMaterial({ color: 0xd8e2e6, roughness: 0.96, transparent: true, opacity: 0.58 });
+  const lightTile = new THREE.MeshStandardMaterial({ color: 0xe8eef1, roughness: 0.96, transparent: true, opacity: 0.58 });
   floorKit.userData.tileMaterials = [darkTile, lightTile];
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 4; col++) {
       const tile = new THREE.Mesh(
-        new THREE.BoxGeometry(1.08, 0.025, 1.08),
+        new THREE.BoxGeometry(1.06, 0.018, 1.06),
         (row + col) % 2 === 0 ? darkTile : lightTile
       );
       tile.position.set(-1.62 + col * 1.08, 0.030, -1.08 + row * 1.08);
@@ -128,19 +129,36 @@ function createProductionFloorKit(machineGroup, accentColor = 0xffe600) {
     }
   }
 
-  const hazardStripe = new THREE.Group();
-  const yellow = new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.7 });
-  const black = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 0.8 });
-  const addStripeRow = (z) => {
-    for (let i = 0; i < 12; i++) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.035, 0.18), i % 2 === 0 ? yellow : black);
-      stripe.position.set(-1.98 + i * 0.36, 0.042, z);
-      hazardStripe.add(stripe);
-    }
-  };
-  addStripeRow(-1.72);
-  addStripeRow(1.72);
-  floorKit.add(hazardStripe);
+  const softPerimeterBand = new THREE.Group();
+  const bandMat = new THREE.MeshStandardMaterial({
+    color: accentColor,
+    roughness: 0.88,
+    transparent: true,
+    opacity: 0.32
+  });
+  [
+    [0, -1.72, 4.25, 0.10],
+    [0, 1.72, 4.25, 0.10],
+    [-2.15, 0, 0.10, 3.25],
+    [2.15, 0, 0.10, 3.25]
+  ].forEach(([x, z, w, d]) => {
+    const band = new THREE.Mesh(new THREE.BoxGeometry(w, 0.016, d), bandMat);
+    band.position.set(x, 0.043, z);
+    softPerimeterBand.add(band);
+  });
+  floorKit.add(softPerimeterBand);
+
+  const laneMat = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    roughness: 0.9,
+    transparent: true,
+    opacity: 0.10
+  });
+  [-0.54, 0.54].forEach(z => {
+    const lane = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.014, 0.035), laneMat);
+    lane.position.set(0, 0.047, z);
+    floorKit.add(lane);
+  });
 
   floorKit.userData.inputArrow = createProductionFlowArrow(floorKit, -1.95, 1, accentColor);
   floorKit.userData.outputArrow = createProductionFlowArrow(floorKit, 1.95, 1, 0x2ed573);
@@ -223,6 +241,7 @@ function createProductionDecorKit(machineGroup, accentColor) {
 }
 
 const _productionRecipeTextureCache = {};
+const _readableMachineLabelTextureCache = {};
 
 function getProductionRecipeTexture(recipeLabel) {
   if (_productionRecipeTextureCache[recipeLabel]) return _productionRecipeTextureCache[recipeLabel];
@@ -251,14 +270,94 @@ function getProductionRecipeTexture(recipeLabel) {
   return texture;
 }
 
-function createProductionMachineDetails(machineGroup, accentColor = 0xffe600, recipeLabel = 'HAMMADDE > URUN', inputTypes = []) {
+function createReadableMachineLabel(key, title, subtitle, bgColor = '#111111', textColor = '#FFFFFF') {
+  const cacheKey = `${key}_${title}_${subtitle}_${bgColor}_${textColor}`;
+  if (_readableMachineLabelTextureCache[cacheKey]) return _readableMachineLabelTextureCache[cacheKey];
+  const canvas = document.createElement('canvas');
+  canvas.width = 768;
+  canvas.height = 192;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#FFE600';
+  ctx.fillRect(0, 0, canvas.width, 34);
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeRect(7, 7, canvas.width - 14, canvas.height - 14);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 7;
+  ctx.font = title.length > 18 ? '900 42px "Arial Black", sans-serif' : '900 50px "Arial Black", sans-serif';
+  ctx.strokeText(title, canvas.width / 2, 86, canvas.width - 54);
+  ctx.fillStyle = textColor;
+  ctx.fillText(title, canvas.width / 2, 86, canvas.width - 54);
+  ctx.fillStyle = '#FFFDF5';
+  ctx.fillRect(38, 125, canvas.width - 76, 42);
+  ctx.strokeRect(38, 125, canvas.width - 76, 42);
+  ctx.fillStyle = '#111111';
+  ctx.font = subtitle.length > 26 ? '900 24px "Courier New", monospace' : '900 28px "Courier New", monospace';
+  ctx.fillText(subtitle, canvas.width / 2, 146, canvas.width - 100);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
+  _readableMachineLabelTextureCache[cacheKey] = texture;
+  return texture;
+}
+
+function createProductionMachineDetails(machineGroup, accentColor = 0xffe600, recipeLabel = 'HAMMADDE > URUN', inputTypes = [], machineDisplayName = 'URETIM CIHAZI', outputLabel = 'MAMUL URUN', outputTypes = []) {
   const detailKit = new THREE.Group();
   detailKit.inputTypes = inputTypes;
+  detailKit.machineDisplayName = machineDisplayName;
+  detailKit.outputLabelText = outputLabel;
   detailKit.lastOutputCount = 0;
   detailKit.visualUpdateAccumulator = 0;
   const steel = new THREE.MeshStandardMaterial({ color: 0x2f3542, roughness: 0.45, metalness: 0.25 });
   const paleSteel = new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.4, metalness: 0.2 });
   const accent = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.45 });
+
+  detailKit.identityBoard = new THREE.Group();
+  detailKit.identityBoard.position.set(0, 2.72, 0.62);
+  const identityFrame = new THREE.Mesh(new THREE.BoxGeometry(2.72, 0.78, 0.10), steel);
+  const identityFace = new THREE.Mesh(
+    new THREE.BoxGeometry(2.58, 0.66, 0.12),
+    new THREE.MeshStandardMaterial({
+      map: createReadableMachineLabel(`${machineDisplayName}_identity`, machineDisplayName, recipeLabel, '#111111', '#FFFFFF'),
+      roughness: 0.28
+    })
+  );
+  identityFace.position.z = 0.04;
+  detailKit.identityBoard.add(identityFrame, identityFace);
+  detailKit.add(detailKit.identityBoard);
+
+  detailKit.productShowcase = new THREE.Group();
+  detailKit.productShowcase.position.set(0, 2.08, 0.72);
+  const displayShelf = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.08, 0.32), steel);
+  displayShelf.position.set(0, -0.18, 0);
+  detailKit.productShowcase.add(displayShelf);
+  const showcaseTypes = outputTypes.length > 0 ? outputTypes : inputTypes.slice(0, 2);
+  showcaseTypes.slice(0, 3).forEach((type, index) => {
+    const logo = createVoxelProductLogo(type);
+    logo.position.set((index - (Math.min(showcaseTypes.length, 3) - 1) / 2) * 0.58, 0.08, 0);
+    logo.scale.setScalar(0.82);
+    detailKit.productShowcase.add(logo);
+  });
+  detailKit.add(detailKit.productShowcase);
+
+  detailKit.outputLabel = new THREE.Mesh(
+    new THREE.BoxGeometry(1.86, 0.34, 0.09),
+    new THREE.MeshStandardMaterial({
+      map: createReadableMachineLabel(`${machineDisplayName}_output`, 'CIKIS', outputLabel, '#2ED573', '#111111'),
+      roughness: 0.3
+    })
+  );
+  detailKit.outputLabel.position.set(1.55, 0.76, 0.88);
+  detailKit.outputLabel.rotation.y = -Math.PI / 8;
+  detailKit.add(detailKit.outputLabel);
 
   const consoleBody = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.34), steel);
   consoleBody.position.set(0, 0.68, -1.2);
@@ -395,6 +494,9 @@ function updateProductionMachineDetails(machine, delta, time, active, outputCoun
   if (cam && detailKit.recipeBoard) {
     detailKit.recipeBoard.quaternion.copy(machine.group.quaternion).invert().multiply(cam.quaternion);
     detailKit.blockedSign.quaternion.copy(machine.group.quaternion).invert().multiply(cam.quaternion);
+    detailKit.identityBoard.quaternion.copy(machine.group.quaternion).invert().multiply(cam.quaternion);
+    detailKit.outputLabel.quaternion.copy(machine.group.quaternion).invert().multiply(cam.quaternion);
+    detailKit.productShowcase.quaternion.copy(machine.group.quaternion).invert().multiply(cam.quaternion);
   }
   detailKit.blockedSign.visible = blocked;
 
@@ -2611,7 +2713,7 @@ class FlourMill {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0xf1c40f);
-    this.productionDetails = createProductionMachineDetails(this.group, 0xf1c40f, 'BUGDAY > UN', ['WHEAT']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0xf1c40f, 'BUGDAY > UN', ['WHEAT'], 'TAS DEGIRMEN', 'UN CUVALI', ['FLOUR']);
     this.scene.add(this.group);
   }
 
@@ -2849,7 +2951,7 @@ class BakeryOven {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0xe67e22);
-    this.productionDetails = createProductionMachineDetails(this.group, 0xe67e22, 'UN > EKMEK', ['FLOUR', 'APPLE', 'TOMATO', 'CHEESE']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0xe67e22, 'UN > EKMEK', ['FLOUR', 'APPLE', 'TOMATO', 'CHEESE'], 'TAS FIRIN', 'EKMEK / TURTA / PIZZA', ['BREAD', 'APPLE_PIE', 'PIZZA']);
     this.scene.add(this.group);
   }
 
@@ -4210,6 +4312,30 @@ class ShelfUnit {
 // --- Supermarket Neo-Brutalist Label Texture Generator & Sign Helper ---
 const _supermarketLabelTextureCache = {};
 
+function wrapSupermarketLabelLines(label, maxCharsPerLine = 16) {
+  const cleanLabel = String(label).replace(/^\[|\]$/g, '');
+  if (cleanLabel.includes('\n')) return cleanLabel.split('\n').filter(Boolean);
+  const normalized = cleanLabel
+    .replace(/\s*&\s*/g, ' & ')
+    .replace(/\s*:\s*/g, ': ');
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+
+  words.forEach(word => {
+    const nextLine = line ? `${line} ${word}` : word;
+    if (nextLine.length > maxCharsPerLine && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = nextLine;
+    }
+  });
+
+  if (line) lines.push(line);
+  return lines.slice(0, 3);
+}
+
 function getSupermarketLabelTexture(label, bgColor = '#FFE600', textColor = '#111111', width = 512, height = 128) {
   const key = `${label}-${bgColor}-${textColor}-${width}-${height}`;
   if (_supermarketLabelTextureCache[key]) return _supermarketLabelTextureCache[key];
@@ -4225,12 +4351,24 @@ function getSupermarketLabelTexture(label, bgColor = '#FFE600', textColor = '#11
   ctx.lineWidth = borderW;
   ctx.strokeStyle = '#000000';
   ctx.strokeRect(borderW / 2, borderW / 2, width - borderW, height - borderW);
-  ctx.font = `900 ${Math.floor(height * 0.38)}px "Arial Black", sans-serif`;
+  const lines = wrapSupermarketLabelLines(label, width >= 900 ? 18 : 14);
+  const fontSize = Math.floor(height * (lines.length > 2 ? 0.22 : lines.length > 1 ? 0.28 : 0.38));
+  ctx.font = `900 ${fontSize}px "Arial Black", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(4, Math.floor(fontSize * 0.12));
+  ctx.strokeStyle = bgColor.toUpperCase() === '#111111' ? '#000000' : 'rgba(0,0,0,0.22)';
   ctx.fillStyle = textColor;
-  ctx.fillText(label, width / 2, height / 2, width - borderW * 2.5);
+  const lineHeight = fontSize * 1.08;
+  const firstY = height / 2 - ((lines.length - 1) * lineHeight) / 2;
+  lines.forEach((line, index) => {
+    const y = firstY + index * lineHeight;
+    ctx.strokeText(line, width / 2, y, width - borderW * 3.0);
+    ctx.fillText(line, width / 2, y, width - borderW * 3.0);
+  });
   const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 8;
   tex.needsUpdate = true;
   _supermarketLabelTextureCache[key] = tex;
   return tex;
@@ -4242,7 +4380,7 @@ function createVoxelNeoSign(label, bgColor = '#FFE600', textColor = '#111111', w
   const frame = new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, depth), frameMat);
   signGroup.add(frame);
 
-  const tex = getSupermarketLabelTexture(label, bgColor, textColor, 512, 128);
+  const tex = getSupermarketLabelTexture(label, bgColor, textColor, 1024, 256);
   const faceMat = tex
     ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
     : new THREE.MeshStandardMaterial({ color: parseInt(bgColor.replace('#', '0x'), 16), roughness: 0.3 });
@@ -6535,7 +6673,7 @@ class CheeseProcessor {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0x0984e3);
-    this.productionDetails = createProductionMachineDetails(this.group, 0x0984e3, 'SUT > PEYNIR', ['MILK']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0x0984e3, 'SUT > PEYNIR', ['MILK'], 'PEYNIR KAZANI', 'PEYNIR TEKERI', ['CHEESE']);
     this.scene.add(this.group);
   }
 
@@ -6866,7 +7004,7 @@ class PopcornMaker {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0xff4757);
-    this.productionDetails = createProductionMachineDetails(this.group, 0xff4757, 'MISIR > PATLAMIS MISIR', ['CORN']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0xff4757, 'MISIR > PATLAMIS MISIR', ['CORN'], 'POPCORN MAKINESI', 'PATLAMIS MISIR', ['POPCORN']);
     this.scene.add(this.group);
   }
 
@@ -7066,7 +7204,7 @@ class Juicer {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0x00cec9);
-    this.productionDetails = createProductionMachineDetails(this.group, 0x00cec9, 'ELMA > ELMA SUYU', ['APPLE']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0x00cec9, 'ELMA > ELMA SUYU', ['APPLE'], 'MEYVE SIKACAK', 'ELMA SUYU', ['APPLE_JUICE']);
     this.scene.add(this.group);
   }
 
@@ -8906,7 +9044,7 @@ class IceCreamMachine {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0xff7675);
-    this.productionDetails = createProductionMachineDetails(this.group, 0xff7675, 'SUT + YUMURTA + CILEK > DONDURMA', ['MILK', 'EGG', 'STRAWBERRY']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0xff7675, 'SUT + YUMURTA + CILEK > DONDURMA', ['MILK', 'EGG', 'STRAWBERRY'], 'DONDURMA MAKINESI', 'DONDURMA', ['ICE_CREAM']);
     this.scene.add(this.group);
   }
 
@@ -9149,7 +9287,7 @@ class SaladPrepBar {
 
     this.initMesh();
     this.productionFloor = createProductionFloorKit(this.group, 0x2ecc71);
-    this.productionDetails = createProductionMachineDetails(this.group, 0x2ecc71, 'DOMATES + MISIR + PEYNIR > SALATA', ['TOMATO', 'CORN', 'CHEESE']);
+    this.productionDetails = createProductionMachineDetails(this.group, 0x2ecc71, 'DOMATES + MISIR + PEYNIR > SALATA', ['TOMATO', 'CORN', 'CHEESE'], 'SALATA HAZIRLIK', 'SALATA KASESI', ['SALAD_BOWL']);
     this.scene.add(this.group);
   }
 
@@ -11341,8 +11479,9 @@ class VoxelNeonSign {
 
 // --- Supermarket Visual System (Architectural Ceiling, Refrigeration, Welcome, Checkout & Safety) ---
 class SupermarketVisualSystem {
-  constructor(scene) {
+  constructor(scene, collision = null) {
     this.scene = scene;
+    this.collision = collision;
     this.group = new THREE.Group();
 
     // Reusable Materials
@@ -11359,9 +11498,7 @@ class SupermarketVisualSystem {
     this.blueMat = new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.4 });
     this.woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.7 });
 
-    this.buildCeilingRiggingAndLighting();
     this.buildOverheadCategoryBanners();
-    this.buildHVACDuctsAndDiffusers();
     this.buildSecurityMirrorsAndCCTV();
     this.buildRefrigerationAndFreezers();
     this.buildEntranceAndWelcomeZone();
@@ -11373,101 +11510,40 @@ class SupermarketVisualSystem {
     this.scene.add(this.group);
   }
 
-  // Category A.1: Ceiling Truss System & Linear Suspended LEDs
-  buildCeilingRiggingAndLighting() {
-    const trussY = 4.80;
-    // 5 Longitudinal Truss Beams (Z: -24 to -1)
-    [-18.5, -9.0, 0.0, 9.0, 18.5].forEach(tx => {
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 23.0), this.steelMat);
-      beam.position.set(tx, trussY, -12.5);
-      this.group.add(beam);
-    });
-
-    // 5 Transverse Cross Truss Beams (X: -18.5 to +18.5)
-    [-22.5, -17.0, -12.5, -7.0, -2.0].forEach(tz => {
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(37.0, 0.16, 0.16), this.steelMat);
-      beam.position.set(0, trussY, tz);
-      this.group.add(beam);
-    });
-
-    // 4 Long Suspended Linear LED Light Rows along Aisles
-    [-11.5, -4.0, 4.0, 11.5].forEach(lx => {
-      [-20.5, -15.0, -9.5, -4.5].forEach(lz => {
-        // Wire hangers
-        [-1.8, 1.8].forEach(hx => {
-          const wire = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.35, 0.03), this.steelMat);
-          wire.position.set(lx, trussY - 0.18, lz + hx);
-          this.group.add(wire);
-        });
-
-        // Enamel Housing
-        const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.10, 4.2), this.enamelMat);
-        fixture.position.set(lx, trussY - 0.35, lz);
-        // Diffuser Face
-        const led = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 4.1), this.ledMat);
-        led.position.set(lx, trussY - 0.40, lz);
-        this.group.add(fixture, led);
-      });
-    });
+  addDecorCollider(x, z, width, depth, tag) {
+    if (!this.collision) return;
+    this.collision.addBox(
+      x - width / 2,
+      x + width / 2,
+      z - depth / 2,
+      z + depth / 2,
+      tag
+    );
   }
 
-  // Category A.2: Overhead Aisle Category Hanging Signs
+  // Category A.1: Overhead Aisle Category Hanging Signs
   buildOverheadCategoryBanners() {
     const banners = [
-      { x: -8.5, z: -9.5, label: '[1. REYON: TEMEL GIDA & MANAV]', bg: '#2ECC71', color: '#111111' },
-      { x: 8.5, z: -9.5, label: '[2. REYON: ŞARKÜTERİ & SÜT]', bg: '#0984E3', color: '#FFFFFF' },
-      { x: 0.0, z: -15.0, label: '[3. REYON: ORGANİK & FIRIN]', bg: '#E67E22', color: '#111111' }
+      { x: -8.5, z: -9.5, label: 'TEMEL GIDA\nMANAV', bg: '#2ECC71', color: '#111111' },
+      { x: 8.5, z: -9.5, label: 'ŞARKÜTERİ\nSÜT & SOĞUK', bg: '#0984E3', color: '#FFFFFF' },
+      { x: 0.0, z: -15.0, label: 'ORGANİK\nFIRIN & GURME', bg: '#E67E22', color: '#111111' }
     ];
 
     banners.forEach(b => {
-      const sign = createVoxelNeoSign(b.label, b.bg, b.color, 3.4, 0.65, 0.08);
-      sign.position.set(b.x, 4.10, b.z);
+      const sign = createVoxelNeoSign(b.label, b.bg, b.color, 4.35, 0.95, 0.10);
+      sign.position.set(b.x, 3.72, b.z);
 
       // Hanging steel wires
-      [-1.4, 1.4].forEach(wx => {
-        const wire = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.70, 0.025), this.steelMat);
-        wire.position.set(b.x + wx, 4.45, b.z);
+      [-1.85, 1.85].forEach(wx => {
+        const wire = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.42, 0.025), this.steelMat);
+        wire.position.set(b.x + wx, 4.08, b.z);
         this.group.add(wire);
       });
       this.group.add(sign);
     });
   }
 
-  // Category A.3: Galvanized HVAC Ventilation Ducts & Diffusers
-  buildHVACDuctsAndDiffusers() {
-    const ductY = 4.95;
-    // Main supply trunk duct running East-West
-    const mainDuct = new THREE.Mesh(new THREE.BoxGeometry(33.0, 0.42, 0.65), this.hvacMat);
-    mainDuct.position.set(0, ductY, -12.5);
-    this.group.add(mainDuct);
-
-    // Flange Joint Rings
-    for (let fx = -16.0; fx <= 16.0; fx += 4.0) {
-      const ring = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.48, 0.72), this.steelMat);
-      ring.position.set(fx, ductY, -12.5);
-      this.group.add(ring);
-    }
-
-    // Branch ducts North & South
-    [-8.0, 8.0].forEach(bx => {
-      const branchN = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.36, 9.0), this.hvacMat);
-      branchN.position.set(bx, ductY, -17.5);
-      const branchS = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.36, 9.0), this.hvacMat);
-      branchS.position.set(bx, ductY - 0.05, -7.5);
-      this.group.add(branchN, branchS);
-
-      // Downward Air Supply Diffusers
-      [-17.0, -8.0].forEach(dz => {
-        const diff = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.12, 0.65), this.enamelMat);
-        diff.position.set(bx, ductY - 0.24, dz);
-        const grill = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.02, 0.52), this.blackMat);
-        grill.position.set(bx, ductY - 0.30, dz);
-        this.group.add(diff, grill);
-      });
-    });
-  }
-
-  // Category A.4: Convex Security Mirrors & CCTV Cameras
+  // Category A.2: Convex Security Mirrors & CCTV Cameras
   buildSecurityMirrorsAndCCTV() {
     // Corner Convex Mirrors
     const makeConvexMirror = (x, z, rotY) => {
@@ -11512,9 +11588,11 @@ class SupermarketVisualSystem {
 
   // Category B: Open Air-Curtain Chiller, Beverage Cooler & Island Freezer
   buildRefrigerationAndFreezers() {
-    // 1. Open Air-Curtain Dairy Multideck Chiller (Along East Wall: X = 18.2, Z = -21.0)
+    const eastWallFixtureX = 22.6;
+
+    // 1. Open Air-Curtain Dairy Multideck Chiller (Along expanded East Wall)
     const chiller = new THREE.Group();
-    chiller.position.set(18.2, 0, -21.0);
+    chiller.position.set(eastWallFixtureX, 0, -21.0);
     const chillBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 3.6), this.enamelMat);
     chillBody.position.set(0, 1.1, 0);
     // Honeycomb cold air curtain vent
@@ -11540,9 +11618,9 @@ class SupermarketVisualSystem {
     });
     this.group.add(chiller);
 
-    // 2. Glass-Door Beverage Cooler (Along East Wall: X = 18.2, Z = -15.5)
+    // 2. Glass-Door Beverage Cooler (Along expanded East Wall, separated from interactive drink shelf)
     const cooler = new THREE.Group();
-    cooler.position.set(18.2, 0, -15.5);
+    cooler.position.set(eastWallFixtureX, 0, -12.2);
     const coolerBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 2.8), this.steelMat);
     coolerBody.position.set(0, 1.1, 0);
     // Glass double doors
@@ -11581,6 +11659,7 @@ class SupermarketVisualSystem {
 
     freezer.add(fBody, fTrim, fLidL, fLidR, fTemp);
     this.group.add(freezer);
+    this.addDecorCollider(7.0, -17.7, 1.8, 2.8, 'decor_island_freezer');
   }
 
   // Category C: Entrance Hand Baskets, Trolley Corral, Lockers & Turnstile
@@ -11607,10 +11686,11 @@ class SupermarketVisualSystem {
     }
     basketGroup.add(standPole, standBase, bSign);
     this.group.add(basketGroup);
+    this.addDecorCollider(2.6, -22.5, 1.2, 1.0, 'decor_hand_baskets');
 
-    // 2. Shopping Trolley Corral [ARABALAR] (X = -3.2, Z = -22.5)
+    // 2. Shopping Trolley Corral [ARABALAR] (X = -2.4, Z = -22.5)
     const corral = new THREE.Group();
-    corral.position.set(-3.2, 0, -22.5);
+    corral.position.set(-2.4, 0, -22.5);
     // Chrome tubular guide rails
     const railL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.85, 2.4), this.chromeMat);
     railL.position.set(-0.55, 0.42, 0);
@@ -11634,6 +11714,7 @@ class SupermarketVisualSystem {
     }
     corral.add(railL, railR, cSign);
     this.group.add(corral);
+    this.addDecorCollider(-2.4, -22.5, 1.4, 2.6, 'decor_trolley_corral');
 
     // 3. Customer Storage Lockers (X = -6.5, Z = -23.2 on West Entrance Lobby Wall)
     const lockers = new THREE.Group();
@@ -11654,6 +11735,7 @@ class SupermarketVisualSystem {
     }
     lockers.add(lockerBody);
     this.group.add(lockers);
+    this.addDecorCollider(-6.5, -23.2, 2.0, 0.8, 'decor_lockers');
 
     // 4. Sanitizer Stand & Chrome Mechanical Turnstile
     const sanitizer = new THREE.Group();
@@ -11666,9 +11748,9 @@ class SupermarketVisualSystem {
     sDrip.position.set(0, 0.98, 0.06);
     sanitizer.add(sPole, sHead, sDrip);
 
-    // Turnstile at Inbound Portal X = -1.2, Z = -22.8
+    // Turnstile at Inbound Portal X = -1.6, Z = -22.8
     const turnstile = new THREE.Group();
-    turnstile.position.set(-1.2, 0, -22.8);
+    turnstile.position.set(-1.6, 0, -22.8);
     const tPost = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.05, 0.22), this.chromeMat);
     tPost.position.set(0, 0.525, 0);
     const tArm = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.06), this.chromeMat);
@@ -11676,6 +11758,8 @@ class SupermarketVisualSystem {
     turnstile.add(tPost, tArm);
 
     this.group.add(sanitizer, turnstile);
+    this.addDecorCollider(-0.5, -23.0, 0.7, 0.7, 'decor_sanitizer');
+    this.addDecorCollider(-1.6, -22.8, 0.4, 0.4, 'decor_turnstile');
   }
 
   // Category D: Checkout Lane Light, Impulse Merchandising, Receipts & Dividers
@@ -11693,6 +11777,7 @@ class SupermarketVisualSystem {
     }
     impulse.add(rackFrame);
     this.group.add(impulse);
+    this.addDecorCollider(13.8, -19.5, 0.8, 1.6, 'decor_impulse_rack');
 
     // 2. Newspaper & Magazine Display Stand on East Flank (X = 14.8, Z = -19.5)
     const newsStand = new THREE.Group();
@@ -11707,6 +11792,7 @@ class SupermarketVisualSystem {
     }
     newsStand.add(nFrame);
     this.group.add(newsStand);
+    this.addDecorCollider(14.8, -19.5, 0.9, 1.1, 'decor_news_stand');
   }
 
   // Category E: Digital Produce Scale, End-Cap Promos, Price Checker & Crates
@@ -11729,6 +11815,7 @@ class SupermarketVisualSystem {
 
     scaleStation.add(sPedestal, platter, displayMast, sScreen, rollHolder);
     this.group.add(scaleStation);
+    this.addDecorCollider(-8.5, -11.2, 1.1, 1.1, 'decor_produce_scale');
 
     // 2. End-Cap Promotional Signs on Shelf Ends
     const endCap1 = createVoxelNeoSign('[GÜNÜN FIRSATI]', '#FFE600', '#111111', 2.2, 0.50, 0.08);
@@ -11748,6 +11835,7 @@ class SupermarketVisualSystem {
     pSign.position.set(0, 0.12, 0.10);
     priceChecker.add(pBox, pLaser, pSign);
     this.group.add(priceChecker);
+    this.addDecorCollider(-12.5, -12.0, 0.8, 0.8, 'decor_price_checker');
 
     // 4. Rustic Wooden Bakery Crates (Beside Fırın Department: X = -8.5, Z = -13.5)
     const crateStack = new THREE.Group();
@@ -11763,6 +11851,7 @@ class SupermarketVisualSystem {
       crateStack.add(cMesh, bread);
     }
     this.group.add(crateStack);
+    this.addDecorCollider(-8.5, -13.5, 1.0, 0.8, 'decor_bakery_crates');
   }
 
   // Category F: Safety Wet Floor Cone, Fire Extinguisher, Recycling & Corner Guards
@@ -11780,6 +11869,7 @@ class SupermarketVisualSystem {
     cLabel.position.set(0, 0.35, 0.20);
     cone.add(coneBase, coneMid, coneTop, cLabel);
     this.group.add(cone);
+    this.addDecorCollider(-4.5, -17.5, 0.8, 0.8, 'decor_wet_floor_cone');
 
     // 2. Fire Extinguisher Station [YANGIN TÜPÜ] (X = -19.0, Z = -18.0)
     const fe = new THREE.Group();
@@ -11814,6 +11904,7 @@ class SupermarketVisualSystem {
       recGroup.add(bin, lid, bSign);
     });
     this.group.add(recGroup);
+    this.addDecorCollider(-3.5, -21.5, 1.6, 0.8, 'decor_recycling_station');
 
     // 4. Corner Rubber Wall Guards
     const guardPositions = [
@@ -11846,6 +11937,7 @@ class SupermarketVisualSystem {
     binSign.position.set(0, 0.95, 0);
     dumpBin.add(binFrame, binInner, binSign);
     this.group.add(dumpBin);
+    this.addDecorCollider(17.8, -13.5, 1.2, 1.2, 'decor_promo_dump_bin');
 
     // 2. Artisanal Bakery Slatted Timber Canopy (X = -8.5, Z = -15.0, Y = 2.85m)
     const bakeryCanopy = new THREE.Group();
@@ -11873,7 +11965,7 @@ class SupermarketVisualSystem {
 
     // 3. Bulk Grain & Legume Gravity Dispensers [DÖKME TAHIL] (X = -12.5, Z = -20.5)
     const bulkStation = new THREE.Group();
-    bulkStation.position.set(-12.5, 0, -20.5);
+    bulkStation.position.set(-17.0, 0, -20.5);
     const bFrame = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.9, 0.45), this.woodMat);
     bFrame.position.set(0, 0.95, 0);
     [-0.5, 0.0, 0.5].forEach((gx, idx) => {
@@ -11891,6 +11983,7 @@ class SupermarketVisualSystem {
     bHeader.position.set(0, 1.95, 0.12);
     bulkStation.add(bFrame, bHeader);
     this.group.add(bulkStation);
+    this.addDecorCollider(-17.0, -20.5, 1.9, 0.8, 'decor_bulk_grain');
 
     // 4. Counter Sneeze Guards on Toast & Food Prep Bar (X = -15.5, Z = -15.0, Y = 0.95m)
     const sneezeGuard = new THREE.Group();
@@ -11923,6 +12016,7 @@ class SupermarketVisualSystem {
     });
     directoryTotem.add(totemBase, totemPillar, tMapHeader);
     this.group.add(directoryTotem);
+    this.addDecorCollider(-1.8, -21.2, 1.0, 0.7, 'decor_store_directory');
 
     // 6. Entrance Floral & Potted Plants Stand (X = 1.8, Z = -21.2)
     const floralStand = new THREE.Group();
@@ -11945,6 +12039,22 @@ class SupermarketVisualSystem {
     fSign.position.set(0, 1.15, 0.25);
     floralStand.add(fSign);
     this.group.add(floralStand);
+    this.addDecorCollider(1.8, -21.2, 1.1, 1.0, 'decor_floral_stand');
+
+    // 7. Rear service room decor: pallet scale, staff sink, returns counter and prep lockers.
+    const serviceDecor = new THREE.Group();
+    serviceDecor.position.set(21.5, 0, 18.5);
+    const serviceCounter = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.95, 0.8), this.enamelMat);
+    serviceCounter.position.set(0, 0.475, 0);
+    const serviceTop = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.10, 0.9), this.steelMat);
+    serviceTop.position.set(0, 1.0, 0);
+    const sinkBasin = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.48), this.chromeMat);
+    sinkBasin.position.set(-1.0, 1.12, 0);
+    const returnScreen = createVoxelNeoSign('[İADE / SERVİS]', '#0984E3', '#FFFFFF', 1.4, 0.34, 0.06);
+    returnScreen.position.set(0.7, 1.35, 0.42);
+    serviceDecor.add(serviceCounter, serviceTop, sinkBasin, returnScreen);
+    this.group.add(serviceDecor);
+    this.addDecorCollider(21.5, 18.5, 3.5, 1.1, 'decor_service_counter');
   }
 
   destroy() {

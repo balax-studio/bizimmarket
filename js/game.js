@@ -316,6 +316,25 @@ const UPGRADE_CONFIG = {
   }
 };
 
+const MARKET_LAYOUT = Object.freeze({
+  width: 48,
+  depth: 49,
+  centerX: 0,
+  centerZ: 0,
+  minX: -24,
+  maxX: 24,
+  minZ: -24.5,
+  maxZ: 24.5,
+  publicNorthZ: -20.5,
+  groceryAisleZ: -15.0,
+  freshAisleZ: -9.5,
+  serviceGateZ: -1.0,
+  productionNorthZ: 4.0,
+  productionSouthZ: 21.5
+});
+
+window.MARKET_LAYOUT = MARKET_LAYOUT;
+
 // --- Continuous 2D Circle-to-AABB Collision & Slide Physics Engine ---
 // ponytail: lightweight zero-dependency continuous collision resolver with tangent sliding.
 class CollisionSystem {
@@ -442,6 +461,13 @@ class MiniMartGame {
     this.helper4 = null;
     this.upgradeDesk = null;
     this.collision = new CollisionSystem();
+    this.cameraMode = 0;
+    this.cameraPresets = [
+      { name: 'STANDART İZOMETRİK', targetY: 24.0, offsetX: 0.0, offsetZ: 17.0, lookX: 0.0, lookZ: -17.0, follow: 0.70, fov: 40.0 },
+      { name: 'GENİŞ KUŞBAKIŞI', targetY: 36.0, offsetX: 0.0, offsetZ: 24.0, lookX: 0.0, lookZ: -24.0, follow: 0.55, fov: 48.0 },
+      { name: 'YAKIN TAKİP', targetY: 15.5, offsetX: -5.5, offsetZ: 10.5, lookX: 2.0, lookZ: -10.5, follow: 0.86, fov: 43.0 },
+      { name: 'YAN PLAN', targetY: 21.0, offsetX: 18.0, offsetZ: 7.5, lookX: -18.0, lookZ: -7.5, follow: 0.72, fov: 42.0 }
+    ];
 
     // Global reference for entity sound & particle triggers
     window.gameInstance = this;
@@ -686,8 +712,8 @@ class MiniMartGame {
     latPath4.receiveShadow = true;
     this.scene.add(latPath1, latPath2, latPath3, latPath4);
 
-    // 3. Supermarket Floor (Width 38: X: -19 to +19, Depth 23: Z: -24 to -1)
-    const storeFloorGeo = new THREE.PlaneGeometry(38, 23);
+    // 3. Expanded Supermarket Floor: public sales floor plus rear production hall.
+    const storeFloorGeo = new THREE.PlaneGeometry(MARKET_LAYOUT.width, MARKET_LAYOUT.depth);
     storeFloorGeo.rotateX(-Math.PI / 2);
     const storeFloorMat = new THREE.MeshStandardMaterial({
       color: 0x74b9ff,
@@ -696,20 +722,20 @@ class MiniMartGame {
     });
     this.storeFloorMat = storeFloorMat;
     const storeFloor = new THREE.Mesh(storeFloorGeo, storeFloorMat);
-    storeFloor.position.set(0, 0.00, -12.5);
+    storeFloor.position.set(MARKET_LAYOUT.centerX, 0.00, MARKET_LAYOUT.centerZ);
     storeFloor.receiveShadow = true;
     this.scene.add(storeFloor);
 
     // High-Contrast Polish Checkerboard Grid Lines on Supermarket Floor
     const tileLineMat = new THREE.MeshBasicMaterial({ color: 0xa0cfff, transparent: true, opacity: 0.65 });
-    for (let x = -19; x <= 19; x += 2) {
-      const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.015, 23), tileLineMat);
-      line.position.set(x, 0.022, -12.5);
+    for (let x = MARKET_LAYOUT.minX; x <= MARKET_LAYOUT.maxX; x += 2) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.015, MARKET_LAYOUT.depth), tileLineMat);
+      line.position.set(x, 0.022, MARKET_LAYOUT.centerZ);
       this.scene.add(line);
     }
-    for (let z = -24; z <= -1; z += 2) {
-      const line = new THREE.Mesh(new THREE.BoxGeometry(38, 0.015, 0.04), tileLineMat);
-      line.position.set(0, 0.022, z);
+    for (let z = MARKET_LAYOUT.minZ + 0.5; z <= MARKET_LAYOUT.maxZ - 0.5; z += 2) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(MARKET_LAYOUT.width, 0.015, 0.04), tileLineMat);
+      line.position.set(MARKET_LAYOUT.centerX, 0.022, z);
       this.scene.add(line);
     }
 
@@ -887,6 +913,11 @@ class MiniMartGame {
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.35 });
     const glassMat = new THREE.MeshStandardMaterial({ color: 0x81ecec, transparent: true, opacity: 0.45, roughness: 0.1 });
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+    const eastWallX = MARKET_LAYOUT.maxX - 0.8;
+    const eastPosterFrameX = eastWallX - 0.25;
+    const eastPosterFaceX = eastWallX - 0.27;
+    const eastPosterBandX = eastWallX - 0.29;
+    const eastPosterReliefX = eastWallX - 0.38;
 
     // A. North Facade (Z = -24.0) with Grand Double Entrance Portal (X: -3.5 to +3.5)
     // Left Storefront Wall & Windows (X: -19.2 to -3.5)
@@ -899,14 +930,16 @@ class MiniMartGame {
     nLeftTrim.position.set(-11.35, 4.05, -24.0);
     this.scene.add(nLeftWall, nLeftGlass, nLeftTrim);
 
-    // Right Storefront Wall & Windows (X: +3.5 to +19.2)
-    const nRightWall = new THREE.Mesh(new THREE.BoxGeometry(15.7, 0.8, 0.45), wallMat);
-    nRightWall.position.set(11.35, 0.4, -24.0);
+    // Right Storefront Wall & Windows (X: +3.5 to expanded east facade)
+    const nRightFacadeWidth = MARKET_LAYOUT.maxX - 4.0;
+    const nRightFacadeX = (MARKET_LAYOUT.maxX + 4.0) / 2;
+    const nRightWall = new THREE.Mesh(new THREE.BoxGeometry(nRightFacadeWidth, 0.8, 0.45), wallMat);
+    nRightWall.position.set(nRightFacadeX, 0.4, -24.0);
     nRightWall.castShadow = true;
-    const nRightGlass = new THREE.Mesh(new THREE.BoxGeometry(15.5, 3.0, 0.12), glassMat);
-    nRightGlass.position.set(11.35, 2.3, -24.0);
-    const nRightTrim = new THREE.Mesh(new THREE.BoxGeometry(15.7, 0.45, 0.55), wallTrimMat);
-    nRightTrim.position.set(11.35, 4.05, -24.0);
+    const nRightGlass = new THREE.Mesh(new THREE.BoxGeometry(nRightFacadeWidth - 0.2, 3.0, 0.12), glassMat);
+    nRightGlass.position.set(nRightFacadeX, 2.3, -24.0);
+    const nRightTrim = new THREE.Mesh(new THREE.BoxGeometry(nRightFacadeWidth, 0.45, 0.55), wallTrimMat);
+    nRightTrim.position.set(nRightFacadeX, 4.05, -24.0);
     this.scene.add(nRightWall, nRightGlass, nRightTrim);
 
     // Entrance Portal Archway & Gate Posts (X: -3.5 and +3.5 at Z = -24.0)
@@ -966,18 +999,18 @@ class MiniMartGame {
 
     this.scene.add(leftWallN, leftTrimN, leftWallS, leftTrimS, leftWallLintel, leftTrimLintel);
 
-    // C. Right Wall (X = +19.0, Z = -24 to -1)
+    // C. Right Wall (expanded east boundary, Z = -24 to -1)
     const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 23.4), wallMat);
-    rightWall.position.set(19.2, 2.1, -12.5);
+    rightWall.position.set(eastWallX, 2.1, -12.5);
     rightWall.castShadow = true;
     const rightTrim = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 23.5), wallTrimMat);
-    rightTrim.position.set(19.2, 4.3, -12.5);
+    rightTrim.position.set(eastWallX, 4.3, -12.5);
     this.scene.add(rightWall, rightTrim);
 
     // Structural Voxel Pillars along Side Perimeters
     const pillarPositions = [
       [-19.2, -18.0], [-19.2, -12.0], [-19.2, -6.0], [-19.2, -1.0],
-      [19.2, -18.0], [19.2, -12.0], [19.2, -6.0], [19.2, -1.0]
+      [eastWallX, -18.0], [eastWallX, -12.0], [eastWallX, -6.0], [eastWallX, -1.0]
     ];
     pillarPositions.forEach(([px, pz]) => {
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.4, 0.7), pillarMat);
@@ -999,12 +1032,14 @@ class MiniMartGame {
     this.scene.add(wLeftGlass, wLeftFrameB, wLeftTrim);
 
     // Right Storefront Curb & Glass
-    const wRightGlass = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.65, 0.10), glassMat);
-    wRightGlass.position.set(11.3, 0.55, -1.0);
-    const wRightFrameB = new THREE.Mesh(new THREE.BoxGeometry(15.4, 0.25, 0.35), wallMat);
-    wRightFrameB.position.set(11.3, 0.125, -1.0);
-    const wRightTrim = new THREE.Mesh(new THREE.BoxGeometry(15.4, 0.08, 0.15), wallTrimMat);
-    wRightTrim.position.set(11.3, 0.90, -1.0);
+    const wRightFacadeWidth = MARKET_LAYOUT.maxX - 4.0;
+    const wRightFacadeX = (MARKET_LAYOUT.maxX + 4.0) / 2;
+    const wRightGlass = new THREE.Mesh(new THREE.BoxGeometry(wRightFacadeWidth - 0.2, 0.65, 0.10), glassMat);
+    wRightGlass.position.set(wRightFacadeX, 0.55, -1.0);
+    const wRightFrameB = new THREE.Mesh(new THREE.BoxGeometry(wRightFacadeWidth, 0.25, 0.35), wallMat);
+    wRightFrameB.position.set(wRightFacadeX, 0.125, -1.0);
+    const wRightTrim = new THREE.Mesh(new THREE.BoxGeometry(wRightFacadeWidth, 0.08, 0.15), wallTrimMat);
+    wRightTrim.position.set(wRightFacadeX, 0.90, -1.0);
     this.scene.add(wRightGlass, wRightFrameB, wRightTrim);
 
     // Gate Posts on South Staff Door (X: -3.5 & +3.5, Z = -1.0)
@@ -1047,31 +1082,31 @@ class MiniMartGame {
     p2Loaf.position.set(-18.82, 2.05, -12.5);
     this.scene.add(p2Frame, p2Face, p2Center, p2Loaf);
 
-    // B. East / Right Wall Posters (X = +18.95, facing West)
+    // B. East / Right Wall Posters (expanded east boundary, facing West)
     // 3. Farm Fresh Chilled Milk & Dairy Poster (Z = -18.5)
     const p3Frame = new THREE.Mesh(new THREE.BoxGeometry(0.10, 1.40, 2.30), posterBorderMat);
-    p3Frame.position.set(18.95, 2.05, -18.5);
+    p3Frame.position.set(eastPosterFrameX, 2.05, -18.5);
     const p3Face = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.28, 2.18), new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.3 }));
-    p3Face.position.set(18.93, 2.05, -18.5);
+    p3Face.position.set(eastPosterFaceX, 2.05, -18.5);
     const p3Band = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.36, 2.18), new THREE.MeshStandardMaterial({ color: 0x74b9ff, roughness: 0.25 }));
-    p3Band.position.set(18.91, 2.45, -18.5);
+    p3Band.position.set(eastPosterBandX, 2.45, -18.5);
     const p3Bottle = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.36, 0.26), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    p3Bottle.position.set(18.82, 1.95, -18.5);
+    p3Bottle.position.set(eastPosterReliefX, 1.95, -18.5);
     const p3Cap = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.14), new THREE.MeshStandardMaterial({ color: 0xff5252 }));
-    p3Cap.position.set(18.82, 2.16, -18.5);
+    p3Cap.position.set(eastPosterReliefX, 2.16, -18.5);
     this.scene.add(p3Frame, p3Face, p3Band, p3Bottle, p3Cap);
 
     // 4. Mega Sale & Super Bonus Rewards Poster (Z = -12.5)
     const p4Frame = new THREE.Mesh(new THREE.BoxGeometry(0.10, 1.40, 2.30), posterBorderMat);
-    p4Frame.position.set(18.95, 2.05, -12.5);
+    p4Frame.position.set(eastPosterFrameX, 2.05, -12.5);
     const p4Face = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.28, 2.18), new THREE.MeshStandardMaterial({ color: 0xffe600, roughness: 0.2 }));
-    p4Face.position.set(18.93, 2.05, -12.5);
+    p4Face.position.set(eastPosterFaceX, 2.05, -12.5);
     const p4Stripe1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 1.90), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-    p4Stripe1.position.set(18.91, 2.42, -12.5);
+    p4Stripe1.position.set(eastPosterBandX, 2.42, -12.5);
     const p4Stripe2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 1.90), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-    p4Stripe2.position.set(18.91, 1.68, -12.5);
+    p4Stripe2.position.set(eastPosterBandX, 1.68, -12.5);
     const p4Star = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.36, 0.36), starRedMat);
-    p4Star.position.set(18.82, 2.05, -12.5);
+    p4Star.position.set(eastPosterReliefX, 2.05, -12.5);
     this.scene.add(p4Frame, p4Face, p4Stripe1, p4Stripe2, p4Star);
 
     // C. North / Front Storefront Interior Wall Posters (Z = -23.75, facing South)
@@ -1131,50 +1166,57 @@ class MiniMartGame {
     // 7. Outdoor Farm Perimeter Wooden Fence (Z: -1.0 to +25.0)
     const fenceMat = new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.7 });
     const postGeo = new THREE.BoxGeometry(0.20, 0.95, 0.20);
-    const railGeoV = new THREE.BoxGeometry(0.10, 0.10, 26.0);
-    const railGeoHL = new THREE.BoxGeometry(15.5, 0.10, 0.10);
-    const railGeoHR = new THREE.BoxGeometry(15.5, 0.10, 0.10);
+    const westFenceX = MARKET_LAYOUT.minX;
+    const eastFenceX = MARKET_LAYOUT.maxX;
+    const fenceNorthZ = MARKET_LAYOUT.serviceGateZ;
+    const fenceSouthZ = MARKET_LAYOUT.maxZ + 0.5;
+    const fenceRailCenterZ = (fenceNorthZ + fenceSouthZ) / 2;
+    const fenceRailDepth = fenceSouthZ - fenceNorthZ;
+    const railGeoV = new THREE.BoxGeometry(0.10, 0.10, fenceRailDepth);
+    const railGeoH = new THREE.BoxGeometry(MARKET_LAYOUT.width, 0.10, 0.10);
 
-    // Left Perimeter Fence (X = -19.5, Z: -1.0 to 25.0)
-    for (let fz = -1.0; fz <= 25.0; fz += 2.6) {
+    // Left Perimeter Fence along expanded west service boundary
+    for (let fz = fenceNorthZ; fz <= fenceSouthZ; fz += 2.6) {
       const p = new THREE.Mesh(postGeo, fenceMat);
-      p.position.set(-19.5, 0.475, fz);
+      p.position.set(westFenceX, 0.475, fz);
       p.castShadow = true;
       this.scene.add(p);
     }
     const leftRail = new THREE.Mesh(railGeoV, fenceMat);
-    leftRail.position.set(-19.5, 0.65, 12.0);
+    leftRail.position.set(westFenceX, 0.65, fenceRailCenterZ);
     this.scene.add(leftRail);
 
-    // Right Perimeter Fence (X = +19.5, Z: -1.0 to 25.0)
-    for (let fz = -1.0; fz <= 25.0; fz += 2.6) {
+    // Right Perimeter Fence along expanded east boundary
+    for (let fz = fenceNorthZ; fz <= fenceSouthZ; fz += 2.6) {
       const p = new THREE.Mesh(postGeo, fenceMat);
-      p.position.set(19.5, 0.475, fz);
+      p.position.set(eastFenceX, 0.475, fz);
       p.castShadow = true;
       this.scene.add(p);
     }
     const rightRail = new THREE.Mesh(railGeoV, fenceMat);
-    rightRail.position.set(19.5, 0.65, 12.0);
+    rightRail.position.set(eastFenceX, 0.65, fenceRailCenterZ);
     this.scene.add(rightRail);
 
     // Back Southern Perimeter Fence
-    for (let fx = -19.5; fx <= 19.5; fx += 2.6) {
+    for (let fx = westFenceX; fx <= eastFenceX; fx += 2.6) {
       const p = new THREE.Mesh(postGeo, fenceMat);
-      p.position.set(fx, 0.475, 25.0);
+      p.position.set(fx, 0.475, fenceSouthZ);
       p.castShadow = true;
       this.scene.add(p);
     }
-    const backRailL = new THREE.Mesh(railGeoHL, fenceMat);
-    backRailL.position.set(-11.6, 0.65, 25.0);
-    const backRailR = new THREE.Mesh(railGeoHR, fenceMat);
-    backRailR.position.set(11.6, 0.65, 25.0);
-    this.scene.add(backRailL, backRailR);
+    const backRail = new THREE.Mesh(railGeoH, fenceMat);
+    backRail.position.set(MARKET_LAYOUT.centerX, 0.65, fenceSouthZ);
+    this.scene.add(backRail);
 
     // 8. Living World Particles & Clouds
     this.clouds = new VoxelCloudSystem(this.scene);
     this.butterflies = new VoxelButterflies(this.scene);
 
     // 9. Register Environmental Colliders
+    this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.minZ - 0.5, MARKET_LAYOUT.minZ + 0.5, 'store_north_wall');
+    this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.maxZ - 0.5, MARKET_LAYOUT.maxZ + 0.5, 'store_south_wall');
+    this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.minX + 0.5, MARKET_LAYOUT.serviceGateZ - 0.2, MARKET_LAYOUT.maxZ + 0.5, 'store_west_service_wall');
+    this.collision.addBox(MARKET_LAYOUT.maxX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.minZ - 0.5, MARKET_LAYOUT.maxZ + 0.5, 'store_east_wall');
     this.collision.addBox(-19.5, -3.5, -24.5, -23.6, 'north_wall_left');
     this.collision.addBox(-19.8, -18.8, -24.2, -13.8, 'wall_left_north');
     this.collision.addBox(-19.8, -18.8, -11.2, -0.8, 'wall_left_south');
@@ -1182,12 +1224,11 @@ class MiniMartGame {
     this.collision.addBox(-27.8, -19.0, -1.4, -0.6, 'warehouse_south_wall');
     this.collision.addBox(-28.0, -27.2, -24.2, -12.0, 'warehouse_west_wall_north');
     this.collision.addBox(-28.0, -27.2, -8.0, -0.8, 'warehouse_west_wall_south');
-    this.collision.addBox(18.8, 19.8, -24.2, -0.8, 'wall_right');
     this.collision.addBox(-19.5, -3.5, -1.4, -0.6, 'front_wall_left');
-    this.collision.addBox(3.5, 19.5, -1.4, -0.6, 'front_wall_right');
-    this.collision.addBox(-20.0, -19.0, -0.8, 25.5, 'fence_left');
-    this.collision.addBox(19.0, 20.0, -0.8, 25.5, 'fence_right');
-    this.collision.addBox(-20.0, 20.0, 24.6, 25.4, 'fence_back');
+    this.collision.addBox(3.5, MARKET_LAYOUT.maxX - 0.5, -1.4, -0.6, 'front_wall_right');
+    this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.minX + 0.5, MARKET_LAYOUT.serviceGateZ - 0.2, MARKET_LAYOUT.maxZ + 0.9, 'fence_left');
+    this.collision.addBox(MARKET_LAYOUT.maxX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.serviceGateZ - 0.2, MARKET_LAYOUT.maxZ + 0.9, 'fence_right');
+    this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.maxZ + 0.1, MARKET_LAYOUT.maxZ + 0.9, 'fence_back');
   }
 
   createDepartmentZone({ x, z, width, depth, color, label }) {
@@ -1225,6 +1266,78 @@ class MiniMartGame {
     signFace.position.y = 0.015;
     signGroup.add(signBack, signFace);
     this.scene.add(signGroup);
+
+    this.createDepartmentDecor(label, x, z, width, depth, color);
+  }
+
+  createDepartmentDecor(label, x, z, width, depth, color) {
+    const group = new THREE.Group();
+    group.position.set(x, 0.035, z);
+    group.userData.departmentDecor = label;
+
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.65 });
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xfffdf5, roughness: 0.5 });
+    const accentMat = new THREE.MeshStandardMaterial({ color, roughness: 0.35, emissive: color, emissiveIntensity: 0.06 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0xb2bec3, roughness: 0.32, metalness: 0.25 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f, roughness: 0.72 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.25, metalness: 0.55 });
+
+    const addBox = (name, sx, sy, sz, px, py, pz, mat = accentMat) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+      mesh.position.set(px, py + sy / 2, pz);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData.departmentDecorPart = name;
+      group.add(mesh);
+      return mesh;
+    };
+
+    switch (label) {
+      case 'MANAV':
+        [-1.8, 0, 1.8].forEach((dx, i) => {
+          addBox('produce-crate', 1.35, 0.28, 0.85, dx, 0, -0.35, woodMat);
+          addBox('produce-color-block', 1.0, 0.18, 0.52, dx, 0.28, -0.35, i === 0 ? accentMat : (i === 1 ? new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.45 }) : new THREE.MeshStandardMaterial({ color: 0xffa502, roughness: 0.45 })));
+        });
+        addBox('leafy-arch-left', 0.14, 1.15, 0.14, -width / 2 + 0.6, 0, 0, accentMat);
+        addBox('leafy-arch-right', 0.14, 1.15, 0.14, width / 2 - 0.6, 0, 0, accentMat);
+        break;
+      case 'ŞARKÜTERİ':
+        addBox('deli-glass-counter', Math.min(width - 1.8, 5.2), 0.78, 0.74, 0, 0, -0.2, steelMat);
+        addBox('deli-cold-glass', Math.min(width - 2.2, 4.8), 0.42, 0.08, 0, 0.78, -0.62, whiteMat);
+        [-1.4, 0, 1.4].forEach(dx => addBox('cheese-display-block', 0.52, 0.18, 0.38, dx, 0.86, -0.2, goldMat));
+        break;
+      case 'FIRIN':
+        addBox('bakery-brick-oven', 2.2, 1.15, 0.9, -1.7, 0, -0.1, new THREE.MeshStandardMaterial({ color: 0x8b3a18, roughness: 0.72 }));
+        addBox('bakery-oven-mouth', 1.35, 0.45, 0.08, -1.7, 0.33, -0.58, blackMat);
+        [0.3, 1.2, 2.1].forEach(dx => addBox('bread-basket', 0.72, 0.26, 0.52, dx, 0, -0.18, woodMat));
+        break;
+      case 'BÜFE & PİZZA':
+        addBox('pizza-hot-bar', Math.min(width - 2.0, 6.0), 0.82, 0.72, 0.4, 0, -0.15, new THREE.MeshStandardMaterial({ color: 0xe17055, roughness: 0.45 }));
+        addBox('pizza-oven-red', 1.2, 0.95, 0.95, -2.6, 0, -0.08, new THREE.MeshStandardMaterial({ color: 0xff4757, roughness: 0.42 }));
+        [1.2, 2.05, 2.9].forEach(dx => addBox('pizza-tray', 0.62, 0.08, 0.62, dx, 0.82, -0.15, goldMat));
+        break;
+      case 'ORGANİK':
+        [-2.1, -0.7, 0.7, 2.1].forEach(dx => {
+          addBox('organic-basket', 0.88, 0.32, 0.72, dx, 0, -0.2, woodMat);
+          addBox('organic-green-fill', 0.62, 0.16, 0.46, dx, 0.32, -0.2, accentMat);
+        });
+        break;
+      case 'GURME & DELİ':
+        addBox('gourmet-island-black', Math.min(width - 2.4, 5.8), 0.72, 0.86, 0, 0, -0.12, blackMat);
+        addBox('gourmet-gold-rail', Math.min(width - 2.2, 6.0), 0.08, 0.94, 0, 0.72, -0.12, goldMat);
+        [-1.7, 0, 1.7].forEach(dx => addBox('gourmet-sample-plinth', 0.45, 0.32, 0.45, dx, 0.80, -0.12, whiteMat));
+        break;
+      default:
+        const laneCount = label === 'ARKA DEPO' ? 5 : 3;
+        for (let i = 0; i < laneCount; i++) {
+          const dx = (i - (laneCount - 1) / 2) * Math.min(2.2, width / laneCount);
+          addBox('production-workbench', 1.25, 0.58, 0.72, dx, 0, -0.16, steelMat);
+          addBox('production-bin', 0.58, 0.34, 0.48, dx, 0.58, -0.16, accentMat);
+        }
+        break;
+    }
+
+    this.scene.add(group);
   }
 
   createDepartmentFloorZones() {
@@ -1237,7 +1350,13 @@ class MiniMartGame {
       { x: 9.75, z: -15.0, width: 14.5, depth: 2.7, color: 0xf39c12, label: 'BÜFE & PİZZA' },
       // Row 3 (Z = -20.5): West Organik & East Gurme & Şarküteri
       { x: -8.5, z: -20.5, width: 10.4, depth: 2.7, color: 0x27ae60, label: 'ORGANİK' },
-      { x: 9.75, z: -20.5, width: 14.5, depth: 2.7, color: 0x8e44ad, label: 'GURME & DELİ' }
+      { x: 9.75, z: -20.5, width: 14.5, depth: 2.7, color: 0x8e44ad, label: 'GURME & DELİ' },
+      // Rear-of-house production hall inside the expanded market footprint.
+      { x: -11.5, z: 6.5, width: 12.8, depth: 3.4, color: 0x10ac84, label: 'TAZE ÜRETİM' },
+      { x: 11.5, z: 6.5, width: 12.8, depth: 3.4, color: 0x0984e3, label: 'SOĞUK HAZIRLIK' },
+      { x: -11.5, z: 12.5, width: 12.8, depth: 3.4, color: 0xf1c40f, label: 'HAMMADDE' },
+      { x: 11.5, z: 12.5, width: 12.8, depth: 3.4, color: 0xd35400, label: 'MUTFAK' },
+      { x: 0.0, z: 18.5, width: 34.0, depth: 3.4, color: 0x636e72, label: 'ARKA DEPO' }
     ].forEach(zone => this.createDepartmentZone(zone));
   }
 
@@ -1271,8 +1390,8 @@ class MiniMartGame {
     this.collision.addBox(2.7, 5.3, -10.3, -8.7, 'shelf_egg');
 
     // Dedicated FMCG Specialty Fixtures (Faz 4)
-    this.beverageChiller = new BeverageChillerShelf(this.scene, 18.2, -16.0, -Math.PI / 2, 'SODA_CAN');
-    this.collision.addBox(17.4, 19.0, -17.3, -14.7, 'shelf_beverage_chiller');
+    this.beverageChiller = new BeverageChillerShelf(this.scene, 22.2, -16.0, -Math.PI / 2, 'SODA_CAN');
+    this.collision.addBox(21.4, 23.0, -17.3, -14.7, 'shelf_beverage_chiller');
 
     this.cleaningShelf = new CleaningShelfUnit(this.scene, 15.5, -9.5, 0, 'LIQUID_DETERGENT');
     this.collision.addBox(14.2, 16.8, -10.3, -8.7, 'shelf_cleaning');
@@ -1313,8 +1432,8 @@ class MiniMartGame {
     this.toastMachine = new ToastMachine(this.scene, -15.5, -15.0);
     this.collision.addBox(-16.8, -14.2, -15.8, -14.2, 'toast_machine');
 
-    this.jamCauldron = new JamCauldron(this.scene, -15.5, -20.5);
-    this.collision.addBox(-16.8, -14.2, -21.3, -19.7, 'jam_cauldron');
+    this.jamCauldron = new JamCauldron(this.scene, -15.5, -17.8);
+    this.collision.addBox(-16.8, -14.2, -18.6, -17.0, 'jam_cauldron');
 
     this.agriculturalDecorations = new AgriculturalDecorations(this.scene);
 
@@ -1689,14 +1808,14 @@ class MiniMartGame {
     this.collision.addBox(3.4, 5.6, -24.5, -22.5, 'karabash_kennel');
 
     this.wholesaleBay = new WholesaleBay(this.scene, -24.0, -10.0);
-    this.teaStation = new TeaStation(this.scene, -16.0, -8.0);
-    this.collision.addBox(-17.0, -15.0, -8.6, -7.4, 'tea_station');
+    this.teaStation = new TeaStation(this.scene, -16.0, -6.8);
+    this.collision.addBox(-17.0, -15.0, -7.4, -6.2, 'tea_station');
 
     this.voxelRadio = new VoxelRadio(this.scene, 1.8, -18.2);
     this.neonSign = new VoxelNeonSign(this.scene, 0, 4.2, -23.8, 'BİZİM MARKET', 0xffe600);
 
     // Architectural Supermarket Visual Rigging & Logistics Warehouse Zone
-    this.supermarketVisuals = new SupermarketVisualSystem(this.scene);
+    this.supermarketVisuals = new SupermarketVisualSystem(this.scene, this.collision);
     this.warehouseZone = new WarehouseZone(this.scene);
   }
 
@@ -2698,6 +2817,41 @@ class MiniMartGame {
     bindBtn('dbg-spd-3', () => { this.gameSpeed = 4.0; this.showFloatingText('HIZ: 4x HIZLI', this.player.group.position, '#FF5252'); });
   }
 
+  closeTransientMobileOverlays() {
+    const topActions = document.getElementById('top-actions');
+    const hudMenuToggle = document.getElementById('hud-menu-toggle');
+    topActions?.classList.remove('open');
+    hudMenuToggle?.setAttribute('aria-expanded', 'false');
+
+    const managementPanel = document.getElementById('specialization-panel');
+    const managementToggle = document.getElementById('management-toggle');
+    managementPanel?.classList.remove('open');
+    managementToggle?.setAttribute('aria-expanded', 'false');
+    const toggleGlyph = managementToggle?.querySelector('span');
+    if (toggleGlyph) toggleGlyph.textContent = '+';
+  }
+
+  prepareModalSurface(activeModalId) {
+    this.closeTransientMobileOverlays();
+    const modalStates = [
+      ['debug-modal', null],
+      ['wiki-modal', 'isWikiOpen'],
+      ['upgrade-modal', 'isUpgradeModalOpen'],
+      ['neighborhood-modal', 'isNeighborhoodOpen'],
+      ['day-choice-modal', 'isDayChoiceOpen'],
+      ['wholesale-modal', 'isWholesaleOpen'],
+      ['procurement-modal', 'isProcurementOpen']
+    ];
+
+    modalStates.forEach(([id, stateKey]) => {
+      if (id === activeModalId) return;
+      const modal = document.getElementById(id);
+      modal?.classList.remove('open');
+      modal?.classList.add('hidden');
+      if (stateKey) this[stateKey] = false;
+    });
+  }
+
   toggleDebugModal() {
     const modal = document.getElementById('debug-modal');
     if (modal && modal.classList.contains('open')) {
@@ -2709,6 +2863,7 @@ class MiniMartGame {
 
   openDebugModal() {
     if (!this.isDevMode) return;
+    this.prepareModalSurface('debug-modal');
     const modal = document.getElementById('debug-modal');
     if (modal) {
       modal.classList.add('open');
@@ -2771,6 +2926,7 @@ class MiniMartGame {
   }
 
   openWikiModal() {
+    this.prepareModalSurface('wiki-modal');
     this.isWikiOpen = true;
     const modal = document.getElementById('wiki-modal');
     if (modal) {
@@ -3063,6 +3219,7 @@ class MiniMartGame {
 
   openUpgradeModal() {
     if (this.isUpgradeModalOpen) return;
+    this.prepareModalSurface('upgrade-modal');
     this.isUpgradeModalOpen = true;
     if (this.upgradeModal) {
       this.upgradeModal.classList.add('open');
@@ -3559,8 +3716,8 @@ class MiniMartGame {
 
       this.collision.resolveCircle(this.player.group.position, 0.45);
 
-      this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, 19.5);
-      this.player.group.position.z = THREE.MathUtils.clamp(this.player.group.position.z, -31.0, 24.2);
+      this.player.group.position.x = THREE.MathUtils.clamp(this.player.group.position.x, -27.5, MARKET_LAYOUT.maxX - 0.6);
+      this.player.group.position.z = THREE.MathUtils.clamp(this.player.group.position.z, -31.0, MARKET_LAYOUT.maxZ - 0.6);
     } else {
       this.player.velocity.set(0, 0, 0);
       this.collision.resolveCircle(this.player.group.position, 0.45);
@@ -3592,11 +3749,10 @@ class MiniMartGame {
     this.player.update(delta);
   }
 
-  // Camera Angle Preset Toggle: 0: Standart İzometrik (24m), 1: Geniş Kuşbakışı (36m), 2: Yakın Takip (16m)
+  // Camera Angle Preset Toggle: isometric, strategic overhead, close follow and side plan.
   toggleCameraAngle() {
-    this.cameraMode = ((this.cameraMode || 0) + 1) % 3;
-    const modeNames = ['STANDART İZOMETRİK', 'GENİŞ KUŞBAKIŞI', 'YAKIN TAKİP'];
-    const name = modeNames[this.cameraMode];
+    this.cameraMode = ((this.cameraMode || 0) + 1) % this.cameraPresets.length;
+    const name = this.cameraPresets[this.cameraMode].name;
     this.showFloatingText(`KAMERA AÇISI: [${name}]`, this.player.group.position, '#00D2D3');
     window.Sound?.playPop?.();
   }
@@ -3618,25 +3774,25 @@ class MiniMartGame {
 
     const pPos = this.player.group.position;
     let targetY = 24.0;
+    let offsetX = 0.0;
     let offsetZ = 17.0;
+    let lookX = 0.0;
+    let lookZ = -17.0;
+    let follow = 0.70;
     let baseFov = 40.0;
+    const preset = this.cameraPresets[this.cameraMode] || this.cameraPresets[0];
+    targetY = preset.targetY;
+    offsetX = preset.offsetX;
+    offsetZ = preset.offsetZ;
+    lookX = preset.lookX;
+    lookZ = preset.lookZ;
+    follow = preset.follow;
+    baseFov = preset.fov;
 
-    if (this.cameraMode === 1) {
-      // High Strategic Overview
-      targetY = 36.0;
-      offsetZ = 24.0;
-      baseFov = 48.0;
-    } else if (this.cameraMode === 2) {
-      // Close Action Follow
-      targetY = 16.0;
-      offsetZ = 11.5;
-      baseFov = 44.0;
-    }
-
-    this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, pPos.x * 0.70, 0.08);
+    this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, pPos.x * follow + offsetX, 0.08);
     this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetY, 0.08);
-    this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, pPos.z * 0.70 + offsetZ, 0.08);
-    this.camera.lookAt(this.camera.position.x, 0, this.camera.position.z - offsetZ);
+    this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, pPos.z * follow + offsetZ, 0.08);
+    this.camera.lookAt(pPos.x * follow + lookX, 0, pPos.z * follow + lookZ);
 
     // Dynamic FOV speed-warp during sprint dashes
     const targetFov = this.isSprinting && (this.player.velocity.lengthSq() > 0.1) ? baseFov + 5.0 : baseFov;
@@ -5149,6 +5305,7 @@ class MiniMartGame {
   }
 
   openNeighborhoodModal() {
+    this.prepareModalSurface('neighborhood-modal');
     this.isNeighborhoodOpen = true;
     const modal = document.getElementById('neighborhood-modal');
     if (modal) {
@@ -5766,6 +5923,8 @@ class MiniMartGame {
     const modal = document.getElementById('day-choice-modal');
     const container = document.getElementById('day-choice-cards');
     if (!modal || !container) return;
+    this.prepareModalSurface('day-choice-modal');
+    this.isDayChoiceOpen = true;
 
     const choices = window.GameMechanics.generateDayChoices(this.dayState.day, 3);
     this.dayChoicesOffered = choices;
@@ -5812,6 +5971,7 @@ class MiniMartGame {
   selectDayChoice(choice) {
     this.activeDayChoice = window.GameMechanics.applyDayChoice(choice);
     const effects = window.GameMechanics.getDayChoiceEffects(this.activeDayChoice);
+    this.isDayChoiceOpen = false;
     const modal = document.getElementById('day-choice-modal');
     if (modal) {
       modal.classList.remove('open');
@@ -5860,6 +6020,7 @@ class MiniMartGame {
   }
 
   openWholesaleModal() {
+    this.prepareModalSurface('wholesale-modal');
     this.isWholesaleOpen = true;
     if (this.wholesaleModal) {
       this.wholesaleModal.classList.add('open');
@@ -6000,6 +6161,7 @@ class MiniMartGame {
   }
 
   openProcurementTerminal() {
+    this.prepareModalSurface('procurement-modal');
     this.isProcurementOpen = true;
     if (this.procurementModal) {
       this.procurementModal.classList.remove('hidden');

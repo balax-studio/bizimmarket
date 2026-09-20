@@ -8,6 +8,11 @@ assert(source.includes('function updateProductionMachineDetails'), 'Machine deta
 assert(source.includes('detailKit.controlLights'), 'The shared kit should expose status lights');
 assert(source.includes('detailKit.conveyorRollers'), 'The shared kit should expose moving conveyor rollers');
 assert(source.includes('detailKit.ventFlaps'), 'The shared kit should expose ventilation motion');
+assert(source.includes('function createReadableMachineLabel'), 'Machines should use a readable identity label helper');
+assert(source.includes('detailKit.identityBoard'), 'Machines should expose a large identity board');
+assert(source.includes('detailKit.outputLabel'), 'Machines should expose a readable output label');
+assert(source.includes('detailKit.productShowcase'), 'Machines should display product icons prominently');
+assert(source.includes('machineDisplayName'), 'Machine definitions should pass human-readable names to the shared kit');
 assert(source.includes('ready ? 0x2ed573'), 'Ready products should use a clear green machine signal');
 assert(source.includes('active ? 0x00cec9'), 'Active production should use a clear cyan machine signal');
 
