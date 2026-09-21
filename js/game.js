@@ -47,7 +47,8 @@ const FEATURE_UNLOCK_ORDER = [
   'shelf2', 'cashier', 'wheat', 'bakery', 'helper',
   'cow', 'cheese', 'helper2', 'corn', 'popcorn',
   'apple', 'pie', 'helper3', 'strawberry', 'carrot',
-  'icecream', 'salad', 'pizza', 'delivery', 'helper4'
+  'icecream', 'salad', 'pizza', 'delivery', 'helper4',
+  'coffeeMachine', 'plant', 'arcade'
 ];
 
 const UPGRADE_CONFIG = {
@@ -128,37 +129,41 @@ const UPGRADE_CONFIG = {
     category: 'staff',
     type: 'unlock',
     unlockKey: 'helper',
-    title: '1. PERSONEL (REYON GÖREVLİSİ)',
-    desc: 'Domates ve temel ürünleri tarladan toplayıp boş reyonlara taşır.',
+    title: '1. PERSONEL (STAJYER)',
+    desc: 'Düşük kapasite, hızlı yorulur. Ancak işe alım ücreti çok düşüktür.',
     icon: 'STAR',
-    cost: 250
+    cost: 50,
+    rpgStats: { speed: 0.8, capacity: 4, maxEnergy: 50, energyCost: 2 }
   },
   hireHelper2: {
     category: 'staff',
     type: 'unlock',
     unlockKey: 'helper2',
-    title: '2. PERSONEL (LOJİSTİK KOORDİNATÖRÜ)',
-    desc: 'Un, süt, peynir ve fırın ürünlerini üretim makinelerine taşır.',
+    title: '2. PERSONEL (NORMAL ÇALIŞAN)',
+    desc: 'Standart kapasite ve enerji. Dengeli bir personeldir.',
     icon: 'PACKAGE',
-    cost: 300
+    cost: 150,
+    rpgStats: { speed: 1.0, capacity: 6, maxEnergy: 100, energyCost: 1.5 }
   },
   hireHelper3: {
     category: 'staff',
     type: 'unlock',
     unlockKey: 'helper3',
-    title: '3. PERSONEL (USTA ÇİFTÇİ)',
-    desc: 'Güney tarlalarında domates, buğday, mısır, çilek ve havuç hasadını üstlenir.',
+    title: '3. PERSONEL (UZMAN)',
+    desc: 'Yüksek kapasite ve hız. Daha az yorulur.',
     icon: 'WHEAT',
-    cost: 500
+    cost: 400,
+    rpgStats: { speed: 1.3, capacity: 8, maxEnergy: 150, energyCost: 1.0 }
   },
   hireHelper4: {
     category: 'staff',
     type: 'unlock',
     unlockKey: 'helper4',
-    title: '4. PERSONEL (UZMAN LOJİSTİK)',
-    desc: 'Dondurma, salata, pizza ve kurye teslimat lojistiğini kusursuz yönetir.',
+    title: '4. PERSONEL (USTA)',
+    desc: 'Maksimum kapasite ve hız. Neredeyse hiç yorulmaz.',
     icon: 'FACTORY',
-    cost: 1500
+    cost: 1000,
+    rpgStats: { speed: 1.8, capacity: 12, maxEnergy: 300, energyCost: 0.5 }
   },
 
   // --- TAB: TESİS & TARLA (FACILITY) ---
@@ -313,6 +318,35 @@ const UPGRADE_CONFIG = {
     desc: 'Un, domates ve peynirle fırında İtalyan pizzası pişirin.',
     icon: 'PACKAGE',
     cost: 1650
+  },
+
+  // --- TAB: DEKORASYON (RPG & BUFFS) ---
+  decorCoffeeMachine: {
+    category: 'facility', // Keeping facility category for UI tab if needed, or add new category in UI logic. Actually we can use 'facility' for decorations to appear there, or create 'decoration'. Let's use 'facility' so it appears in existing UI!
+    type: 'unlock',
+    unlockKey: 'coffeeMachine',
+    title: 'KAHVE MAKİNESİ',
+    desc: 'Çalışanların enerji yenilenme hızını %20 artırır.',
+    icon: 'STAR', 
+    cost: 100
+  },
+  decorPlant: {
+    category: 'facility',
+    type: 'unlock',
+    unlockKey: 'plant',
+    title: 'SÜS BİTKİSİ',
+    desc: 'Dinlenme odasındaki atmosferi iyileştirir, enerji düşüşünü %10 yavaşlatır.',
+    icon: 'WHEAT',
+    cost: 150
+  },
+  decorArcade: {
+    category: 'facility',
+    type: 'unlock',
+    unlockKey: 'arcade',
+    title: 'ATARİ MAKİNESİ',
+    desc: 'Çalışanların hızına kalıcı %15 buff sağlar.',
+    icon: 'UPGRADE',
+    cost: 400
   }
 };
 
@@ -1932,6 +1966,11 @@ class MiniMartGame {
     // Architectural Supermarket Visual Rigging & Logistics Warehouse Zone
     this.supermarketVisuals = new SupermarketVisualSystem(this.scene, this.collision);
     this.warehouseZone = new WarehouseZone(this.scene);
+
+    // Rest Room & Staff Lounge
+    this.restRoom = new RestRoom(this.scene, 12.0, -32.0);
+    this.restRoom.updateDecorations(this.unlockedFeatures);
+
     this.initBox3DebugInspector();
   }
 
@@ -3818,6 +3857,10 @@ class MiniMartGame {
   }
 
   applyUpgradeEffects() {
+    if (this.restRoom) {
+      this.restRoom.updateDecorations(this.unlockedFeatures);
+    }
+    
     // 1. Player Capacity
     const capLevel = this.upgrades.playerCapacity || 1;
     const capVal = UPGRADE_CONFIG.playerCapacity.levels[capLevel - 1]?.value || 8;

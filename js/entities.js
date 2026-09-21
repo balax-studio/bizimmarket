@@ -5276,6 +5276,9 @@ class SupermarketNavGraph {
     this.addNode('N_OUT_ENTRY', -1.2, -25.5);
     this.addNode('N_OUT_EXIT', 1.2, -25.5);
 
+    // Rest Room Node (Safe zone Z <= -31.0)
+    this.addNode('REST_ROOM', 12.0, -32.0);
+
     // 2. North Doorway Portal Transitions (Passing through North Wall Z = -24.0)
     this.addNode('N_IN_ENTRY', -1.2, -22.5);
     this.addNode('N_IN_EXIT', 1.2, -22.5);
@@ -5348,6 +5351,7 @@ class SupermarketNavGraph {
     this.addEdge('N_OUT_ENTRY', 'N_OUT_EXIT');
     this.addEdge('N_OUT_EXIT', 'N_SIDEWALK_E');
     this.addEdge('N_SIDEWALK_E', 'N_PARK_E');
+    this.addEdge('N_PARK_E', 'REST_ROOM');
     this.addEdge('N_SIDEWALK_E', 'N_ROAD_E');
 
     // North Entrance Door Transitions
@@ -8723,9 +8727,21 @@ class StaffHelperAI {
     const col = uniformColor || defaultColors[this.role] || 0xe67e22;
 
     this.char = new Character3D(scene, col, false);
+
+    // RPG System
+    const configKey = `hireHelper${this.id}`;
+    let rpgStats = { speed: 1.0, capacity: 0, maxEnergy: 100, energyCost: 1 };
+    if (typeof UPGRADE_CONFIG !== 'undefined' && UPGRADE_CONFIG[configKey] && UPGRADE_CONFIG[configKey].rpgStats) {
+      rpgStats = UPGRADE_CONFIG[configKey].rpgStats;
+    }
+    
+    this.maxEnergy = rpgStats.maxEnergy;
+    this.currentEnergy = this.maxEnergy;
+    this.energyCost = rpgStats.energyCost;
+
     this.char.group.position.set(-15.8, 0, -4.8); // Spawn in Executive Office
     this.char.maxStack = 6;
-    this.baseSpeed = 3.8;
+    this.baseSpeed = 3.8 * rpgStats.speed;
     this.speedMultiplier = 1.0;
     this.cooldown = 0;
     this.stuckTimer = 0;
@@ -8869,8 +8885,42 @@ class StaffHelperAI {
 
   update(delta) {
     this.cooldown -= delta;
-    const speed = this.baseSpeed * this.speedMultiplier;
+    
+    // Apply RPG Decoration Buffs
+    let decorSpeedBonus = 0;
+    let decorEnergyBonus = 0;
+    const feats = this.game.unlockedFeatures || {};
+    if (feats.coffeeMachine) decorSpeedBonus += 0.2;
+    if (feats.plant) decorEnergyBonus += 25;
+    if (feats.arcade) decorEnergyBonus += 15;
+    
+    const actualMaxEnergy = this.maxEnergy + decorEnergyBonus;
+    const speed = this.baseSpeed * this.speedMultiplier * (1 + decorSpeedBonus);
+    
     const pos = this.char.group.position;
+    const isMoving = this.char.velocity.lengthSq() > 0.01;
+    
+    // Energy Drain & Rest Mechanic
+    if (this.currentTask !== 'AUTO_REST') {
+      if (isMoving) this.currentEnergy -= delta * this.energyCost;
+      if (this.currentEnergy <= 0) {
+        this.currentEnergy = 0;
+        this.currentTask = 'AUTO_REST';
+        this.currentTaskLabel = 'DINLENIYOR';
+      }
+    } else {
+      const restTarget = new THREE.Vector3(12.0, 0, -32.0);
+      if (this.moveTo(restTarget, speed, delta, 1.0)) {
+        this.currentEnergy += delta * 15;
+        this.char.velocity.set(0, 0, 0);
+        if (this.currentEnergy >= actualMaxEnergy) {
+          this.currentEnergy = actualMaxEnergy;
+          this.currentTask = 'IDLE';
+        }
+      }
+      this.char.update(delta);
+      return;
+    }
 
     // 1. Anti-Stuck & Deadlock Prevention Watchdog
     if (!this.lastPos) this.lastPos = pos.clone();
@@ -8878,13 +8928,10 @@ class StaffHelperAI {
     if (distMoved < 0.04 * Math.max(0.2, delta * 60)) {
       this.stuckTimer += delta;
       if (this.stuckTimer >= 0.8) {
-        // Deterministic lateral nudge to break symmetry/clipping
         const angle = (this.id * 1.5708) + ((this.id % 2 === 0) ? 0.3 : -0.3);
         pos.x += Math.cos(angle) * 0.4;
         pos.z += Math.sin(angle) * 0.4;
-        if (this.navState) {
-          this.navState.path = null; // force recalculating navigation path
-        }
+        if (this.navState) this.navState.path = null;
         this.stuckTimer = 0;
       }
     } else {
@@ -12581,6 +12628,82 @@ if (typeof module !== 'undefined' && module.exports) {
     VoxelNeonSign,
     SupermarketVisualSystem,
     WarehouseZone,
-    createVoxelDecorationMesh
+    createVoxelDecorationMesh,
+    RestRoom
   };
+}
+
+class RestRoom {
+  constructor(scene, x, z) {
+    this.group = new THREE.Group();
+    this.group.position.set(x, 0, z);
+
+    // Floor
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x222f3e, roughness: 0.9 });
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(8, 0.2, 8), floorMat);
+    floor.position.y = 0.1;
+    this.group.add(floor);
+
+    // Walls
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xff9f43, roughness: 1.0 });
+    
+    // Back wall
+    const wall1 = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 0.5), wallMat);
+    wall1.position.set(0, 2, -3.75);
+    this.group.add(wall1);
+
+    // Left wall
+    const wall2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 8), wallMat);
+    wall2.position.set(-3.75, 2, 0);
+    this.group.add(wall2);
+
+    // Right wall
+    const wall3 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4, 8), wallMat);
+    wall3.position.set(3.75, 2, 0);
+    this.group.add(wall3);
+
+    // Sign
+    const signTex = getProductionSafetyTexture('DINLENME ODASI', '#2ed573');
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 0.2), new THREE.MeshStandardMaterial({ map: signTex }));
+    sign.position.set(0, 3.5, 3.8);
+    this.group.add(sign);
+
+    this.decorations = new THREE.Group();
+    this.group.add(this.decorations);
+
+    scene.add(this.group);
+  }
+
+  updateDecorations(features) {
+    [...this.decorations.children].forEach(child => {
+      this.decorations.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    });
+
+    if (features.coffeeMachine) {
+      const coffeeMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+      const coffee = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.8), coffeeMat);
+      coffee.position.set(-2.5, 0.6, -2.5);
+      this.decorations.add(coffee);
+    }
+    if (features.plant) {
+      const potMat = new THREE.MeshStandardMaterial({ color: 0xe17055 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x00b894 });
+      const pot = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), potMat);
+      pot.position.set(2.5, 0.4, -2.5);
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 1.2), leafMat);
+      leaf.position.set(2.5, 1.5, -2.5);
+      this.decorations.add(pot, leaf);
+    }
+    if (features.arcade) {
+      const arcadeMat = new THREE.MeshStandardMaterial({ color: 0xe84393 });
+      const arcade = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, 1.2), arcadeMat);
+      arcade.position.set(-2.5, 1.25, 2.0);
+      this.decorations.add(arcade);
+    }
+  }
 }
