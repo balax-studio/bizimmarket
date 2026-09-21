@@ -330,7 +330,13 @@ const MARKET_LAYOUT = Object.freeze({
   freshAisleZ: -9.5,
   serviceGateZ: -1.0,
   productionNorthZ: 4.0,
-  productionSouthZ: 21.5
+  productionSouthZ: 21.5,
+  checkoutConcourse: Object.freeze({
+    minX: 1.5,
+    maxX: 14.5,
+    minZ: -21.8,
+    maxZ: -16.2
+  })
 });
 
 window.MARKET_LAYOUT = MARKET_LAYOUT;
@@ -348,6 +354,10 @@ class CollisionSystem {
 
   removeByTag(tag) {
     this.obstacles = this.obstacles.filter(o => o.tag !== tag);
+  }
+
+  removeBox(tag) {
+    return this.removeByTag(tag);
   }
 
   resolveCircle(pos, radius = 0.45) {
@@ -461,6 +471,9 @@ class MiniMartGame {
     this.helper4 = null;
     this.upgradeDesk = null;
     this.collision = new CollisionSystem();
+    this.spatial = (typeof window !== 'undefined' && window.GameMechanics && window.GameMechanics.SpatialOccupancyManager)
+      ? new window.GameMechanics.SpatialOccupancyManager(MARKET_LAYOUT)
+      : null;
     this.cameraMode = 0;
     this.cameraPresets = [
       { name: 'STANDART İZOMETRİK', targetY: 24.0, offsetX: 0.0, offsetZ: 17.0, lookX: 0.0, lookZ: -17.0, follow: 0.70, fov: 40.0 },
@@ -511,6 +524,20 @@ class MiniMartGame {
     this.isLoadingSave = false;
     this.isDevMode = new URLSearchParams(window.location.search).has('dev') || localStorage.getItem('mini_mart_dev') === '1';
 
+    // Store Layout & Builder Mode State
+    this.isLayoutEditMode = false;
+    this.selectedFixture = null;
+    this.originalFixturePos = null;
+    this.isPlacementValid = true;
+    this.customLayout = {};
+    this.layoutGrid = null;
+    this.ghostMesh = null;
+    this.ghostMaterial = null;
+    this.editRaycaster = new THREE.Raycaster();
+    this.floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    this.layoutPointerDownPos = new THREE.Vector2();
+    this.layoutPointerMoved = false;
+
     // Versioned persistence buckets used by progression, retention and future branch systems.
     this.saveMeta = {};
     this.stats = {};
@@ -545,6 +572,9 @@ class MiniMartGame {
     this.wholesaleState = window.GameMechanics.createWholesaleState();
     this.staffFatigue = window.GameMechanics.createStaffFatigueState();
     this.decorationState = window.GameMechanics.createDecorationState();
+    this.isDecorationShopOpen = false;
+    this.activeDecorationShopCategory = 'ALL';
+    this.purchasedDecorations = [];
     this.hygieneScore = 100;
     this.trashPool = [];
     this.hasMopEquipped = false;
@@ -574,6 +604,8 @@ class MiniMartGame {
     this.initInputs();
     this.initUI();
     this.initWikiUI();
+    this.initLayoutEditorUI();
+    this.initDecorationShopUI();
     this.loadState();
     window.addEventListener('pagehide', () => this.saveState());
     document.addEventListener('visibilitychange', () => {
@@ -1213,11 +1245,11 @@ class MiniMartGame {
     this.butterflies = new VoxelButterflies(this.scene);
 
     // 9. Register Environmental Colliders
-    this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.minZ - 0.5, MARKET_LAYOUT.minZ + 0.5, 'store_north_wall');
     this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.maxZ - 0.5, MARKET_LAYOUT.maxZ + 0.5, 'store_south_wall');
     this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.minX + 0.5, MARKET_LAYOUT.serviceGateZ - 0.2, MARKET_LAYOUT.maxZ + 0.5, 'store_west_service_wall');
     this.collision.addBox(MARKET_LAYOUT.maxX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.minZ - 0.5, MARKET_LAYOUT.maxZ + 0.5, 'store_east_wall');
     this.collision.addBox(-19.5, -3.5, -24.5, -23.6, 'north_wall_left');
+    this.collision.addBox(3.5, MARKET_LAYOUT.maxX - 0.5, -24.5, -23.6, 'north_wall_right');
     this.collision.addBox(-19.8, -18.8, -24.2, -13.8, 'wall_left_north');
     this.collision.addBox(-19.8, -18.8, -11.2, -0.8, 'wall_left_south');
     this.collision.addBox(-27.8, -19.0, -24.4, -23.6, 'warehouse_north_wall');
@@ -1232,6 +1264,11 @@ class MiniMartGame {
   }
 
   createDepartmentZone({ x, z, width, depth, color, label }) {
+    if (label === 'GURME & DELİ' && this.spatial) {
+      const concourseMaxX = this.spatial.layout.checkoutConcourse.maxX || 14.5;
+      x = (concourseMaxX + 0.5 + MARKET_LAYOUT.maxX - 1.0) / 2;
+      width = (MARKET_LAYOUT.maxX - 1.0) - (concourseMaxX + 0.5);
+    }
     const zoneMat = new THREE.MeshStandardMaterial({
       color,
       roughness: 0.42,
@@ -1322,11 +1359,22 @@ class MiniMartGame {
           addBox('organic-green-fill', 0.62, 0.16, 0.46, dx, 0.32, -0.2, accentMat);
         });
         break;
-      case 'GURME & DELİ':
-        addBox('gourmet-island-black', Math.min(width - 2.4, 5.8), 0.72, 0.86, 0, 0, -0.12, blackMat);
-        addBox('gourmet-gold-rail', Math.min(width - 2.2, 6.0), 0.08, 0.94, 0, 0.72, -0.12, goldMat);
-        [-1.7, 0, 1.7].forEach(dx => addBox('gourmet-sample-plinth', 0.45, 0.32, 0.45, dx, 0.80, -0.12, whiteMat));
+      case 'GURME & DELİ': {
+        const islandW = Math.min(width - 2.4, 5.8);
+        const islandD = 0.86;
+        let decorX = 0;
+        let decorZ = -0.12;
+        if (this.spatial && this.spatial.findClearPlacement) {
+          const resolved = this.spatial.findClearPlacement(islandW, islandD, x, z + decorZ, 'DECOR', ['EAST', 'WEST']);
+          decorX = resolved.x - x;
+          decorZ = resolved.z - z;
+          this.spatial.reserve('dept_gurme_deli', 'DECOR', resolved.x - islandW / 2, resolved.x + islandW / 2, resolved.z - islandD / 2, resolved.z + islandD / 2);
+        }
+        addBox('gourmet-island-black', islandW, 0.72, islandD, decorX, 0, decorZ, blackMat);
+        addBox('gourmet-gold-rail', Math.min(width - 2.2, 6.0), 0.08, 0.94, decorX, 0.72, decorZ, goldMat);
+        [-1.7, 0, 1.7].forEach(dx => addBox('gourmet-sample-plinth', 0.45, 0.32, 0.45, decorX + dx, 0.80, decorZ, whiteMat));
         break;
+      }
       default:
         const laneCount = label === 'ARKA DEPO' ? 5 : 3;
         for (let i = 0; i < laneCount; i++) {
@@ -1418,6 +1466,24 @@ class MiniMartGame {
     this.cashierBots = [this.cashierBot1, this.cashierBot2, this.cashierBot3];
     this.cashierBot = this.cashierBot2; // Backward compatibility
 
+    if (this.spatial) {
+      if (this.spatial.placePlanogramFixture) {
+        this.spatial.placePlanogramFixture('checkout_1');
+        this.spatial.placePlanogramFixture('checkout_2');
+        this.spatial.placePlanogramFixture('checkout_3');
+        this.spatial.placePlanogramFixture('cashier_1');
+        this.spatial.placePlanogramFixture('cashier_2');
+        this.spatial.placePlanogramFixture('cashier_3');
+      } else {
+        this.spatial.reserve('checkout_1', 'CHECKOUT', 2.2, 4.8, -20.1, -18.9);
+        this.spatial.reserve('checkout_2', 'CHECKOUT', 6.2, 8.8, -20.1, -18.9);
+        this.spatial.reserve('checkout_3', 'CHECKOUT', 10.2, 12.8, -20.1, -18.9);
+        this.spatial.reserve('cashier_1', 'CASHIER', 3.2, 3.8, -20.45, -19.85);
+        this.spatial.reserve('cashier_2', 'CASHIER', 7.2, 7.8, -20.45, -19.85);
+        this.spatial.reserve('cashier_3', 'CASHIER', 11.2, 11.8, -20.45, -19.85);
+      }
+    }
+
     this.executiveOffice = new ExecutiveOffice(this.scene, -15.8, -4.8);
     this.upgradeDesk = this.executiveOffice;
     // Office boundary colliders (North, South, West, East with 1.6m doorway)
@@ -1491,7 +1557,18 @@ class MiniMartGame {
     this.unlockPads.push(pad1);
 
     // Pad 2: Senior Cashier Staff Training & Speed Boost ($80)
-    const pad2 = new UnlockPad(this.scene, 7.5, -15.5, 80, 'KASİYER HIZI', () => {
+    let pad2X = 7.5;
+    let pad2Z = -15.5;
+    if (this.spatial && this.spatial.placePlanogramFixture) {
+      const placed = this.spatial.placePlanogramFixture('pad_2_cashier_speed', ['SOUTH', 'WEST', 'EAST', 'NORTH']);
+      if (placed) { pad2X = placed.x; pad2Z = placed.z; }
+    } else if (this.spatial && this.spatial.findClearPlacement) {
+      const resolved = this.spatial.findClearPlacement(2.6, 2.6, pad2X, pad2Z, 'UNLOCK_PAD', ['SOUTH', 'WEST', 'EAST', 'NORTH']);
+      pad2X = resolved.x;
+      pad2Z = resolved.z;
+      this.spatial.reserve('pad_cashier_speed', 'UNLOCK_PAD', pad2X - 1.3, pad2X + 1.3, pad2Z - 1.3, pad2Z + 1.3);
+    }
+    const pad2 = new UnlockPad(this.scene, pad2X, pad2Z, 80, 'KASİYER HIZI', () => {
       this.unlockedFeatures.cashier = true;
       this.cashierSpeedBoost = 1.35;
       this.checkouts.forEach(chk => { if (chk) chk.hasCashier = true; });
@@ -1656,12 +1733,31 @@ class MiniMartGame {
     this.unlockPads.push(pad11);
 
     // Pad 12: Gourmet Apple Pie & Deli Stand ($750)
-    const pad12 = new UnlockPad(this.scene, 4.0, -18.0, 750, 'GURME TURTA REYONU', () => {
+    let pad12X = 17.0;
+    let pad12Z = -18.0;
+    if (this.spatial && this.spatial.placePlanogramFixture) {
+      const placed = this.spatial.placePlanogramFixture('pad_12_pie', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+      if (placed) { pad12X = placed.x; pad12Z = placed.z; }
+    } else if (this.spatial && this.spatial.findClearPlacement) {
+      const resolved = this.spatial.findClearPlacement(2.6, 2.6, pad12X, pad12Z, 'UNLOCK_PAD', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+      pad12X = resolved.x;
+      pad12Z = resolved.z;
+      this.spatial.reserve('pad_12_pie', 'UNLOCK_PAD', pad12X - 1.3, pad12X + 1.3, pad12Z - 1.3, pad12Z + 1.3);
+    }
+    const pad12 = new UnlockPad(this.scene, pad12X, pad12Z, 750, 'GURME TURTA REYONU', () => {
       this.unlockedFeatures.pie = true;
 
-      this.pieShelf = new ShelfUnit(this.scene, 4.0, -20.5, 0, 'APPLE_PIE');
+      let pieShelfX = 17.0;
+      let pieShelfZ = -20.5;
+      if (this.spatial && this.spatial.findClearPlacement) {
+        const resolved = this.spatial.findClearPlacement(2.6, 1.6, pieShelfX, pieShelfZ, 'SHELF', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+        pieShelfX = resolved.x;
+        pieShelfZ = resolved.z;
+        this.spatial.reserve('shelf_pie', 'SHELF', pieShelfX - 1.3, pieShelfX + 1.3, pieShelfZ - 0.8, pieShelfZ + 0.8);
+      }
+      this.pieShelf = new ShelfUnit(this.scene, pieShelfX, pieShelfZ, 0, 'APPLE_PIE');
       this.shelves.push(this.pieShelf);
-      this.collision.addBox(2.7, 5.3, -21.3, -19.7, 'shelf_pie');
+      this.collision.addBox(pieShelfX - 1.3, pieShelfX + 1.3, pieShelfZ - 0.8, pieShelfZ + 0.8, 'shelf_pie');
 
       this.showFloatingText('GURME ELMALI TURTA REYONU AÇILDI!', this.pieShelf.group.position, '#e67e22');
       window.Sound.playUnlock();
@@ -1722,15 +1818,34 @@ class MiniMartGame {
     this.unlockPads.push(pad15);
 
     // Pad 16: Gelato Ice Cream Machine & Ice Cream Shelf ($1200)
-    const pad16 = new UnlockPad(this.scene, 10.0, -18.0, 1200, 'DONDURMA MAKİNESİ', () => {
+    let pad16X = 19.5;
+    let pad16Z = -18.0;
+    if (this.spatial && this.spatial.placePlanogramFixture) {
+      const placed = this.spatial.placePlanogramFixture('pad_16_icecream', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+      if (placed) { pad16X = placed.x; pad16Z = placed.z; }
+    } else if (this.spatial && this.spatial.findClearPlacement) {
+      const resolved = this.spatial.findClearPlacement(2.6, 2.6, pad16X, pad16Z, 'UNLOCK_PAD', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+      pad16X = resolved.x;
+      pad16Z = resolved.z;
+      this.spatial.reserve('pad_16_icecream', 'UNLOCK_PAD', pad16X - 1.3, pad16X + 1.3, pad16Z - 1.3, pad16Z + 1.3);
+    }
+    const pad16 = new UnlockPad(this.scene, pad16X, pad16Z, 1200, 'DONDURMA MAKİNESİ', () => {
       this.unlockedFeatures.icecream = true;
 
       this.iceCreamMachine = new IceCreamMachine(this.scene, 17.0, 12.5);
       this.collision.addBox(15.6, 18.4, 11.0, 14.0, 'ice_cream_machine');
 
-      this.iceCreamShelf = new ShelfUnit(this.scene, 10.0, -20.5, 0, 'ICE_CREAM');
+      let iceCreamShelfX = 19.5;
+      let iceCreamShelfZ = -20.5;
+      if (this.spatial && this.spatial.findClearPlacement) {
+        const resolved = this.spatial.findClearPlacement(2.6, 1.6, iceCreamShelfX, iceCreamShelfZ, 'SHELF', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+        iceCreamShelfX = resolved.x;
+        iceCreamShelfZ = resolved.z;
+        this.spatial.reserve('shelf_icecream', 'SHELF', iceCreamShelfX - 1.3, iceCreamShelfX + 1.3, iceCreamShelfZ - 0.8, iceCreamShelfZ + 0.8);
+      }
+      this.iceCreamShelf = new ShelfUnit(this.scene, iceCreamShelfX, iceCreamShelfZ, 0, 'ICE_CREAM');
       this.shelves.push(this.iceCreamShelf);
-      this.collision.addBox(8.7, 11.3, -21.3, -19.7, 'shelf_icecream');
+      this.collision.addBox(iceCreamShelfX - 1.3, iceCreamShelfX + 1.3, iceCreamShelfZ - 0.8, iceCreamShelfZ + 0.8, 'shelf_icecream');
 
       this.showFloatingText('KREMALI DONDURMA MAKİNESİ AÇILDI!', this.iceCreamMachine.group.position, '#00CEC9');
       window.Sound.playUnlock();
@@ -1817,6 +1932,7 @@ class MiniMartGame {
     // Architectural Supermarket Visual Rigging & Logistics Warehouse Zone
     this.supermarketVisuals = new SupermarketVisualSystem(this.scene, this.collision);
     this.warehouseZone = new WarehouseZone(this.scene);
+    this.initBox3DebugInspector();
   }
 
   // --- Controls & Inputs (Keyboard, Mouse Drag, Touch) ---
@@ -1832,6 +1948,18 @@ class MiniMartGame {
       this.keys[e.code] = true;
       window.Sound.ensureContext();
       if (e.code === 'Escape') {
+        if (this.isDecorationShopOpen) {
+          this.closeDecorationShopModal();
+          return;
+        }
+        if (this.isLayoutEditMode) {
+          if (this.selectedFixture) {
+            this.cancelSelectedDrag();
+          } else {
+            this.exitLayoutEditMode(true);
+          }
+          return;
+        }
         if (this.isProcurementOpen) {
           this.closeProcurementTerminal();
           return;
@@ -1840,6 +1968,22 @@ class MiniMartGame {
         if (this.isWikiOpen) this.closeWikiModal();
         if (this.isManagementOpen) this.closeManagementModal();
         if (this.isDayChoiceOpen && this.closeDayChoiceModal) this.closeDayChoiceModal();
+      } else if (e.code === 'KeyN') {
+        e.preventDefault();
+        this.toggleDecorationShopModal();
+      } else if (e.code === 'KeyB' || e.code === 'KeyT') {
+        e.preventDefault();
+        this.toggleLayoutEditMode();
+      } else if (e.code === 'KeyR') {
+        if (this.isLayoutEditMode) {
+          e.preventDefault();
+          this.rotateSelectedFixture();
+        }
+      } else if (e.code === 'Enter' || e.code === 'Space') {
+        if (this.isLayoutEditMode && this.selectedFixture) {
+          e.preventDefault();
+          this.confirmSelectedPlacement();
+        }
       } else if (e.code === 'KeyE' || e.key === 'e' || e.key === 'E') {
         if (this.isNearOfficeDesk) {
           if (this.isProcurementOpen) {
@@ -1869,41 +2013,38 @@ class MiniMartGame {
     });
     window.addEventListener('blur', () => { this.keys = {}; });
 
+    // Touch & Mouse Virtual Joystick
     const joystickContainer = document.getElementById('joystick-container');
     const joystickStick = document.getElementById('joystick-stick');
-    let isDragging = false;
     let activePointerId = null;
-    let startX = 0;
-    let startY = 0;
+    let basePos = { x: 0, y: 0 };
+    const maxRadius = 45;
 
     const handleStart = (clientX, clientY) => {
-      isDragging = true;
-      startX = clientX;
-      startY = clientY;
-      window.Sound.ensureContext();
+      basePos = { x: clientX, y: clientY };
+      joystickContainer.style.display = 'block';
+      joystickContainer.style.left = `${clientX}px`;
+      joystickContainer.style.top = `${clientY}px`;
+      joystickStick.style.transform = `translate(-50%, -50%)`;
+      this.joystickInput.set(0, 0);
     };
 
     const handleMove = (clientX, clientY) => {
-      if (!isDragging) return;
-      const maxRadius = Math.max(1, (joystickContainer.clientWidth - joystickStick.clientWidth) / 2);
-      const dx = clientX - startX;
-      const dy = clientY - startY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist > 0) {
-        const clampedDist = Math.min(dist, maxRadius);
-        const angle = Math.atan2(dy, dx);
-        const stickX = Math.cos(angle) * clampedDist;
-        const stickY = Math.sin(angle) * clampedDist;
-
-        joystickStick.style.transform = `translate(${stickX}px, ${stickY}px)`;
-        this.joystickInput.set(stickX / maxRadius, stickY / maxRadius);
-      }
+      if (joystickContainer.style.display !== 'block') return;
+      const dx = clientX - basePos.x;
+      const dy = clientY - basePos.y;
+      const dist = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx);
+      const clampedDist = Math.min(dist, maxRadius);
+      const stickX = Math.cos(angle) * clampedDist;
+      const stickY = Math.sin(angle) * clampedDist;
+      joystickStick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+      this.joystickInput.set(stickX / maxRadius, stickY / maxRadius);
     };
 
     const handleEnd = () => {
-      isDragging = false;
-      joystickStick.style.transform = 'translate(0px, 0px)';
+      joystickContainer.style.display = 'none';
+      joystickStick.style.transform = `translate(-50%, -50%)`;
       this.joystickInput.set(0, 0);
     };
 
@@ -1929,14 +2070,46 @@ class MiniMartGame {
     window.addEventListener('blur', () => { activePointerId = null; handleEnd(); });
 
     this.canvas.addEventListener('mousedown', (e) => {
+      if (this.isLayoutEditMode) {
+        this.onLayoutPointerDown(e);
+        return;
+      }
       handleStart(e.clientX, e.clientY);
     });
 
     window.addEventListener('mousemove', (e) => {
+      if (this.isLayoutEditMode) {
+        this.onLayoutPointerMove(e);
+        return;
+      }
       handleMove(e.clientX, e.clientY);
     });
 
-    window.addEventListener('mouseup', () => handleEnd());
+    window.addEventListener('mouseup', (e) => {
+      if (this.isLayoutEditMode) {
+        this.onLayoutPointerUp(e);
+        return;
+      }
+      handleEnd();
+    });
+
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (this.isLayoutEditMode && e.touches.length > 0) {
+        this.onLayoutPointerDown(e.touches[0]);
+      }
+    }, { passive: true });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (this.isLayoutEditMode && e.touches.length > 0) {
+        this.onLayoutPointerMove(e.touches[0]);
+      }
+    }, { passive: true });
+
+    this.canvas.addEventListener('touchend', (e) => {
+      if (this.isLayoutEditMode) {
+        this.onLayoutPointerUp(e);
+      }
+    }, { passive: true });
   }
 
   // --- UI & HUD Setup ---
@@ -2880,6 +3053,265 @@ class MiniMartGame {
     }
   }
 
+  // --- Temporary Box3 Collision & Placement Debug Inspector ---
+  initBox3DebugInspector() {
+    this.debugBoxGroup = new THREE.Group();
+    this.debugBoxGroup.name = 'DebugBox3HelperGroup';
+    this.scene.add(this.debugBoxGroup);
+
+    // Initial audit after scene setup
+    setTimeout(() => {
+      this.runBox3CollisionAudit();
+    }, 100);
+
+    // Key shortcut: F2 toggles Box3 helper bounding boxes in 3D world
+    window.addEventListener('keydown', (e) => {
+      const isTyping = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+      if (isTyping) return;
+      if (e.code === 'F2') {
+        const vis = !this.debugBoxGroup.visible;
+        this.debugBoxGroup.visible = vis;
+        const msg = vis ? '[BOX3 REHBERLERI ACILDI]' : '[BOX3 REHBERLERI KAPANDI]';
+        if (this.showFloatingText && this.player) {
+          this.showFloatingText(msg, this.player.group.position, vis ? '#2ecc71' : '#ff4757');
+        }
+        console.log(`%c[Box3 Debug] Bounding box helper görünürlüğü: ${vis ? 'AÇIK' : 'KAPALI'}`, 'font-weight:bold; color:#0984e3;');
+      }
+    });
+
+    // Expose global audit functions for console and tests
+    window.runCollisionAudit = () => this.runBox3CollisionAudit();
+    window.box3Game = this;
+  }
+
+  runBox3CollisionAudit() {
+    if (!this.debugBoxGroup) return [];
+
+    // Clear previous helper meshes
+    while (this.debugBoxGroup.children.length > 0) {
+      const child = this.debugBoxGroup.children.pop();
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+        else child.material.dispose();
+      }
+    }
+
+    const trackedEntities = [];
+
+    // 1. Checkouts
+    if (Array.isArray(this.checkouts)) {
+      this.checkouts.forEach((chk, idx) => {
+        if (chk && chk.group) {
+          trackedEntities.push({
+            id: `Kasa_${chk.laneNumber || idx + 1}`,
+            category: 'CHECKOUT',
+            group: chk.group,
+            meta: { x: chk.x, z: chk.z, lane: chk.laneNumber || idx + 1 }
+          });
+        }
+      });
+    }
+
+    // 2. Cashier Staff Bots
+    if (Array.isArray(this.cashierBots)) {
+      this.cashierBots.forEach((bot, idx) => {
+        if (bot && bot.group) {
+          trackedEntities.push({
+            id: `Kasiyer_${idx + 1}`,
+            category: 'CASHIER',
+            group: bot.group,
+            meta: { pos: bot.group.position }
+          });
+        }
+      });
+    }
+
+    // 3. Department Decor Furniture (GURME & DELİ, MANAV, etc.)
+    if (this.scene && Array.isArray(this.scene.children)) {
+      this.scene.children.forEach(child => {
+        if (child.userData && child.userData.departmentDecor) {
+          trackedEntities.push({
+            id: `ReyonDekor_${child.userData.departmentDecor}`,
+            category: 'DEPT_DECOR',
+            group: child,
+            meta: { label: child.userData.departmentDecor }
+          });
+        }
+        if (child.userData && child.userData.departmentLabel) {
+          trackedEntities.push({
+            id: `ReyonTabela_${child.userData.departmentLabel}`,
+            category: 'DEPT_SIGN',
+            group: child,
+            meta: { label: child.userData.departmentLabel }
+          });
+        }
+      });
+    }
+
+    // 4. Supermarket Visual System (Freezer, Impulse Racks, etc.)
+    if (this.supermarketVisuals && this.supermarketVisuals.group) {
+      this.supermarketVisuals.group.children.forEach((child, cIdx) => {
+        const decorName = child.name || `VisualDecor_${cIdx + 1}`;
+        trackedEntities.push({
+          id: `MimariGorsel_${decorName}`,
+          category: 'VISUAL_DECOR',
+          group: child,
+          meta: { index: cIdx }
+        });
+      });
+    }
+
+    // 5. Unlock Pads
+    if (Array.isArray(this.unlockPads)) {
+      this.unlockPads.forEach((pad, pIdx) => {
+        if (pad && pad.group) {
+          trackedEntities.push({
+            id: `KilitPedi_${pIdx + 1}_${pad.title || ''}`,
+            category: 'UNLOCK_PAD',
+            group: pad.group,
+            meta: { cost: pad.remainingCost, x: pad.x, z: pad.z }
+          });
+        }
+      });
+    }
+
+    // 6. Shelves
+    if (Array.isArray(this.shelves)) {
+      this.shelves.forEach((shelf, sIdx) => {
+        if (shelf && shelf.group) {
+          trackedEntities.push({
+            id: `Raf_${shelf.type || sIdx + 1}`,
+            category: 'SHELF',
+            group: shelf.group,
+            meta: { type: shelf.type }
+          });
+        }
+      });
+    }
+
+    // 7. Voxel Radio
+    if (this.voxelRadio && this.voxelRadio.group) {
+      trackedEntities.push({
+        id: 'VoxelRadyo',
+        category: 'ENTITY',
+        group: this.voxelRadio.group,
+        meta: {}
+      });
+    }
+
+    // Update matrices and compute Box3 for all
+    const entityBoxes = trackedEntities.map(item => {
+      item.group.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(item.group);
+      return {
+        ...item,
+        box,
+        min: box.min.clone(),
+        max: box.max.clone(),
+        size: box.getSize(new THREE.Vector3()),
+        collidesWithCheckoutOrCashier: false
+      };
+    });
+
+    const detectedCollisions = [];
+
+    for (let i = 0; i < entityBoxes.length; i++) {
+      for (let j = i + 1; j < entityBoxes.length; j++) {
+        const a = entityBoxes[i];
+        const b = entityBoxes[j];
+
+        // Filter out parent-child or same group
+        if (a.group === b.group || a.group.parent === b.group || b.group.parent === a.group) continue;
+
+        // Cashiers and their checkout desks are an intended co-located work pair
+        if ((a.category === 'CASHIER' && b.category === 'CHECKOUT') ||
+            (a.category === 'CHECKOUT' && b.category === 'CASHIER')) {
+          continue;
+        }
+
+        const xOverlap = Math.max(0, Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x));
+        const zOverlap = Math.max(0, Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z));
+        const yOverlap = Math.max(0, Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y));
+
+        const is3D = a.box.intersectsBox(b.box);
+        const is2DFootprint = xOverlap > 0.05 && zOverlap > 0.05;
+
+        if (is3D || is2DFootprint) {
+          const involvesPrimary = (
+            a.category === 'CHECKOUT' || a.category === 'CASHIER' ||
+            b.category === 'CHECKOUT' || b.category === 'CASHIER'
+          );
+
+          if (involvesPrimary) {
+            a.collidesWithCheckoutOrCashier = true;
+            b.collidesWithCheckoutOrCashier = true;
+          }
+
+          detectedCollisions.push({
+            objectA: a.id,
+            categoryA: a.category,
+            boxA: { minX: a.min.x, maxX: a.max.x, minZ: a.min.z, maxZ: a.max.z, minY: a.min.y, maxY: a.max.y },
+            objectB: b.id,
+            categoryB: b.category,
+            boxB: { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, minY: b.min.y, maxY: b.max.y },
+            xOverlap: Number(xOverlap.toFixed(3)),
+            zOverlap: Number(zOverlap.toFixed(3)),
+            yOverlap: Number(yOverlap.toFixed(3)),
+            isFull3D: is3D,
+            isFloorFootprint: is2DFootprint,
+            involvesCheckoutOrCashier: involvesPrimary
+          });
+        }
+      }
+    }
+
+    // Render Box3Helpers with color coding
+    entityBoxes.forEach(item => {
+      let helperColor = 0x0984e3; // Blue for neutral
+      if (item.collidesWithCheckoutOrCashier) {
+        helperColor = 0xff0033; // Red for collision with checkout / cashier
+      } else if (item.category === 'CHECKOUT' || item.category === 'CASHIER') {
+        helperColor = 0x2ecc71; // Green for clear checkout / cashier
+      } else if (item.category === 'UNLOCK_PAD') {
+        helperColor = 0xffe600; // Yellow for unlock pads
+      }
+
+      const helper = new THREE.Box3Helper(item.box, helperColor);
+      this.debugBoxGroup.add(helper);
+    });
+
+    // Console Logging & Report
+    const checkoutCollisions = detectedCollisions.filter(c => c.involvesCheckoutOrCashier);
+    console.group('%c[BİZİM MARKET - BOX3 ÇAKIŞMA TESPİT RAPORU]', 'background:#000; color:#FFE600; font-size:14px; font-weight:bold; padding:4px 8px; border:2px solid #000;');
+    console.warn(`Toplam Denetlenen Obje: ${entityBoxes.length}`);
+    console.warn(`Toplam Alan Çakışması: ${detectedCollisions.length}`);
+    console.error(`KASA / KASİYER İLE ÇAKIŞAN OBJE SAYISI: ${checkoutCollisions.length}`);
+
+    if (checkoutCollisions.length > 0) {
+      console.log('%c--- KASA VE KASİYER ÇAKIŞMALARI LİSTESİ ---', 'font-weight:bold; color:#ff4757;');
+      checkoutCollisions.forEach((col, idx) => {
+        console.warn(
+          `${idx + 1}. [${col.categoryA}] ${col.objectA} <---> [${col.categoryB}] ${col.objectB}\n` +
+          `   Çakışma Miktarı: X ekseni = ${(col.xOverlap * 100).toFixed(1)} cm, Z ekseni = ${(col.zOverlap * 100).toFixed(1)} cm\n` +
+          `   3D Kesişim: ${col.isFull3D ? 'TAM HACİM KESİŞİMİ' : 'ZEMİN ALAN İHLALİ'}`
+        );
+      });
+    }
+    console.groupEnd();
+
+    window.box3AuditResults = {
+      timestamp: Date.now(),
+      totalEntities: entityBoxes.length,
+      totalCollisions: detectedCollisions.length,
+      checkoutCollisionsCount: checkoutCollisions.length,
+      checkoutCollisions,
+      allCollisions: detectedCollisions
+    };
+
+    return detectedCollisions;
+  }
+
   // --- In-Game Market Wiki & Strategy Guide UI Engine ---
   initWikiUI() {
     const wikiBtn = document.getElementById('wiki-btn');
@@ -3502,6 +3934,12 @@ class MiniMartGame {
 
     this.updatePlayerMovement(delta);
     this.updateCamera();
+
+    // Pulse animation on active dragging fixture
+    if (this.isLayoutEditMode && this.selectedFixture && this.selectedFixture.group) {
+      const pulse = Math.sin(Date.now() * 0.008) * 0.04;
+      this.selectedFixture.group.position.y = 0.15 + pulse;
+    }
     this.updateCombo(delta);
     this.updateDayCycle(delta);
     this.updateSpills(delta);
@@ -3684,6 +4122,12 @@ class MiniMartGame {
 
   // Player input calculation, movement & collision physics
   updatePlayerMovement(delta) {
+    if (this.isLayoutEditMode) {
+      this.player.velocity.set(0, 0, 0);
+      this.player.update(delta);
+      return;
+    }
+
     const moveDir = new THREE.Vector3();
 
     if (this.keys['KeyW'] || this.keys['ArrowUp']) moveDir.z -= 1;
@@ -3767,6 +4211,19 @@ class MiniMartGame {
       this.camera.lookAt(-15.8, 1.25, -5.05);
       if (Math.abs(this.camera.fov - 32.0) > 0.05) {
         this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 32.0, 0.12);
+        this.camera.updateProjectionMatrix();
+      }
+      return;
+    }
+
+    if (this.isLayoutEditMode) {
+      // Elevated bird's-eye isometric view over the market center
+      this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, 0.0, 0.08);
+      this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, 32.0, 0.08);
+      this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, 22.0, 0.08);
+      this.camera.lookAt(0.0, 0, -12.0);
+      if (Math.abs(this.camera.fov - 48.0) > 0.05) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 48.0, 0.08);
         this.camera.updateProjectionMatrix();
       }
       return;
@@ -5076,6 +5533,7 @@ class MiniMartGame {
           wholesale: this.wholesaleState || window.GameMechanics.createWholesaleState(),
           staffFatigue: this.staffFatigue || window.GameMechanics.createStaffFatigueState(),
           decoration: this.decorationState || window.GameMechanics.createDecorationState(),
+          customLayout: this.customLayout || {},
           retailPrices: this.retailPrices || {},
           warehouseInventory: this.warehouseInventory || {},
           lastSavedAt: Date.now()
@@ -5126,6 +5584,7 @@ class MiniMartGame {
         this.wholesaleState = window.GameMechanics.createWholesaleState(data.wholesale || {});
         this.staffFatigue = window.GameMechanics.createStaffFatigueState(data.staffFatigue || {});
         this.decorationState = window.GameMechanics.createDecorationState(data.decoration || {});
+        this.spawnPurchasedDecorations();
         this.applyDecorationEffects();
         if (this.brandState && this.brandState.brands) {
           Object.entries(this.brandState.brands).forEach(([cat, bInfo]) => {
@@ -5178,6 +5637,12 @@ class MiniMartGame {
           if (this.offlineNoticeTextEl) this.offlineNoticeTextEl.textContent = `ÇEVRİMDIŞI KAZANÇ: ${offline.minutes} dk · +$${offline.amount}`;
           this.offlineNoticeEl?.classList.remove('hidden');
         }
+
+        if (data.customLayout && typeof data.customLayout === 'object') {
+          this.customLayout = data.customLayout;
+          this.applyCustomLayout();
+        }
+
         this.saveState();
       }
     } catch (e) {
@@ -6976,6 +7441,749 @@ class MiniMartGame {
     if (prestige.isVIPEligible && this.vipSpawnTimer > 15.0) {
       this.vipSpawnTimer -= delta * 0.5;
     }
+  }
+
+  // --- Store Layout & Builder Mode Implementation ---
+  initLayoutEditorUI() {
+    const editBtn = document.getElementById('layout-edit-btn');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        this.toggleLayoutEditMode();
+      });
+    }
+
+    const rotateBtn = document.getElementById('layout-rotate-btn');
+    if (rotateBtn) {
+      rotateBtn.addEventListener('click', () => {
+        this.rotateSelectedFixture();
+      });
+    }
+
+    const cancelBtn = document.getElementById('layout-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this.cancelSelectedDrag();
+      });
+    }
+
+    const saveBtn = document.getElementById('layout-save-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        this.exitLayoutEditMode(true);
+      });
+    }
+  }
+
+  getEditableFixtures() {
+    const list = [];
+
+    // 1. Shelves
+    if (this.shelves && Array.isArray(this.shelves)) {
+      this.shelves.forEach(shelf => {
+        if (!shelf || !shelf.group) return;
+        let id = 'shelf_' + (shelf.itemType ? String(shelf.itemType).toLowerCase() : 'generic');
+        let tag = id;
+        if (shelf === this.tomatoShelf) { id = 'shelf_tomato'; tag = 'shelf_tomato'; }
+        else if (shelf === this.eggShelf) { id = 'shelf_egg'; tag = 'shelf_egg'; }
+        else if (shelf === this.beverageChiller) { id = 'shelf_beverage_chiller'; tag = 'shelf_beverage_chiller'; }
+        else if (shelf === this.cleaningShelf) { id = 'shelf_cleaning'; tag = 'shelf_cleaning'; }
+        else if (shelf === this.shelf2) { id = 'shelf2'; tag = 'shelf2'; }
+        else if (shelf === this.breadShelf) { id = 'shelf_bread'; tag = 'shelf_bread'; }
+        else if (shelf === this.cheeseShelf) { id = 'shelf_cheese'; tag = 'shelf_cheese'; }
+        else if (shelf === this.cornShelf) { id = 'shelf_corn'; tag = 'shelf_corn'; }
+        else if (shelf === this.popcornShelf) { id = 'shelf_popcorn'; tag = 'shelf_popcorn'; }
+        else if (shelf === this.juiceShelf) { id = 'shelf_juice'; tag = 'shelf_juice'; }
+        else if (shelf === this.pieShelf) { id = 'shelf_pie'; tag = 'shelf_pie'; }
+        else if (shelf === this.strawberryShelf) { id = 'shelf_strawberry'; tag = 'shelf_strawberry'; }
+        else if (shelf === this.carrotShelf) { id = 'shelf_carrot'; tag = 'shelf_carrot'; }
+        else if (shelf === this.iceCreamShelf) { id = 'shelf_icecream'; tag = 'shelf_icecream'; }
+        else if (shelf === this.saladShelf) { id = 'shelf_salad'; tag = 'shelf_salad'; }
+        else if (shelf === this.pizzaShelf) { id = 'shelf_pizza'; tag = 'shelf_pizza'; }
+
+        const w = (shelf === this.beverageChiller) ? 1.6 : 2.6;
+        const d = (shelf === this.beverageChiller) ? 2.6 : 1.6;
+        list.push({
+          id,
+          collisionTag: tag,
+          category: 'SHELF',
+          size: { w, d, h: 1.8 },
+          group: shelf.group,
+          entity: shelf
+        });
+      });
+    }
+
+    // 2. Checkout Counters & Cashiers
+    if (this.checkouts && Array.isArray(this.checkouts)) {
+      this.checkouts.forEach((co, idx) => {
+        if (!co || !co.group) return;
+        const num = idx + 1;
+        const cashierBot = this.cashierBots ? this.cashierBots[idx] : null;
+        list.push({
+          id: `checkout_${num}`,
+          collisionTag: `checkout_${num}`,
+          category: 'CHECKOUT',
+          size: { w: 2.6, d: 0.88, h: 0.94 },
+          group: co.group,
+          entity: co,
+          cashierBot
+        });
+      });
+    }
+
+    // 3. Machines & Farm Plots
+    const machines = [
+      { entity: this.flourMill, id: 'flour_mill', tag: 'flour_mill', category: 'MACHINE', size: { w: 3.4, d: 3.0, h: 2.5 } },
+      { entity: this.bakeryOven, id: 'bakery_oven', tag: 'bakery_oven', category: 'MACHINE', size: { w: 3.4, d: 3.0, h: 2.5 } },
+      { entity: this.chickenCoop, id: 'chicken_coop', tag: 'chicken_coop', category: 'MACHINE', size: { w: 3.4, d: 3.0, h: 2.0 } },
+      { entity: this.cowPen, id: 'cow_pen', tag: 'cow_pen', category: 'MACHINE', size: { w: 4.0, d: 3.4, h: 2.0 } },
+      { entity: this.cheeseProcessor, id: 'cheese_processor', tag: 'cheese_processor', category: 'MACHINE', size: { w: 3.4, d: 3.0, h: 2.5 } },
+      { entity: this.popcornMaker, id: 'popcorn_maker', tag: 'popcorn_maker', category: 'MACHINE', size: { w: 2.8, d: 2.6, h: 2.2 } },
+      { entity: this.juicer, id: 'juicer', tag: 'juicer', category: 'MACHINE', size: { w: 3.0, d: 3.0, h: 2.4 } },
+      { entity: this.iceCreamMachine, id: 'ice_cream_machine', tag: 'ice_cream_machine', category: 'MACHINE', size: { w: 3.0, d: 3.0, h: 2.4 } },
+      { entity: this.saladPrepBar, id: 'salad_prep_bar', tag: 'salad_prep_bar', category: 'MACHINE', size: { w: 2.8, d: 3.0, h: 2.2 } },
+      { entity: this.toastMachine, id: 'toast_machine', tag: 'toast_machine', category: 'MACHINE', size: { w: 2.6, d: 1.6, h: 1.8 } },
+      { entity: this.jamCauldron, id: 'jam_cauldron', tag: 'jam_cauldron', category: 'MACHINE', size: { w: 2.6, d: 1.6, h: 1.8 } },
+      { entity: this.deliveryDesk, id: 'delivery_desk', tag: 'delivery_desk', category: 'MACHINE', size: { w: 2.8, d: 1.8, h: 1.6 } },
+      { entity: this.tomatoPlot, id: 'tomato_plot', tag: 'tomato_plot', category: 'FARM_PLOT', size: { w: 3.4, d: 3.0, h: 0.4 } },
+      { entity: this.wheatPlot, id: 'wheat_plot', tag: 'wheat_plot', category: 'FARM_PLOT', size: { w: 3.4, d: 3.0, h: 0.4 } },
+      { entity: this.cornPlot, id: 'corn_plot', tag: 'corn_plot', category: 'FARM_PLOT', size: { w: 3.4, d: 3.0, h: 0.4 } },
+      { entity: this.appleTree, id: 'apple_tree', tag: 'apple_tree', category: 'FARM_PLOT', size: { w: 3.4, d: 3.4, h: 3.0 } },
+      { entity: this.strawberryPlot, id: 'strawberry_plot', tag: 'strawberry_plot', category: 'FARM_PLOT', size: { w: 3.4, d: 3.0, h: 0.4 } },
+      { entity: this.carrotPlot, id: 'carrot_plot', tag: 'carrot_plot', category: 'FARM_PLOT', size: { w: 3.4, d: 3.0, h: 0.4 } },
+      { entity: this.mopStation, id: 'mop_station', tag: 'mop_station', category: 'DECOR', size: { w: 1.6, d: 2.0, h: 1.8 } },
+      { entity: this.teaStation, id: 'tea_station', tag: 'tea_station', category: 'DECOR', size: { w: 2.0, d: 1.2, h: 1.6 } }
+    ];
+
+    machines.forEach(m => {
+      if (m.entity && m.entity.group) {
+        list.push({
+          id: m.id,
+          collisionTag: m.tag,
+          category: m.category,
+          size: m.size,
+          group: m.entity.group,
+          entity: m.entity
+        });
+      }
+    });
+
+    // 4. Purchased Store Decorations
+    if (this.purchasedDecorations && Array.isArray(this.purchasedDecorations)) {
+      this.purchasedDecorations.forEach(dec => {
+        if (!dec || !dec.group) return;
+        list.push({
+          id: dec.id,
+          collisionTag: dec.collisionTag || dec.id,
+          category: 'DECOR',
+          size: dec.size || { w: 1.0, d: 1.0, h: 1.0 },
+          group: dec.group,
+          entity: dec
+        });
+      });
+    }
+
+    return list;
+  }
+
+  enterLayoutEditMode() {
+    if (this.isLayoutEditMode) return;
+    this.isLayoutEditMode = true;
+
+    if (this.player && this.player.velocity) {
+      this.player.velocity.set(0, 0, 0);
+    }
+
+    if (!this.layoutGrid) {
+      this.layoutGrid = new THREE.GridHelper(50, 100, 0x444444, 0xaaaaaa);
+      this.layoutGrid.position.set(0, 0.02, 0);
+    }
+    this.scene.add(this.layoutGrid);
+
+    if (!this.ghostMesh) {
+      const geo = new THREE.BoxGeometry(1, 0.12, 1);
+      this.ghostMaterial = new THREE.MeshBasicMaterial({
+        color: 0x2ecc71,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false
+      });
+      this.ghostMesh = new THREE.Mesh(geo, this.ghostMaterial);
+      this.ghostMesh.visible = false;
+      this.scene.add(this.ghostMesh);
+    }
+
+    const hud = document.getElementById('layout-edit-hud');
+    if (hud) hud.classList.remove('hidden');
+
+    const btn = document.getElementById('layout-edit-btn');
+    if (btn) btn.classList.add('active');
+
+    this.showFloatingText('DUZENLEME MODU ACILDI', this.player.group.position, '#00E5FF');
+    window.Sound?.playPop?.(220);
+  }
+
+  exitLayoutEditMode(shouldSave = true) {
+    if (!this.isLayoutEditMode) return;
+
+    if (this.selectedFixture) {
+      if (this.isPlacementValid && shouldSave) {
+        this.confirmSelectedPlacement();
+      } else {
+        this.cancelSelectedDrag();
+      }
+    }
+
+    this.isLayoutEditMode = false;
+
+    if (this.layoutGrid) {
+      this.scene.remove(this.layoutGrid);
+    }
+    if (this.ghostMesh) {
+      this.ghostMesh.visible = false;
+    }
+
+    const hud = document.getElementById('layout-edit-hud');
+    if (hud) hud.classList.add('hidden');
+
+    const btn = document.getElementById('layout-edit-btn');
+    if (btn) btn.classList.remove('active');
+
+    if (shouldSave) {
+      this.saveState();
+      this.showFloatingText('DUZEN KAYDEDILDI', this.player.group.position, '#2ECC71');
+    }
+
+    window.Sound?.playPop?.(160);
+  }
+
+  toggleLayoutEditMode() {
+    if (this.isLayoutEditMode) {
+      this.exitLayoutEditMode(true);
+    } else {
+      this.enterLayoutEditMode();
+    }
+  }
+
+  selectFixtureForDrag(fixture) {
+    this.selectedFixture = fixture;
+    this.originalFixturePos = {
+      x: fixture.group.position.x,
+      z: fixture.group.position.z,
+      rotY: fixture.group.rotation.y
+    };
+
+    fixture.group.position.y = 0.15;
+    if (this.ghostMesh) this.ghostMesh.visible = true;
+    this.updateGhostVisual(fixture.group.position.x, fixture.group.position.z, fixture);
+    window.Sound?.playPop?.(240);
+  }
+
+  onLayoutPointerDown(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this.editRaycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), this.camera);
+    this.layoutPointerDownPos.set(e.clientX, e.clientY);
+    this.layoutPointerMoved = false;
+
+    if (this.selectedFixture) {
+      if (this.isPlacementValid) {
+        this.confirmSelectedPlacement();
+      } else {
+        window.Sound?.playPop?.(80);
+      }
+      return;
+    }
+
+    const fixtures = this.getEditableFixtures();
+    let clickedFixture = null;
+    let closestDist = Infinity;
+
+    for (let i = 0; i < fixtures.length; i++) {
+      const f = fixtures[i];
+      if (!f.group) continue;
+      const intersects = this.editRaycaster.intersectObject(f.group, true);
+      if (intersects.length > 0 && intersects[0].distance < closestDist) {
+        closestDist = intersects[0].distance;
+        clickedFixture = f;
+      }
+    }
+
+    if (clickedFixture) {
+      this.selectFixtureForDrag(clickedFixture);
+    }
+  }
+
+  onLayoutPointerMove(e) {
+    const dx = e.clientX - this.layoutPointerDownPos.x;
+    const dy = e.clientY - this.layoutPointerDownPos.y;
+    if (dx * dx + dy * dy > 16) {
+      this.layoutPointerMoved = true;
+    }
+
+    if (!this.selectedFixture) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this.editRaycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), this.camera);
+
+    const hitPoint = new THREE.Vector3();
+    if (this.editRaycaster.ray.intersectPlane(this.floorPlane, hitPoint)) {
+      const snappedX = Math.round(hitPoint.x / 0.5) * 0.5;
+      const snappedZ = Math.round(hitPoint.z / 0.5) * 0.5;
+
+      this.selectedFixture.group.position.x = snappedX;
+      this.selectedFixture.group.position.z = snappedZ;
+
+      if (this.selectedFixture.cashierBot && this.selectedFixture.cashierBot.group) {
+        this.selectedFixture.cashierBot.group.position.x = snappedX;
+        this.selectedFixture.cashierBot.group.position.z = snappedZ - 0.65;
+      }
+
+      this.updateGhostVisual(snappedX, snappedZ, this.selectedFixture);
+    }
+  }
+
+  onLayoutPointerUp(e) {
+    // Keep selected with active live footprint so the player can rotate with R or confirm placement
+  }
+
+  updateGhostVisual(x, z, fixture) {
+    if (!this.ghostMesh) return;
+    const isRot = Math.round(Math.abs(fixture.group.rotation.y) / (Math.PI / 2)) % 2 === 1;
+    const w = isRot ? fixture.size.d : fixture.size.w;
+    const d = isRot ? fixture.size.w : fixture.size.d;
+    const halfW = w / 2;
+    const halfD = d / 2;
+
+    const minX = x - halfW;
+    const maxX = x + halfW;
+    const minZ = z - halfD;
+    const maxZ = z + halfD;
+
+    const inBounds = (
+      minX >= MARKET_LAYOUT.minX + 0.8 &&
+      maxX <= MARKET_LAYOUT.maxX - 0.8 &&
+      minZ >= MARKET_LAYOUT.minZ + 0.8 &&
+      maxZ <= MARKET_LAYOUT.maxZ - 0.8
+    );
+
+    let allowed = inBounds;
+    if (allowed && this.spatial) {
+      const testResult = this.spatial.testAABB(minX, maxX, minZ, maxZ, fixture.category, fixture.id);
+      allowed = testResult.allowed;
+    }
+
+    this.isPlacementValid = allowed;
+
+    this.ghostMesh.scale.set(w, 1, d);
+    this.ghostMesh.position.set(x, 0.06, z);
+    this.ghostMaterial.color.setHex(allowed ? 0x2ecc71 : 0xff0033);
+  }
+
+  rotateSelectedFixture() {
+    if (!this.selectedFixture) return;
+    this.selectedFixture.group.rotation.y += Math.PI / 2;
+    if (this.selectedFixture.group.rotation.y >= Math.PI * 2) {
+      this.selectedFixture.group.rotation.y -= Math.PI * 2;
+    }
+    if (this.selectedFixture.entity && this.selectedFixture.entity.group) {
+      this.selectedFixture.entity.group.rotation.y = this.selectedFixture.group.rotation.y;
+    }
+    this.updateGhostVisual(
+      this.selectedFixture.group.position.x,
+      this.selectedFixture.group.position.z,
+      this.selectedFixture
+    );
+    window.Sound?.playPop?.(260);
+  }
+
+  cancelSelectedDrag() {
+    if (!this.selectedFixture) return;
+    this.selectedFixture.group.position.set(
+      this.originalFixturePos.x,
+      0,
+      this.originalFixturePos.z
+    );
+    this.selectedFixture.group.rotation.y = this.originalFixturePos.rotY;
+
+    if (this.selectedFixture.entity) {
+      this.selectedFixture.entity.x = this.originalFixturePos.x;
+      this.selectedFixture.entity.z = this.originalFixturePos.z;
+      if (this.selectedFixture.entity.group) {
+        this.selectedFixture.entity.group.position.set(this.originalFixturePos.x, 0, this.originalFixturePos.z);
+        this.selectedFixture.entity.group.rotation.y = this.originalFixturePos.rotY;
+      }
+    }
+
+    if (this.selectedFixture.cashierBot && this.selectedFixture.cashierBot.group) {
+      this.selectedFixture.cashierBot.x = this.originalFixturePos.x;
+      this.selectedFixture.cashierBot.z = this.originalFixturePos.z - 0.65;
+      this.selectedFixture.cashierBot.group.position.set(
+        this.originalFixturePos.x,
+        0,
+        this.originalFixturePos.z - 0.65
+      );
+    }
+
+    this.selectedFixture = null;
+    this.originalFixturePos = null;
+    if (this.ghostMesh) this.ghostMesh.visible = false;
+    window.Sound?.playPop?.(120);
+  }
+
+  confirmSelectedPlacement() {
+    if (!this.selectedFixture) return;
+    if (!this.isPlacementValid) {
+      window.Sound?.playPop?.(80);
+      return;
+    }
+
+    const fixture = this.selectedFixture;
+    const newX = fixture.group.position.x;
+    const newZ = fixture.group.position.z;
+    const newRotY = fixture.group.rotation.y;
+
+    this.applyFixtureMove(fixture, newX, newZ, newRotY);
+
+    this.customLayout[fixture.id] = { x: newX, z: newZ, rotY: newRotY };
+    this.saveState();
+
+    fixture.group.position.y = 0;
+    this.selectedFixture = null;
+    this.originalFixturePos = null;
+    if (this.ghostMesh) this.ghostMesh.visible = false;
+
+    window.Sound?.playUpgrade?.();
+  }
+
+  applyFixtureMove(fixture, newX, newZ, newRotY) {
+    fixture.group.position.set(newX, 0, newZ);
+    fixture.group.rotation.y = newRotY;
+
+    if (fixture.entity) {
+      fixture.entity.x = newX;
+      fixture.entity.z = newZ;
+      if (fixture.entity.group) {
+        fixture.entity.group.position.set(newX, 0, newZ);
+        fixture.entity.group.rotation.y = newRotY;
+      }
+      if (fixture.entity.inputPadPos) fixture.entity.inputPadPos.set(newX - 1.5, 0, newZ);
+      if (fixture.entity.outputPadPos) fixture.entity.outputPadPos.set(newX + 1.5, 0, newZ);
+    }
+
+    if (fixture.cashierBot && fixture.cashierBot.group) {
+      fixture.cashierBot.x = newX;
+      fixture.cashierBot.z = newZ - 0.65;
+      fixture.cashierBot.group.position.set(newX, 0, newZ - 0.65);
+    }
+
+    const isRot = Math.round(Math.abs(newRotY) / (Math.PI / 2)) % 2 === 1;
+    const w = isRot ? fixture.size.d : fixture.size.w;
+    const d = isRot ? fixture.size.w : fixture.size.d;
+    const halfW = w / 2;
+    const halfD = d / 2;
+
+    if (fixture.collisionTag && this.collision) {
+      this.collision.removeBox(fixture.collisionTag);
+      this.collision.addBox(newX - halfW, newX + halfW, newZ - halfD, newZ + halfD, fixture.collisionTag);
+    }
+
+    if (this.spatial) {
+      this.spatial.updateReservation(
+        fixture.id,
+        fixture.category,
+        newX - halfW,
+        newX + halfW,
+        newZ - halfD,
+        newZ + halfD,
+        { zone: 'CUSTOM_LAYOUT' }
+      );
+    }
+  }
+
+  applyCustomLayout() {
+    if (!this.customLayout || typeof this.customLayout !== 'object') return;
+    const fixtures = this.getEditableFixtures();
+    const fixtureMap = new Map(fixtures.map(f => [f.id, f]));
+
+    for (const [id, savedPos] of Object.entries(this.customLayout)) {
+      const fixture = fixtureMap.get(id);
+      if (fixture && typeof savedPos.x === 'number' && typeof savedPos.z === 'number') {
+        const rotY = typeof savedPos.rotY === 'number' ? savedPos.rotY : 0;
+        this.applyFixtureMove(fixture, savedPos.x, savedPos.z, rotY);
+      }
+    }
+  }
+
+  // --- Decoration Shop & Catalog Implementation ---
+  initDecorationShopUI() {
+    const shopBtn = document.getElementById('decor-shop-btn');
+    if (shopBtn) {
+      shopBtn.addEventListener('click', () => {
+        this.toggleDecorationShopModal();
+      });
+    }
+
+    const closeBtn = document.getElementById('decor-shop-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.closeDecorationShopModal();
+      });
+    }
+
+    const tabs = document.querySelectorAll('.decor-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        this.activeDecorationShopCategory = tab.dataset.category || 'ALL';
+        this.renderDecorationCatalog();
+      });
+    });
+  }
+
+  openDecorationShopModal() {
+    if (this.isLayoutEditMode) {
+      this.exitLayoutEditMode(true);
+    }
+    this.isDecorationShopOpen = true;
+    const modal = document.getElementById('decor-shop-modal');
+    if (modal) modal.classList.remove('hidden');
+
+    const prestige = window.GameMechanics.calculateStorePrestige(this.decorationState, this.hygieneScore, this.brandState);
+    const prestigeBadge = document.getElementById('decor-shop-prestige-info');
+    if (prestigeBadge) {
+      prestigeBadge.textContent = `PRESTİJ: [P${prestige.stars}] (${prestige.score} Puan)`;
+    }
+
+    this.renderDecorationCatalog();
+    window.Sound?.playPop?.(220);
+  }
+
+  closeDecorationShopModal() {
+    this.isDecorationShopOpen = false;
+    const modal = document.getElementById('decor-shop-modal');
+    if (modal) modal.classList.add('hidden');
+    window.Sound?.playPop?.(160);
+  }
+
+  toggleDecorationShopModal() {
+    if (this.isDecorationShopOpen) {
+      this.closeDecorationShopModal();
+    } else {
+      this.openDecorationShopModal();
+    }
+  }
+
+  renderDecorationCatalog() {
+    const grid = document.getElementById('decor-catalog-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const catalog = window.GameMechanics.DECORATION_CATALOG || [];
+    const category = this.activeDecorationShopCategory || 'ALL';
+    const filtered = category === 'ALL'
+      ? catalog
+      : catalog.filter(item => item.category === category);
+
+    const categoryNames = {
+      PLANTS: 'BİTKİ',
+      FURNITURE: 'MOBİLYA',
+      COOLING: 'SOĞUTMA',
+      LIGHTING: 'IŞIKLANDIRMA',
+      ACCESSORIES: 'AKSESUAR'
+    };
+
+    filtered.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'decor-card';
+
+      const canAfford = typeof this.money === 'number' && this.money >= item.price;
+      const catLabel = categoryNames[item.category] || item.category;
+
+      card.innerHTML = `
+        <div class="decor-card-header">
+          <div class="decor-card-name">${item.name}</div>
+          <div class="decor-card-category-badge">[${catLabel}]</div>
+        </div>
+        <div class="decor-card-details">
+          <div class="decor-card-bonus">[PRESTİJ: +${item.prestigeBonus} PUAN]</div>
+          <div class="decor-card-size">Boyut: ${item.size.w}m x ${item.size.d}m x ${item.size.h}m</div>
+        </div>
+        <div class="decor-card-footer">
+          <div class="decor-card-price">$${item.price}</div>
+          <button class="decor-buy-btn" type="button" ${canAfford ? '' : 'disabled'}>
+            ${canAfford ? '[SATIN AL]' : '[YETERSİZ BAKİYE]'}
+          </button>
+        </div>
+      `;
+
+      const buyBtn = card.querySelector('.decor-buy-btn');
+      if (buyBtn && canAfford) {
+        buyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.handleBuyDecoration(item.id);
+        });
+      }
+
+      grid.appendChild(card);
+    });
+  }
+
+  handleBuyDecoration(decorId) {
+    if (!window.GameMechanics || typeof window.GameMechanics.buyDecoration !== 'function') {
+      return;
+    }
+
+    const result = window.GameMechanics.buyDecoration(this, decorId);
+    if (!result.success) {
+      this.showFloatingText(result.reason, this.player.group.position, '#FF4757');
+      window.Sound?.playPop?.(80);
+      return;
+    }
+
+    this.updateMoneyUI();
+    window.Sound?.playCash?.();
+
+    // Create 3D Voxel Mesh
+    const createMeshFn = typeof createVoxelDecorationMesh === 'function'
+      ? createVoxelDecorationMesh
+      : (window.createVoxelDecorationMesh || null);
+
+    const mesh = createMeshFn ? createMeshFn(result.item) : null;
+    if (!mesh) {
+      console.warn('Decoration mesh creation failed for:', result.item);
+      return;
+    }
+
+    // Spawn 1.5m in front of player
+    const spawnX = Math.round(this.player.group.position.x / 0.5) * 0.5;
+    const spawnZ = Math.round((this.player.group.position.z - 1.5) / 0.5) * 0.5;
+    mesh.position.set(spawnX, 0, spawnZ);
+    this.scene.add(mesh);
+
+    const decorEntry = {
+      id: result.item.instanceId,
+      decorId: result.item.catalogId,
+      name: result.item.name,
+      collisionTag: result.item.instanceId,
+      category: 'DECOR',
+      size: result.item.size,
+      group: mesh,
+      entity: { group: mesh, x: spawnX, z: spawnZ }
+    };
+
+    if (!Array.isArray(this.purchasedDecorations)) {
+      this.purchasedDecorations = [];
+    }
+    this.purchasedDecorations.push(decorEntry);
+
+    // Register initial AABB and spatial reservation
+    const halfW = result.item.size.w / 2;
+    const halfD = result.item.size.d / 2;
+    if (this.collision) {
+      this.collision.addBox(spawnX - halfW, spawnX + halfW, spawnZ - halfD, spawnZ + halfD, result.item.instanceId);
+    }
+    if (this.spatial) {
+      this.spatial.updateReservation(
+        result.item.instanceId,
+        'DECOR',
+        spawnX - halfW,
+        spawnX + halfW,
+        spawnZ - halfD,
+        spawnZ + halfD,
+        { zone: 'CUSTOM_LAYOUT' }
+      );
+    }
+
+    // Close shop modal and switch immediately to Store Layout Edit Mode with the new item selected
+    this.closeDecorationShopModal();
+    this.enterLayoutEditMode();
+    this.selectFixtureForDrag(decorEntry);
+
+    this.showFloatingText(`[SATIN ALINDI] ${result.item.name}`, this.player.group.position, '#2ECC71');
+    this.saveState();
+  }
+
+  spawnPurchasedDecorations() {
+    if (!this.decorationState || !Array.isArray(this.decorationState.purchasedItems)) return;
+
+    if (this.purchasedDecorations && Array.isArray(this.purchasedDecorations)) {
+      this.purchasedDecorations.forEach(dec => {
+        if (dec && dec.group) {
+          this.scene.remove(dec.group);
+          dec.group.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+              else child.material.dispose();
+            }
+          });
+        }
+        if (dec && dec.collisionTag && this.collision) {
+          this.collision.removeBox(dec.collisionTag);
+        }
+      });
+    }
+    this.purchasedDecorations = [];
+
+    const createMeshFn = typeof createVoxelDecorationMesh === 'function'
+      ? createVoxelDecorationMesh
+      : (window.createVoxelDecorationMesh || null);
+
+    if (!createMeshFn) return;
+
+    this.decorationState.purchasedItems.forEach((item, index) => {
+      const mesh = createMeshFn(item);
+      if (!mesh) return;
+
+      const savedPos = (this.customLayout && this.customLayout[item.instanceId]) || null;
+      const x = savedPos && typeof savedPos.x === 'number' ? savedPos.x : (10.0 + (index % 4) * 2.0);
+      const z = savedPos && typeof savedPos.z === 'number' ? savedPos.z : (-22.0 - Math.floor(index / 4) * 2.0);
+      const rotY = savedPos && typeof savedPos.rotY === 'number' ? savedPos.rotY : 0;
+
+      mesh.position.set(x, 0, z);
+      mesh.rotation.y = rotY;
+      this.scene.add(mesh);
+
+      const isRot = Math.round(Math.abs(rotY) / (Math.PI / 2)) % 2 === 1;
+      const w = isRot ? item.size.d : item.size.w;
+      const d = isRot ? item.size.w : item.size.d;
+      const halfW = w / 2;
+      const halfD = d / 2;
+
+      if (this.collision) {
+        this.collision.addBox(x - halfW, x + halfW, z - halfD, z + halfD, item.instanceId);
+      }
+
+      if (this.spatial) {
+        this.spatial.updateReservation(
+          item.instanceId,
+          'DECOR',
+          x - halfW,
+          x + halfW,
+          z - halfD,
+          z + halfD,
+          { zone: 'CUSTOM_LAYOUT' }
+        );
+      }
+
+      const decorEntry = {
+        id: item.instanceId,
+        decorId: item.catalogId,
+        name: item.name,
+        collisionTag: item.instanceId,
+        category: 'DECOR',
+        size: item.size,
+        group: mesh,
+        entity: { group: mesh, x, z }
+      };
+
+      this.purchasedDecorations.push(decorEntry);
+    });
   }
 }
 

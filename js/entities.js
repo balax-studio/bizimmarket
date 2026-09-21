@@ -11482,6 +11482,8 @@ class SupermarketVisualSystem {
   constructor(scene, collision = null) {
     this.scene = scene;
     this.collision = collision;
+    this.spatial = (typeof window !== 'undefined' && window.gameInstance && window.gameInstance.spatial) ||
+      (typeof window !== 'undefined' && window.GameMechanics && window.GameMechanics.getSharedSpatialRegistry ? window.GameMechanics.getSharedSpatialRegistry() : null);
     this.group = new THREE.Group();
 
     // Reusable Materials
@@ -11641,9 +11643,20 @@ class SupermarketVisualSystem {
     cooler.add(coolerBody, glassL, glassR, handleL, handleR, thermoSign);
     this.group.add(cooler);
 
-    // 3. Island Chest Freezer (Central East Aisle: X = 7.0, Z = -17.7)
+    // 3. Island Chest Freezer (Central East Aisle: dynamic planogram clearance)
+    let freezerX = 15.5;
+    let freezerZ = -17.7;
+    if (this.spatial && this.spatial.placePlanogramFixture) {
+      const placed = this.spatial.placePlanogramFixture('decor_freezer', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+      if (placed) { freezerX = placed.x; freezerZ = placed.z; }
+    } else if (this.spatial && this.spatial.findClearPlacement) {
+      const resolved = this.spatial.findClearPlacement(1.8, 2.8, freezerX, freezerZ, 'DECOR', ['EAST', 'WEST', 'SOUTH', 'NORTH']);
+      freezerX = resolved.x;
+      freezerZ = resolved.z;
+      this.spatial.reserve('decor_island_freezer', 'DECOR', freezerX - 0.9, freezerX + 0.9, freezerZ - 1.4, freezerZ + 1.4);
+    }
     const freezer = new THREE.Group();
-    freezer.position.set(7.0, 0, -17.7);
+    freezer.position.set(freezerX, 0, freezerZ);
     const fBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.92, 2.6), this.enamelMat);
     fBody.position.set(0, 0.46, 0);
     const fTrim = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.10, 2.68), this.blackMat);
@@ -11659,7 +11672,7 @@ class SupermarketVisualSystem {
 
     freezer.add(fBody, fTrim, fLidL, fLidR, fTemp);
     this.group.add(freezer);
-    this.addDecorCollider(7.0, -17.7, 1.8, 2.8, 'decor_island_freezer');
+    this.addDecorCollider(freezerX, freezerZ, 1.8, 2.8, 'decor_island_freezer');
   }
 
   // Category C: Entrance Hand Baskets, Trolley Corral, Lockers & Turnstile
@@ -11737,9 +11750,9 @@ class SupermarketVisualSystem {
     this.group.add(lockers);
     this.addDecorCollider(-6.5, -23.2, 2.0, 0.8, 'decor_lockers');
 
-    // 4. Sanitizer Stand & Chrome Mechanical Turnstile
+    // 4. Sanitizer Stand & Chrome Mechanical Turnstile (Moved to Safe Zone Z <= -31.0)
     const sanitizer = new THREE.Group();
-    sanitizer.position.set(-0.5, 0, -23.0);
+    sanitizer.position.set(-6.5, 0, -31.5);
     const sPole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), this.steelMat);
     sPole.position.set(0, 0.6, 0);
     const sHead = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 0.18), this.enamelMat);
@@ -11748,9 +11761,9 @@ class SupermarketVisualSystem {
     sDrip.position.set(0, 0.98, 0.06);
     sanitizer.add(sPole, sHead, sDrip);
 
-    // Turnstile at Inbound Portal X = -1.6, Z = -22.8
+    // Turnstile moved to Safe Zone Z <= -31.0
     const turnstile = new THREE.Group();
-    turnstile.position.set(-1.6, 0, -22.8);
+    turnstile.position.set(-8.5, 0, -31.5);
     const tPost = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.05, 0.22), this.chromeMat);
     tPost.position.set(0, 0.525, 0);
     const tArm = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.06), this.chromeMat);
@@ -11758,8 +11771,14 @@ class SupermarketVisualSystem {
     turnstile.add(tPost, tArm);
 
     this.group.add(sanitizer, turnstile);
-    this.addDecorCollider(-0.5, -23.0, 0.7, 0.7, 'decor_sanitizer');
-    this.addDecorCollider(-1.6, -22.8, 0.4, 0.4, 'decor_turnstile');
+    this.addDecorCollider(-6.5, -31.5, 0.7, 0.7, 'decor_sanitizer');
+    this.addDecorCollider(-8.5, -31.5, 0.4, 0.4, 'decor_turnstile');
+
+    if (this.spatial && this.spatial.placePlanogramFixture) {
+      this.spatial.placePlanogramFixture('decor_trolleys');
+      this.spatial.placePlanogramFixture('decor_baskets');
+      this.spatial.placePlanogramFixture('decor_lockers');
+    }
   }
 
   // Category D: Checkout Lane Light, Impulse Merchandising, Receipts & Dividers
@@ -11793,6 +11812,16 @@ class SupermarketVisualSystem {
     newsStand.add(nFrame);
     this.group.add(newsStand);
     this.addDecorCollider(14.8, -19.5, 0.9, 1.1, 'decor_news_stand');
+
+    if (this.spatial) {
+      if (this.spatial.placePlanogramFixture) {
+        this.spatial.placePlanogramFixture('decor_impulse_rack');
+        this.spatial.placePlanogramFixture('decor_news_stand');
+      } else {
+        this.spatial.reserve('decor_impulse_rack', 'CHECKOUT_ACCESSORY', 13.4, 14.2, -20.3, -18.7);
+        this.spatial.reserve('decor_news_stand', 'CHECKOUT_ACCESSORY', 14.35, 15.25, -20.05, -18.95);
+      }
+    }
   }
 
   // Category E: Digital Produce Scale, End-Cap Promos, Price Checker & Crates
@@ -12340,6 +12369,181 @@ class WarehouseZone {
   }
 }
 
+function createVoxelDecorationMesh(decorItem) {
+  const group = new THREE.Group();
+  const type = (decorItem && decorItem.meshType) || 'PLANT';
+
+  if (type === 'PLANT') {
+    const potMat = new THREE.MeshStandardMaterial({ color: 0xd35400, roughness: 0.8 });
+    const pot = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.45, 0.65), potMat);
+    pot.position.y = 0.225;
+    pot.castShadow = true;
+    pot.receiveShadow = true;
+
+    const soilMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.9 });
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.05, 0.55), soilMat);
+    soil.position.y = 0.46;
+
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.6 });
+    const stem = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.45, 0.12), stemMat);
+    stem.position.y = 0.68;
+
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2ecc71, roughness: 0.5 });
+    const foliageMain = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.5, 0.75), leafMat);
+    foliageMain.position.y = 1.05;
+    foliageMain.castShadow = true;
+
+    const foliageTop = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.48), leafMat);
+    foliageTop.position.y = 1.35;
+    foliageTop.castShadow = true;
+
+    group.add(pot, soil, stem, foliageMain, foliageTop);
+  } else if (type === 'BENCH') {
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.6 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.4 });
+
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.65), steelMat);
+    legL.position.set(-0.75, 0.21, 0);
+    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.65), steelMat);
+    legR.position.set(0.75, 0.21, 0);
+
+    for (let i = -1; i <= 1; i++) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.18), woodMat);
+      slat.position.set(0, 0.44, i * 0.22);
+      slat.castShadow = true;
+      group.add(slat);
+    }
+
+    const backPostL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), steelMat);
+    backPostL.position.set(-0.75, 0.65, -0.3);
+    const backPostR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), steelMat);
+    backPostR.position.set(0.75, 0.65, -0.3);
+
+    const backSlat = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.22, 0.08), woodMat);
+    backSlat.position.set(0, 0.75, -0.3);
+    backSlat.castShadow = true;
+
+    group.add(legL, legR, backPostL, backPostR, backSlat);
+  } else if (type === 'TROLLEYS') {
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xdcdde1, roughness: 0.3, metalness: 0.6 });
+    const redMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.4 });
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+
+    const railL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.3), chromeMat);
+    railL.position.set(-0.6, 0.05, 0);
+    const railR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.3), chromeMat);
+    railR.position.set(0.6, 0.05, 0);
+
+    for (let i = -1; i <= 1; i++) {
+      const basket = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.65, 0.65), chromeMat);
+      basket.position.set(0, 0.55, i * 0.65);
+      basket.castShadow = true;
+
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.08, 0.08), redMat);
+      handle.position.set(0, 0.92, i * 0.65 - 0.32);
+
+      const wheels = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 0.65), blackMat);
+      wheels.position.set(0, 0.08, i * 0.65);
+
+      group.add(basket, handle, wheels);
+    }
+    group.add(railL, railR);
+  } else if (type === 'BASKETS') {
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2f3640, roughness: 0.5 });
+    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, roughness: 0.4 });
+    const redMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.4 });
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.7), poleMat);
+    base.position.y = 0.04;
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.3, 0.12), poleMat);
+    mast.position.y = 0.65;
+
+    for (let i = 0; i < 4; i++) {
+      const mat = (i % 2 === 0) ? redMat : yellowMat;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.45), mat);
+      b.position.set(0, 0.22 + i * 0.18, 0);
+      b.castShadow = true;
+      group.add(b);
+    }
+    group.add(base, mast);
+  } else if (type === 'FREEZER') {
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf5f6fa, roughness: 0.3 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.55, roughness: 0.1 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x718093, roughness: 0.4 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.68, 2.6), whiteMat);
+    body.position.y = 0.34;
+    body.castShadow = true;
+    body.receiveShadow = true;
+
+    const glassLid = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 2.4), glassMat);
+    glassLid.position.y = 0.72;
+
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.1), steelMat);
+    handle.position.set(0, 0.78, 0);
+
+    group.add(body, glassLid, handle);
+  } else if (type === 'IMPULSE') {
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.6 });
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.05, 1.3), frameMat);
+    rack.position.set(0, 0.55, 0);
+    rack.castShadow = true;
+
+    for (let i = 0; i < 3; i++) {
+      const color = i === 0 ? 0xff4757 : (i === 1 ? 0x2ed573 : 0xffa502);
+      const items = new THREE.Mesh(
+        new THREE.BoxGeometry(0.35, 0.14, 1.15),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.5 })
+      );
+      items.position.set(0, 0.3 + i * 0.28, 0);
+      group.add(items);
+    }
+    group.add(rack);
+  } else if (type === 'NEON') {
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.8 });
+    const postL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), frameMat);
+    postL.position.set(-0.95, 0.6, 0);
+    const postR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), frameMat);
+    postR.position.set(0.95, 0.6, 0);
+
+    const backBoard = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.55, 0.08), frameMat);
+    backBoard.position.set(0, 0.9, 0);
+
+    const neonMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00e5ff,
+      emissiveIntensity: 0.85,
+      roughness: 0.2
+    });
+    const neonGlow = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.12), neonMat);
+    neonGlow.position.set(0, 0.9, 0.02);
+
+    group.add(postL, postR, backBoard, neonGlow);
+  } else if (type === 'TRASH') {
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2f3640, roughness: 0.7 });
+    const greenMat = new THREE.MeshStandardMaterial({ color: 0x2ecc71, roughness: 0.5 });
+    const blueMat = new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.5 });
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.85, 0.55), bodyMat);
+    base.position.y = 0.425;
+    base.castShadow = true;
+
+    const lidL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.5), greenMat);
+    lidL.position.set(-0.18, 0.88, 0);
+    const lidR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.5), blueMat);
+    lidR.position.set(0.18, 0.88, 0);
+
+    group.add(base, lidL, lidR);
+  } else {
+    const cubeMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.6 });
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), cubeMat);
+    cube.position.y = 0.4;
+    group.add(cube);
+  }
+
+  return group;
+}
+
 if (typeof window !== 'undefined') {
   window.MopStation = MopStation;
   window.TrashItem = TrashItem;
@@ -12356,6 +12560,7 @@ if (typeof window !== 'undefined') {
   window.VoxelNeonSign = VoxelNeonSign;
   window.SupermarketVisualSystem = SupermarketVisualSystem;
   window.WarehouseZone = WarehouseZone;
+  window.createVoxelDecorationMesh = createVoxelDecorationMesh;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -12375,6 +12580,7 @@ if (typeof module !== 'undefined' && module.exports) {
     VoxelRadio,
     VoxelNeonSign,
     SupermarketVisualSystem,
-    WarehouseZone
+    WarehouseZone,
+    createVoxelDecorationMesh
   };
 }

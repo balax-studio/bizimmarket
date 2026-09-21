@@ -1,4 +1,5 @@
-﻿# OS metadata
+# OS metadata
 .DS_Store
 Thumbs.db
 *.log
+scratch/

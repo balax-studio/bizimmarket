@@ -8,7 +8,7 @@ assert(game.includes('const MARKET_LAYOUT = Object.freeze'), 'Market expansion n
 assert(game.includes('width: 48') && game.includes('depth: 49'), 'Market floor should be roughly doubled and include the production hall');
 assert(game.includes('new THREE.PlaneGeometry(MARKET_LAYOUT.width, MARKET_LAYOUT.depth)'), 'Store floor should use the expanded layout dimensions');
 assert(game.includes('storeFloor.position.set(MARKET_LAYOUT.centerX, 0.00, MARKET_LAYOUT.centerZ)'), 'Store floor should be centered from layout constants');
-assert(game.includes("this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.minZ - 0.5, MARKET_LAYOUT.minZ + 0.5, 'store_north_wall')"), 'North wall collider should span the expanded store');
+assert(game.includes("this.collision.addBox(-19.5, -3.5, -24.5, -23.6, 'north_wall_left')") && game.includes("this.collision.addBox(3.5, MARKET_LAYOUT.maxX - 0.5, -24.5, -23.6, 'north_wall_right')"), 'North wall collider should span the expanded store but leave the entrance open');
 assert(game.includes("this.collision.addBox(MARKET_LAYOUT.minX - 0.5, MARKET_LAYOUT.maxX + 0.5, MARKET_LAYOUT.maxZ - 0.5, MARKET_LAYOUT.maxZ + 0.5, 'store_south_wall')"), 'South wall collider should protect the expanded production end');
 assert(game.includes('this.supermarketVisuals = new SupermarketVisualSystem(this.scene, this.collision);'), 'Architectural decorations should register colliders when they occupy walking space');
 

@@ -18,6 +18,29 @@
 
     <!-- UI Overlay / HUD -->
     <div id="ui-overlay">
+      <!-- Store Layout Editor HUD (Top Overlay) -->
+      <div id="layout-edit-hud" class="layout-edit-hud hidden">
+        <div class="layout-edit-info">
+          <span class="layout-edit-badge">[DÜZENLEME MODU]</span>
+          <span class="layout-edit-title">NESNEYE TIKLA VE TAŞI</span>
+          <span class="layout-edit-sub">(0.5m Izgara)</span>
+        </div>
+        <div class="layout-edit-controls">
+          <button id="layout-rotate-btn" class="layout-hud-btn layout-hud-btn-yellow" type="button" title="90 Derece Döndür (R)">
+            <svg class="brutal-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.7l2.5-2.7v7h-7l2.8-2.8A6.98 6.98 0 0 0 12 5a7 7 0 1 0 7 7h2z" fill="#000000"/>
+            </svg>
+            <span>DÖNDÜR 90 [R]</span>
+          </button>
+          <button id="layout-cancel-btn" class="layout-hud-btn layout-hud-btn-white" type="button" title="İptal Et (ESC)">
+            <span>İPTAL [ESC]</span>
+          </button>
+          <button id="layout-save-btn" class="layout-hud-btn layout-hud-btn-green" type="button" title="Kaydet ve Çık">
+            <span>KAYDET & ÇIK</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Top Bar: Cash, Objectives, Settings -->
       <div class="top-bar">
         <!-- Money Badge -->
@@ -257,6 +280,25 @@
         <div id="quest-reward" class="quest-reward">Öğretici</div>
       </div>
 
+      <!-- Store Layout Edit Action Button -->
+      <button id="layout-edit-btn" class="layout-edit-btn" title="Mağazayı Düzenle [B]" type="button">
+        <svg class="brutal-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="7" height="7" fill="#FFE600" stroke="#000000" stroke-width="2.2"/>
+          <rect x="14" y="3" width="7" height="7" fill="#00E5FF" stroke="#000000" stroke-width="2.2"/>
+          <rect x="3" y="14" width="7" height="7" fill="#2ECC71" stroke="#000000" stroke-width="2.2"/>
+          <rect x="14" y="14" width="7" height="7" fill="#FF4757" stroke="#000000" stroke-width="2.2"/>
+        </svg>
+        <span>[DÜZENLE (B)]</span>
+      </button>
+
+      <!-- Decoration Shop Action Button -->
+      <button id="decor-shop-btn" class="decor-shop-btn" title="Dekorasyon Dükkanı [N]" type="button">
+        <svg class="brutal-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#000000" stroke-width="2.5" stroke-linejoin="miter"/>
+        </svg>
+        <span>[DÜKKAN (N)]</span>
+      </button>
+
       <!-- Sprint Dash Action Button (Mobile & Desktop) -->
       <button id="sprint-btn" class="sprint-btn" title="Depar / Hızlı Koş (Shift/Space)">
         <svg class="brutal-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -269,6 +311,33 @@
       <div id="joystick-container">
         <div id="joystick-base">
           <div id="joystick-stick"></div>
+        </div>
+      </div>
+
+      <!-- Decoration Shop & Catalog Modal -->
+      <div id="decor-shop-modal" class="decor-shop-modal hidden">
+        <div class="decor-shop-box">
+          <div class="decor-shop-header">
+            <div class="decor-shop-title">
+              <svg class="brutal-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#FFE600" stroke-width="2.5" stroke-linejoin="miter"/>
+              </svg>
+              <span>DEKORASYON DÜKKANI</span>
+            </div>
+            <div class="decor-shop-prestige-badge" id="decor-shop-prestige-info">PRESTİJ: [P1]</div>
+            <button id="decor-shop-close-btn" class="decor-shop-close-btn" title="Kapat" type="button">X</button>
+          </div>
+          <div class="decor-shop-tabs">
+            <button class="decor-tab active" data-category="ALL" type="button">TÜMÜ</button>
+            <button class="decor-tab" data-category="PLANTS" type="button">BİTKİLER</button>
+            <button class="decor-tab" data-category="FURNITURE" type="button">MOBİLYA</button>
+            <button class="decor-tab" data-category="COOLING" type="button">SOĞUTMA</button>
+            <button class="decor-tab" data-category="LIGHTING" type="button">IŞIK</button>
+            <button class="decor-tab" data-category="ACCESSORIES" type="button">AKSESUAR</button>
+          </div>
+          <div id="decor-catalog-grid" class="decor-catalog-grid">
+            <!-- Dynamically populated via Game.renderDecorationCatalog() -->
+          </div>
         </div>
       </div>
 

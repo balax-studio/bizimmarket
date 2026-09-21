@@ -1752,6 +1752,444 @@ a:focus-visible {
   fill: #ffffff;
 }
 
+/* Store Layout Editor Action Button */
+.layout-edit-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 112px;
+  width: 96px;
+  height: 76px;
+  background: #00E5FF;
+  border: 3.5px solid var(--color-black);
+  box-shadow: 5px 5px 0px var(--color-black);
+  border-radius: 0px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 11px;
+  color: var(--color-black);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 50;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.layout-edit-btn:hover {
+  background: #70f3ff;
+}
+
+.layout-edit-btn:active,
+.layout-edit-btn.active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0px var(--color-black);
+  background: #FFE600;
+}
+
+/* Decoration Shop Action Button */
+.decor-shop-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 216px;
+  width: 96px;
+  height: 76px;
+  background: #FFE600;
+  border: 3.5px solid var(--color-black);
+  box-shadow: 5px 5px 0px var(--color-black);
+  border-radius: 0px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 11px;
+  color: var(--color-black);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 50;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.decor-shop-btn:hover {
+  background: #fff066;
+}
+
+.decor-shop-btn:active,
+.decor-shop-btn.active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0px var(--color-black);
+  background: #00E5FF;
+}
+
+/* Decoration Shop & Catalog Modal */
+.decor-shop-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  pointer-events: auto;
+}
+
+.decor-shop-modal.hidden {
+  display: none !important;
+}
+
+.decor-shop-box {
+  width: min(880px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  background: #ffffff;
+  border: 4px solid var(--color-black);
+  box-shadow: 8px 8px 0px var(--color-black);
+  border-radius: 0px !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popIn 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.decor-shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1e272e;
+  color: #ffffff;
+  padding: 12px 18px;
+  border-bottom: 4px solid var(--color-black);
+  flex-shrink: 0;
+}
+
+.decor-shop-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  color: #FFE600;
+}
+
+.decor-shop-prestige-badge {
+  background: #00E5FF;
+  color: #000000;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  padding: 4px 10px;
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  border-radius: 0px !important;
+}
+
+.decor-shop-close-btn {
+  background: #FF4757;
+  color: #ffffff;
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  border-radius: 0px !important;
+  width: 34px;
+  height: 34px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.decor-shop-close-btn:hover {
+  filter: brightness(1.1);
+}
+
+.decor-shop-close-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #000000;
+}
+
+.decor-shop-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #f1f2f6;
+  padding: 10px 18px;
+  border-bottom: 3px solid var(--color-black);
+  flex-shrink: 0;
+}
+
+.decor-tab {
+  background: #ffffff;
+  color: #000000;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 7px 14px;
+  border: 2px solid var(--color-black);
+  box-shadow: 3px 3px 0px var(--color-black);
+  border-radius: 0px !important;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.05s ease, box-shadow 0.05s ease, background 0.05s ease;
+}
+
+.decor-tab:hover {
+  background: #fff8c4;
+}
+
+.decor-tab:active,
+.decor-tab.active {
+  background: #FFE600;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px var(--color-black);
+}
+
+.decor-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  padding: 18px;
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+}
+
+.decor-card {
+  background: #ffffff;
+  border: 3px solid var(--color-black);
+  box-shadow: 4px 4px 0px var(--color-black);
+  border-radius: 0px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  gap: 10px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.decor-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--color-black);
+}
+
+.decor-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.decor-card-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--color-black);
+  line-height: 1.2;
+}
+
+.decor-card-category-badge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  padding: 2px 6px;
+  border: 1.5px solid var(--color-black);
+  border-radius: 0px !important;
+  background: #e4e7eb;
+  white-space: nowrap;
+}
+
+.decor-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  color: #333333;
+}
+
+.decor-card-bonus {
+  font-weight: 800;
+  color: #2e7d32;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.decor-card-size {
+  font-weight: 700;
+  color: #666666;
+}
+
+.decor-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 2px dashed #cccccc;
+}
+
+.decor-card-price {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--color-black);
+}
+
+.decor-buy-btn {
+  background: #2ECC71;
+  color: #000000;
+  border: 2.5px solid var(--color-black);
+  box-shadow: 3px 3px 0px var(--color-black);
+  border-radius: 0px !important;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.decor-buy-btn:hover:not(:disabled) {
+  background: #27ae60;
+  color: #ffffff;
+}
+
+.decor-buy-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px var(--color-black);
+}
+
+.decor-buy-btn:disabled {
+  background: #cccccc !important;
+  color: #777777 !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  border-color: #888888;
+}
+
+/* Layout Edit Top HUD Overlay */
+.layout-edit-hud {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border: 4px solid var(--color-black);
+  box-shadow: 6px 6px 0px var(--color-black);
+  padding: 10px 18px;
+  border-radius: 0px !important;
+  z-index: 150;
+  pointer-events: auto;
+  max-width: 90vw;
+}
+
+.layout-edit-hud.hidden {
+  display: none !important;
+}
+
+.layout-edit-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.layout-edit-badge {
+  background: #00E5FF;
+  color: #000000;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 2px solid #000000;
+  border-radius: 0px !important;
+  letter-spacing: 0.5px;
+}
+
+.layout-edit-title {
+  font-weight: 900;
+  font-size: 14px;
+  color: #000000;
+  letter-spacing: 0.5px;
+}
+
+.layout-edit-sub {
+  font-weight: 700;
+  font-size: 12px;
+  color: #555555;
+}
+
+.layout-edit-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layout-hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 12px;
+  border: 3px solid #000000;
+  box-shadow: 3px 3px 0px #000000;
+  border-radius: 0px !important;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+
+.layout-hud-btn:hover {
+  filter: brightness(1.05);
+}
+
+.layout-hud-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #000000;
+}
+
+.layout-hud-btn-yellow {
+  background: #FFE600;
+  color: #000000;
+}
+
+.layout-hud-btn-white {
+  background: #f1f2f6;
+  color: #000000;
+}
+
+.layout-hud-btn-green {
+  background: #2ECC71;
+  color: #000000;
+}
+
 /* Express Delivery Order Widget (Neo-Brutalist) */
 .delivery-widget {
   position: absolute;
@@ -2152,6 +2590,37 @@ a:focus-visible {
     width: 76px;
     height: 76px;
     z-index: 126;
+  }
+
+  .layout-edit-btn {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    right: calc(96px + env(safe-area-inset-right));
+    width: 72px;
+    height: 76px;
+    font-size: 10px;
+    z-index: 126;
+  }
+
+  .decor-shop-btn {
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    right: calc(176px + env(safe-area-inset-right));
+    width: 72px;
+    height: 76px;
+    font-size: 10px;
+    z-index: 126;
+  }
+
+  .decor-shop-box {
+    width: min(100%, calc(100vw - 16px));
+    max-height: calc(100dvh - 22px);
+  }
+
+  .layout-edit-hud {
+    top: calc(8px + env(safe-area-inset-top));
+    width: calc(100vw - 24px);
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
   }
 
   .controls-guide {

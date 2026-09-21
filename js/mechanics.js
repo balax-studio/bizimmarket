@@ -75,6 +75,7 @@
     if (source.wholesale && typeof source.wholesale === 'object') state.wholesale = source.wholesale;
     if (source.staffFatigue && typeof source.staffFatigue === 'object') state.staffFatigue = source.staffFatigue;
     if (source.decoration && typeof source.decoration === 'object') state.decoration = source.decoration;
+    if (source.customLayout && typeof source.customLayout === 'object') state.customLayout = source.customLayout;
 
     return { version: 2, state };
   }
@@ -1800,13 +1801,139 @@
     marble: { id: 'marble', name: 'Beyaz Mermer', cost: 1400, prestige: 5, floorColor: 0xf4f1e8, colorHex: '#F4F1E8' }
   };
 
+  const DECORATION_CATALOG = Object.freeze([
+    Object.freeze({
+      id: 'decor_plant_potted',
+      name: 'Dekoratif Saksı Bitkisi',
+      category: 'PLANTS',
+      price: 80,
+      prestigeBonus: 2,
+      size: { w: 0.8, d: 0.8, h: 1.4 },
+      meshType: 'PLANT',
+      description: 'Markete organik ferahlık katar (+2 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_bench_wood',
+      name: 'Ahşap Dinlenme Bankı',
+      category: 'FURNITURE',
+      price: 150,
+      prestigeBonus: 3,
+      size: { w: 1.8, d: 0.8, h: 0.9 },
+      meshType: 'BENCH',
+      description: 'Müşterilerin dinlenmesini sağlar (+3 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_trolleys_bay',
+      name: 'Paslanmaz Market Arabaları',
+      category: 'ACCESSORIES',
+      price: 220,
+      prestigeBonus: 4,
+      size: { w: 1.4, d: 2.4, h: 1.2 },
+      meshType: 'TROLLEYS',
+      description: 'Düzenli alışveriş arabası parkı (+4 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_baskets_stack',
+      name: 'El Sepeti Standı',
+      category: 'ACCESSORIES',
+      price: 110,
+      prestigeBonus: 2,
+      size: { w: 0.8, d: 0.8, h: 1.4 },
+      meshType: 'BASKETS',
+      description: 'Hızlı sepet alma istasyonu (+2 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_freezer_island',
+      name: 'Ada Tipi Camlı Dondurucu',
+      category: 'COOLING',
+      price: 450,
+      prestigeBonus: 5,
+      size: { w: 1.8, d: 2.8, h: 0.95 },
+      meshType: 'FREEZER',
+      description: 'Geniş hacimli şık dondurucu (+5 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_impulse_stand',
+      name: 'Kasa Yanı İkramlık Standı',
+      category: 'ACCESSORIES',
+      price: 180,
+      prestigeBonus: 3,
+      size: { w: 0.5, d: 1.4, h: 1.1 },
+      meshType: 'IMPULSE',
+      description: 'Kasa önü atıştırmalık sergisi (+3 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_neon_bizim',
+      name: 'Voxel Neon Tabela',
+      category: 'LIGHTING',
+      price: 320,
+      prestigeBonus: 4,
+      size: { w: 2.2, d: 0.4, h: 1.2 },
+      meshType: 'NEON',
+      description: 'Işıltılı retro mağaza tabelası (+4 Prestij).'
+    }),
+    Object.freeze({
+      id: 'decor_trash_recycle',
+      name: 'Geri Dönüşüm İstasyonu',
+      category: 'FURNITURE',
+      price: 90,
+      prestigeBonus: 2,
+      size: { w: 0.8, d: 0.8, h: 1.0 },
+      meshType: 'TRASH',
+      description: 'Çevre dostu ayrıştırma kutusu (+2 Prestij).'
+    })
+  ]);
+
   function createDecorationState(seed = {}) {
     return {
       activeFloor: seed.activeFloor || seed.floor || 'classic',
       floor: seed.activeFloor || seed.floor || 'classic',
       neonColor: seed.neonColor || '#FF0055',
       radioChannel: seed.radioChannel !== undefined ? seed.radioChannel : 1,
-      unlockedFloors: Array.isArray(seed.unlockedFloors) ? seed.unlockedFloors : ['classic']
+      unlockedFloors: Array.isArray(seed.unlockedFloors) ? seed.unlockedFloors : ['classic'],
+      purchasedItems: Array.isArray(seed.purchasedItems) ? seed.purchasedItems : []
+    };
+  }
+
+  function buyDecoration(state, decorId) {
+    if (!state || typeof state !== 'object') {
+      return { success: false, reason: 'Geçersiz oyun durumu' };
+    }
+    const item = DECORATION_CATALOG.find(d => d.id === decorId);
+    if (!item) {
+      return { success: false, reason: 'Ürün katalogda bulunamadı' };
+    }
+    if (typeof state.money !== 'number' || state.money < item.price) {
+      return { success: false, reason: 'Yetersiz bakiye' };
+    }
+
+    state.money -= item.price;
+    if (!state.decorationState) {
+      state.decorationState = createDecorationState();
+    }
+    if (!Array.isArray(state.decorationState.purchasedItems)) {
+      state.decorationState.purchasedItems = [];
+    }
+
+    const instanceId = `${decorId}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const record = {
+      instanceId,
+      catalogId: decorId,
+      name: item.name,
+      category: item.category,
+      price: item.price,
+      prestigeBonus: item.prestigeBonus,
+      size: item.size,
+      meshType: item.meshType,
+      purchasedAt: Date.now()
+    };
+
+    state.decorationState.purchasedItems.push(record);
+
+    return {
+      success: true,
+      item: record,
+      remainingMoney: state.money
     };
   }
 
@@ -1816,11 +1943,15 @@
     let brandReputationAverage = 1;
     let brandSummary = null;
     let neighborhoodState = null;
+    let itemBonus = 0;
 
     if (typeof arg1 === 'object' && arg1 !== null) {
       const decState = arg1;
       floorTier = decState.activeFloor || decState.floor || 'classic';
       hygieneScore = typeof arg2 === 'number' ? arg2 : 100;
+      if (Array.isArray(decState.purchasedItems)) {
+        itemBonus = decState.purchasedItems.reduce((acc, it) => acc + (typeof it.prestigeBonus === 'number' ? it.prestigeBonus : 1), 0);
+      }
       if (arg3 && typeof arg3 === 'object') {
         brandSummary = getBrandPrestigeSummary(arg3);
         brandReputationAverage = brandSummary.averageReputation;
@@ -1833,6 +1964,9 @@
     } else if (typeof arg1 === 'number') {
       hygieneScore = arg1;
       floorTier = typeof arg2 === 'string' ? arg2 : ((arg2 && (arg2.activeFloor || arg2.floor)) || 'classic');
+      if (typeof arg2 === 'object' && arg2 !== null && Array.isArray(arg2.purchasedItems)) {
+        itemBonus = arg2.purchasedItems.reduce((acc, it) => acc + (typeof it.prestigeBonus === 'number' ? it.prestigeBonus : 1), 0);
+      }
       if (arg3 && typeof arg3 === 'object') {
         brandSummary = getBrandPrestigeSummary(arg3);
         brandReputationAverage = brandSummary.averageReputation;
@@ -1845,8 +1979,8 @@
     }
 
     const floorTierObj = DECORATION_TIERS[floorTier] || DECORATION_TIERS.classic;
-    // 1. Dekorasyon puanı: 6 ila 30 puan
-    const decPts = Math.min(30, (floorTierObj.prestige || 1) * 6);
+    // 1. Dekorasyon puanı: 6 ila 30 puan (zemin + satın alınan mobilya/dekorasyonlar)
+    const decPts = Math.min(30, (floorTierObj.prestige || 1) * 6 + itemBonus);
 
     // 2. Hijyen puanı: 0 ila 30 puan
     const clampedHygiene = Math.max(0, Math.min(100, typeof hygieneScore === 'number' ? hygieneScore : 100));
@@ -2229,7 +2363,215 @@
     };
   }
 
+  // --- Faz 10: Profesyonel Mağaza Planogramı ve Merkezi Yerleşim Sistemi (STORE_PLANOGRAM) ---
+  const STORE_PLANOGRAM = Object.freeze({
+    ZONES: Object.freeze({
+      DECOMPRESSION: Object.freeze({ id: 'ZONE_DECOMPRESSION', minX: -8.0, maxX: 3.0, minZ: -24.5, maxZ: -22.0 }),
+      CHECKOUT_CONCOURSE: Object.freeze({ id: 'ZONE_CHECKOUT_CONCOURSE', minX: 1.5, maxX: 14.5, minZ: -21.8, maxZ: -16.2 }),
+      FRESH_PRODUCE: Object.freeze({ id: 'ZONE_FRESH_PRODUCE', minX: -16.0, maxX: -4.0, minZ: -21.5, maxZ: -8.0 }),
+      GROCERY_GRID: Object.freeze({ id: 'ZONE_GROCERY_GRID', minX: 2.0, maxX: 17.0, minZ: -16.0, maxZ: -8.0 }),
+      EAST_PROMENADE: Object.freeze({ id: 'ZONE_EAST_PROMENADE', minX: 15.0, maxX: 23.5, minZ: -22.0, maxZ: -8.0 }),
+      PRODUCTION_HALL: Object.freeze({ id: 'ZONE_PRODUCTION_HALL', minX: -20.0, maxX: 20.0, minZ: 4.0, maxZ: 21.5 })
+    }),
+    FIXTURES: Object.freeze([
+      // Priority 1: Core Checkout & Cashier Infrastructure
+      Object.freeze({ id: 'checkout_1', category: 'CHECKOUT', priority: 1, zone: 'CHECKOUT_CONCOURSE', target: { x: 3.5, z: -19.5 }, size: { w: 2.6, d: 0.88, h: 0.94 } }),
+      Object.freeze({ id: 'checkout_2', category: 'CHECKOUT', priority: 1, zone: 'CHECKOUT_CONCOURSE', target: { x: 7.5, z: -19.5 }, size: { w: 2.6, d: 0.88, h: 0.94 } }),
+      Object.freeze({ id: 'checkout_3', category: 'CHECKOUT', priority: 1, zone: 'CHECKOUT_CONCOURSE', target: { x: 11.5, z: -19.5 }, size: { w: 2.6, d: 0.88, h: 0.94 } }),
+      Object.freeze({ id: 'cashier_1', category: 'CASHIER', priority: 1, zone: 'CHECKOUT_CONCOURSE', target: { x: 3.5, z: -20.15 }, size: { w: 0.6, d: 0.6, h: 1.7 } }),
+      Object.freeze({ id: 'cashier_2', category: 'CASHIER', priority: 1, zone: 'CHECKOUT_CONCOURSE', target: { x: 7.5, z: -20.15 }, size: { w: 0.6, d: 0.6, h: 1.7 } }),
+      Object.freeze({ id: 'cashier_3', category: 'CASHIER', priority: 1, zone: 'CHECKOUT_CONCOURSE', target: { x: 11.5, z: -20.15 }, size: { w: 0.6, d: 0.6, h: 1.7 } }),
+
+      // Priority 2: Department Floor Zones & Primary Shelves
+      Object.freeze({ id: 'dept_manav', category: 'DEPT_ZONE', priority: 2, zone: 'FRESH_PRODUCE', target: { x: -8.5, z: -9.5 }, size: { w: 10.4, d: 2.7, h: 0.8 }, label: 'MANAV', color: 0x10ac84 }),
+      Object.freeze({ id: 'dept_sarkuteri', category: 'DEPT_ZONE', priority: 2, zone: 'GROCERY_GRID', target: { x: 7.0, z: -9.5 }, size: { w: 8.8, d: 2.7, h: 0.8 }, label: 'ŞARKÜTERİ', color: 0x0984e3 }),
+      Object.freeze({ id: 'dept_firin', category: 'DEPT_ZONE', priority: 2, zone: 'FRESH_PRODUCE', target: { x: -8.5, z: -15.0 }, size: { w: 10.4, d: 2.7, h: 0.8 }, label: 'FIRIN', color: 0xd35400 }),
+      Object.freeze({ id: 'dept_pizza', category: 'DEPT_ZONE', priority: 2, zone: 'GROCERY_GRID', target: { x: 9.75, z: -15.0 }, size: { w: 14.5, d: 2.7, h: 0.8 }, label: 'BÜFE & PİZZA', color: 0xf39c12 }),
+      Object.freeze({ id: 'dept_organik', category: 'DEPT_ZONE', priority: 2, zone: 'FRESH_PRODUCE', target: { x: -8.5, z: -20.5 }, size: { w: 10.4, d: 2.7, h: 0.8 }, label: 'ORGANİK', color: 0x27ae60 }),
+      Object.freeze({ id: 'dept_gurme', category: 'DEPT_ZONE', priority: 2, zone: 'EAST_PROMENADE', target: { x: 18.75, z: -20.5 }, size: { w: 8.0, d: 2.7, h: 0.8 }, label: 'GURME & DELİ', color: 0x8e44ad }),
+
+      Object.freeze({ id: 'shelf_tomato', category: 'SHELF', priority: 2, zone: 'FRESH_PRODUCE', target: { x: -5.5, z: -9.5 }, size: { w: 2.6, d: 1.6, h: 1.8 } }),
+      Object.freeze({ id: 'shelf_egg', category: 'SHELF', priority: 2, zone: 'GROCERY_GRID', target: { x: 4.0, z: -9.5 }, size: { w: 2.6, d: 1.6, h: 1.8 } }),
+      Object.freeze({ id: 'shelf_beverage_chiller', category: 'SHELF', priority: 2, zone: 'EAST_PROMENADE', target: { x: 22.2, z: -16.0 }, size: { w: 1.6, d: 2.6, h: 2.2 } }),
+      Object.freeze({ id: 'shelf_cleaning', category: 'SHELF', priority: 2, zone: 'EAST_PROMENADE', target: { x: 15.5, z: -9.5 }, size: { w: 2.6, d: 1.6, h: 1.8 } }),
+
+      // Priority 3: Progression Unlock Pads
+      Object.freeze({ id: 'pad_1_tomato2', category: 'UNLOCK_PAD', priority: 3, zone: 'FRESH_PRODUCE', target: { x: -11.5, z: -7.0 }, size: { w: 2.6, d: 2.6, h: 0.04 } }),
+      Object.freeze({ id: 'pad_2_cashier_speed', category: 'UNLOCK_PAD', priority: 3, zone: 'GROCERY_GRID', target: { x: 7.5, z: -14.5 }, size: { w: 2.6, d: 2.6, h: 0.04 } }),
+      Object.freeze({ id: 'pad_12_pie', category: 'UNLOCK_PAD', priority: 3, zone: 'EAST_PROMENADE', target: { x: 17.0, z: -18.0 }, size: { w: 2.6, d: 2.6, h: 0.04 } }),
+      Object.freeze({ id: 'pad_16_icecream', category: 'UNLOCK_PAD', priority: 3, zone: 'EAST_PROMENADE', target: { x: 19.5, z: -18.0 }, size: { w: 2.6, d: 2.6, h: 0.04 } }),
+
+      // Priority 4: Accessories & Architectural Decors
+      Object.freeze({ id: 'decor_trolleys', category: 'DECOMPRESSION_ITEM', priority: 4, zone: 'DECOMPRESSION', target: { x: -2.4, z: -22.5 }, size: { w: 1.4, d: 2.6, h: 1.2 } }),
+      Object.freeze({ id: 'decor_baskets', category: 'DECOMPRESSION_ITEM', priority: 4, zone: 'DECOMPRESSION', target: { x: 2.6, z: -22.5 }, size: { w: 0.8, d: 0.8, h: 1.4 } }),
+      Object.freeze({ id: 'decor_lockers', category: 'DECOMPRESSION_ITEM', priority: 4, zone: 'DECOMPRESSION', target: { x: -6.5, z: -23.2 }, size: { w: 1.8, d: 0.55, h: 1.9 } }),
+      Object.freeze({ id: 'decor_freezer', category: 'PERIMETER_COOLING', priority: 4, zone: 'EAST_PROMENADE', target: { x: 15.5, z: -17.7 }, size: { w: 1.8, d: 2.8, h: 0.95 } }),
+      Object.freeze({ id: 'decor_impulse_rack', category: 'CHECKOUT_ACCESSORY', priority: 4, zone: 'CHECKOUT_CONCOURSE', target: { x: 13.8, z: -19.5 }, size: { w: 0.35, d: 1.4, h: 0.95 } }),
+      Object.freeze({ id: 'decor_news_stand', category: 'CHECKOUT_ACCESSORY', priority: 4, zone: 'CHECKOUT_CONCOURSE', target: { x: 14.8, z: -19.5 }, size: { w: 0.45, d: 0.9, h: 1.2 } })
+    ])
+  });
+
+  const DEFAULT_CHECKOUT_CONCOURSE = STORE_PLANOGRAM.ZONES.CHECKOUT_CONCOURSE;
+
+  class SpatialOccupancyManager {
+    constructor(layout = {}) {
+      this.planogram = STORE_PLANOGRAM;
+      this.layout = {
+        minX: layout.minX ?? -24,
+        maxX: layout.maxX ?? 24,
+        minZ: layout.minZ ?? -24.5,
+        maxZ: layout.maxZ ?? 24.5,
+        checkoutConcourse: layout.checkoutConcourse || DEFAULT_CHECKOUT_CONCOURSE
+      };
+      this.reservations = [];
+      this.protectedZones = [
+        {
+          id: 'ZONE_CHECKOUT_CONCOURSE',
+          category: 'PROTECTED_ZONE',
+          minX: this.layout.checkoutConcourse.minX,
+          maxX: this.layout.checkoutConcourse.maxX,
+          minZ: this.layout.checkoutConcourse.minZ,
+          maxZ: this.layout.checkoutConcourse.maxZ,
+          allowedCategories: ['CHECKOUT', 'CASHIER', 'CHECKOUT_ACCESSORY']
+        },
+        {
+          id: 'ZONE_STORE_ENTRANCE_PORTAL',
+          category: 'PROTECTED_ZONE',
+          minX: -2.0,
+          maxX: 2.0,
+          minZ: -26.0,
+          maxZ: -22.0,
+          allowedCategories: ['DOORWAY', 'SECURITY_GATE']
+        }
+      ];
+    }
+
+    getPlanogramFixture(id) {
+      return STORE_PLANOGRAM.FIXTURES.find(f => f.id === id) || null;
+    }
+
+    placePlanogramFixture(id, preferredDirs = ['EAST', 'WEST', 'SOUTH', 'NORTH']) {
+      const fixture = this.getPlanogramFixture(id);
+      if (!fixture) return null;
+      const resolved = this.findClearPlacement(
+        fixture.size.w,
+        fixture.size.d,
+        fixture.target.x,
+        fixture.target.z,
+        fixture.category,
+        preferredDirs
+      );
+      this.reserve(
+        fixture.id,
+        fixture.category,
+        resolved.x - fixture.size.w / 2,
+        resolved.x + fixture.size.w / 2,
+        resolved.z - fixture.size.d / 2,
+        resolved.z + fixture.size.d / 2,
+        { zone: fixture.zone, priority: fixture.priority }
+      );
+      return {
+        id: fixture.id,
+        x: resolved.x,
+        z: resolved.z,
+        size: fixture.size,
+        adjusted: resolved.adjusted,
+        zone: fixture.zone
+      };
+    }
+
+    testAABB(minX, maxX, minZ, maxZ, category = 'DECOR', excludeId = '') {
+      for (let i = 0; i < this.protectedZones.length; i++) {
+        const pz = this.protectedZones[i];
+        const xOverlap = Math.max(0, Math.min(maxX, pz.maxX) - Math.max(minX, pz.minX));
+        const zOverlap = Math.max(0, Math.min(maxZ, pz.maxZ) - Math.max(minZ, pz.minZ));
+        if (xOverlap > 0.05 && zOverlap > 0.05) {
+          if (!pz.allowedCategories.includes(category)) {
+            return { allowed: false, reason: `Zone conflict: ${pz.id}`, conflictWith: pz.id };
+          }
+        }
+      }
+
+      for (let i = 0; i < this.reservations.length; i++) {
+        const r = this.reservations[i];
+        if (r.id === excludeId) continue;
+        if ((category === 'CASHIER' && r.category === 'CHECKOUT') ||
+            (category === 'CHECKOUT' && r.category === 'CASHIER')) {
+          continue;
+        }
+        const xOverlap = Math.max(0, Math.min(maxX, r.maxX) - Math.max(minX, r.minX));
+        const zOverlap = Math.max(0, Math.min(maxZ, r.maxZ) - Math.max(minZ, r.minZ));
+        if (xOverlap > 0.05 && zOverlap > 0.05) {
+          return { allowed: false, reason: `Allocation conflict: ${r.id}`, conflictWith: r.id };
+        }
+      }
+
+      return { allowed: true };
+    }
+
+    reserve(id, category, minX, maxX, minZ, maxZ, meta = {}) {
+      const test = this.testAABB(minX, maxX, minZ, maxZ, category, id);
+      const entry = { id, category, minX, maxX, minZ, maxZ, meta, valid: test.allowed };
+      this.reservations.push(entry);
+      return entry;
+    }
+
+    removeReservation(id) {
+      this.reservations = this.reservations.filter(r => r.id !== id);
+    }
+
+    updateReservation(id, category, minX, maxX, minZ, maxZ, meta = {}) {
+      this.removeReservation(id);
+      return this.reserve(id, category, minX, maxX, minZ, maxZ, meta);
+    }
+
+    findClearPlacement(w, d, targetX, targetZ, category = 'DECOR', searchDirections = ['EAST', 'WEST', 'NORTH', 'SOUTH']) {
+      const halfW = w / 2;
+      const halfD = d / 2;
+
+      if (this.testAABB(targetX - halfW, targetX + halfW, targetZ - halfD, targetZ + halfD, category).allowed) {
+        return { x: targetX, z: targetZ, adjusted: false };
+      }
+
+      const step = 0.5;
+      const maxRadius = 16.0;
+
+      for (let r = step; r <= maxRadius; r += step) {
+        for (let i = 0; i < searchDirections.length; i++) {
+          const dir = searchDirections[i];
+          let testX = targetX;
+          let testZ = targetZ;
+          if (dir === 'EAST') testX += r;
+          else if (dir === 'WEST') testX -= r;
+          else if (dir === 'NORTH') testZ -= r;
+          else if (dir === 'SOUTH') testZ += r;
+
+          if (testX - halfW < this.layout.minX + 1.0 || testX + halfW > this.layout.maxX - 1.0) continue;
+          if (testZ - halfD < this.layout.minZ + 1.0 || testZ + halfD > this.layout.maxZ - 1.0) continue;
+
+          if (this.testAABB(testX - halfW, testX + halfW, testZ - halfD, testZ + halfD, category).allowed) {
+            return { x: testX, z: testZ, adjusted: true };
+          }
+        }
+      }
+
+      return { x: targetX, z: targetZ, adjusted: false };
+    }
+  }
+
+  let _sharedSpatialRegistry = null;
+  function getSharedSpatialRegistry(layout) {
+    if (!_sharedSpatialRegistry) {
+      _sharedSpatialRegistry = new SpatialOccupancyManager(layout);
+    }
+    return _sharedSpatialRegistry;
+  }
+
   const api = {
+    STORE_PLANOGRAM,
+    DEFAULT_CHECKOUT_CONCOURSE,
+    SpatialOccupancyManager,
+    getSharedSpatialRegistry,
     removeItemByType,
     getAvailableItemPool,
     applyRushHourBonus,
@@ -2339,7 +2681,9 @@
     refillStaffStamina,
     // Faz 8 (Dekorasyon, Prestij)
     DECORATION_TIERS,
+    DECORATION_CATALOG,
     createDecorationState,
+    buyDecoration,
     calculateStorePrestige,
     getPrestigePerks,
     getVipBasketConfig,
