@@ -640,6 +640,7 @@ class MiniMartGame {
     this.initWikiUI();
     this.initLayoutEditorUI();
     this.initDecorationShopUI();
+    this.initBootSequence();
     this.loadState();
     window.addEventListener('pagehide', () => this.saveState());
     document.addEventListener('visibilitychange', () => {
@@ -4165,6 +4166,7 @@ class MiniMartGame {
 
   // Player input calculation, movement & collision physics
   updatePlayerMovement(delta) {
+    if (this.isBooting) return;
     if (this.isLayoutEditMode) {
       this.player.velocity.set(0, 0, 0);
       this.player.update(delta);
@@ -6494,6 +6496,150 @@ class MiniMartGame {
   }
 
   // --- Living Neighborhood Phase 1, 2, 3 Implementation Methods ---
+
+  initBootSequence() {
+    // Expose global custom toast/confirm functions
+    window.showNeoToast = (message, type = 'info') => {
+      const container = document.getElementById('neo-toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = `neo-toast ${type}`;
+      toast.innerText = message;
+      
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('toast-leave');
+        toast.addEventListener('animationend', () => {
+          if (toast.parentNode === container) {
+            container.removeChild(toast);
+          }
+        });
+      }, 4000);
+    };
+
+    window.showNeoConfirm = (message, onConfirm) => {
+      const modal = document.getElementById('neo-confirm-modal');
+      const msgEl = document.getElementById('neo-confirm-message');
+      const btnYes = document.getElementById('btn-confirm-yes');
+      const btnNo = document.getElementById('btn-confirm-no');
+      const btnClose = document.getElementById('btn-close-confirm');
+
+      if (!modal || !msgEl || !btnYes || !btnNo) return;
+
+      msgEl.innerText = message;
+      modal.classList.remove('hidden');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        btnYes.removeEventListener('click', yesHandler);
+        btnNo.removeEventListener('click', noHandler);
+        btnClose?.removeEventListener('click', noHandler);
+      };
+
+      const yesHandler = () => {
+        cleanup();
+        if (onConfirm) onConfirm();
+      };
+      
+      const noHandler = () => {
+        cleanup();
+      };
+
+      btnYes.addEventListener('click', yesHandler);
+      btnNo.addEventListener('click', noHandler);
+      btnClose?.addEventListener('click', noHandler);
+    };
+
+    this.isBooting = true;
+    const bootScreen = document.getElementById('boot-loading-screen');
+    const menuScreen = document.getElementById('main-menu-screen');
+    const loadingBar = document.getElementById('neo-loading-bar');
+    const loadingText = document.getElementById('neo-loading-text');
+
+    let progress = 0;
+    const bootInterval = setInterval(() => {
+      progress += Math.random() * 20;
+      if (progress > 100) progress = 100;
+      if (loadingBar) loadingBar.style.width = `${progress}%`;
+      
+      if (progress >= 100) {
+        clearInterval(bootInterval);
+        setTimeout(() => {
+          if (bootScreen) bootScreen.classList.add('hidden');
+          if (menuScreen) menuScreen.classList.remove('hidden');
+        }, 400);
+      }
+    }, 200);
+
+    const btnPlay = document.getElementById('btn-play-game');
+    if (btnPlay) {
+      btnPlay.addEventListener('click', () => {
+        if (menuScreen) menuScreen.classList.add('hidden');
+        this.isBooting = false;
+      });
+    }
+
+    const optionsModal = document.getElementById('neo-options-modal');
+    const btnOptions = document.getElementById('btn-options-menu');
+    if (btnOptions && optionsModal) {
+      btnOptions.addEventListener('click', () => {
+        optionsModal.classList.remove('hidden');
+      });
+    }
+
+    const btnCloseOptions = document.getElementById('btn-close-options');
+    if (btnCloseOptions && optionsModal) {
+      btnCloseOptions.addEventListener('click', () => {
+        optionsModal.classList.add('hidden');
+      });
+    }
+
+    const btnToggleSound = document.getElementById('neo-btn-toggle-sound');
+    if (btnToggleSound) {
+      btnToggleSound.addEventListener('click', () => {
+        if (window.AudioSystem) {
+          window.AudioSystem.toggleMute();
+          btnToggleSound.textContent = window.AudioSystem.isMuted ? 'KAPALI' : 'AÇIK';
+        }
+      });
+    }
+
+    const btnToggleNotifications = document.getElementById('neo-btn-toggle-notifications');
+    if (btnToggleNotifications) {
+      btnToggleNotifications.addEventListener('click', () => {
+        const isOff = btnToggleNotifications.textContent === 'KAPALI';
+        btnToggleNotifications.textContent = isOff ? 'AÇIK' : 'KAPALI';
+      });
+    }
+
+    const btnPrivacyPolicy = document.getElementById('neo-btn-privacy-policy');
+    if (btnPrivacyPolicy) {
+      btnPrivacyPolicy.addEventListener('click', () => {
+        window.showNeoToast('GİZLİLİK POLİTİKASI:\nKullanıcı verileri cihazınızda yerel olarak saklanmaktadır. Üçüncü partilerle paylaşım yapılmamaktadır.', 'info');
+      });
+    }
+
+    const btnRestorePurchases = document.getElementById('neo-btn-restore-purchases');
+    if (btnRestorePurchases) {
+      btnRestorePurchases.addEventListener('click', () => {
+        window.showNeoToast('SATIN ALIMLAR KONTROL EDİLİYOR...\n\nGeri yüklenecek bir satın alım bulunamadı.', 'warning');
+      });
+    }
+
+    const btnDeleteAccount = document.getElementById('neo-btn-delete-account');
+    if (btnDeleteAccount) {
+      btnDeleteAccount.addEventListener('click', () => {
+        window.showNeoConfirm('DİKKAT: HESABI SİLMEK İSTEDİĞİNİZE EMİN MİSİNİZ?\n\nBu işlem geri alınamaz ve tüm kayıt dosyalarınız kalıcı olarak silinecektir.', () => {
+          window.showNeoToast('Hesap verileriniz başarıyla silindi.', 'success');
+          // Simulated data wipe
+          localStorage.removeItem('marketSave');
+          setTimeout(() => location.reload(), 1500);
+        });
+      });
+    }
+  }
 
   initWholesaleUI() {
     this.wholesaleBtn = document.getElementById('wholesale-btn');

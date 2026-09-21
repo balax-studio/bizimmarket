@@ -13,6 +13,91 @@
   <script src="js/three.min.js"></script>
 </head>
 <body>
+  <!-- Boot Loading Screen -->
+  <div id="boot-loading-screen" class="neo-screen">
+    <div class="neo-loading-box">
+      <div class="neo-loading-title">BİZİM MARKET<br>SİMÜLASYONU</div>
+      <div class="neo-loading-bar-container">
+        <div id="neo-loading-bar" class="neo-loading-bar"></div>
+      </div>
+      <div class="neo-loading-text" id="neo-loading-text">[ YÜKLENİYOR... ]</div>
+    </div>
+  </div>
+
+  <!-- Main Menu Screen -->
+  <div id="main-menu-screen" class="neo-screen hidden">
+    <div class="neo-menu-box">
+      <div class="neo-menu-header">
+        <div class="neo-title-main">BİZİM MARKET</div>
+        <div class="neo-title-sub">V1.0 - NEO-BRUTALIST SÜRÜM</div>
+      </div>
+      <div class="neo-menu-actions">
+        <button id="btn-play-game" class="neo-btn neo-btn-primary">
+          <span class="neo-btn-text">OYNA [ENTER]</span>
+        </button>
+        <button id="btn-options-menu" class="neo-btn neo-btn-secondary">
+          <span class="neo-btn-text">SEÇENEKLER</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Options Modal -->
+  <div id="neo-options-modal" class="neo-modal hidden">
+    <div class="neo-modal-box">
+      <div class="neo-modal-header">
+        <span class="neo-modal-title">SEÇENEKLER</span>
+        <button id="btn-close-options" class="neo-btn-close">X</button>
+      </div>
+      <div class="neo-modal-content">
+        <div class="neo-option-row">
+          <span class="neo-option-label">SES EFEKTLERİ</span>
+          <button id="neo-btn-toggle-sound" class="neo-btn neo-btn-toggle">AÇIK</button>
+        </div>
+        <div class="neo-option-row">
+          <span class="neo-option-label">GRAFİK KALİTESİ</span>
+          <button class="neo-btn neo-btn-toggle">YÜKSEK</button>
+        </div>
+        <div class="neo-option-row">
+          <span class="neo-option-label">BİLDİRİMLER</span>
+          <button id="neo-btn-toggle-notifications" class="neo-btn neo-btn-toggle">AÇIK</button>
+        </div>
+        <div class="neo-option-row">
+          <span class="neo-option-label">GİZLİLİK POLİTİKASI</span>
+          <button id="neo-btn-privacy-policy" class="neo-btn neo-btn-toggle">OKU</button>
+        </div>
+        <div class="neo-option-row">
+          <span class="neo-option-label">SATIN ALIMLARI YÜKLE</span>
+          <button id="neo-btn-restore-purchases" class="neo-btn neo-btn-toggle">GERİ YÜKLE</button>
+        </div>
+        <div class="neo-option-row" style="border-bottom: none; margin-top: 10px;">
+          <span class="neo-option-label" style="color: #FF5252;">HESAP YÖNETİMİ</span>
+          <button id="neo-btn-delete-account" class="neo-btn neo-btn-toggle neo-btn-danger">HESABI SİL</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div id="neo-confirm-modal" class="neo-modal hidden" style="z-index: 10005;">
+    <div class="neo-modal-box">
+      <div class="neo-modal-header" style="background-color: #FF5252;">
+        <span class="neo-modal-title" style="color: #000;">DİKKAT</span>
+        <button id="btn-close-confirm" class="neo-btn-close">X</button>
+      </div>
+      <div class="neo-modal-content" style="text-align: center;">
+        <span id="neo-confirm-message" style="font-size: 18px; font-weight: 700; display: block; margin-bottom: 20px;"></span>
+        <div style="display: flex; justify-content: center; gap: 20px;">
+          <button id="btn-confirm-yes" class="neo-btn neo-btn-danger">EVET</button>
+          <button id="btn-confirm-no" class="neo-btn">HAYIR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="neo-toast-container"></div>
+
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
