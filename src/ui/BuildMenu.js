@@ -76,6 +76,30 @@ export class BuildMenu {
 
     // Pointer move for raycasting on ground
     window.addEventListener('pointermove', (e) => this.onPointerMove(e));
+
+    // Keyboard shortcuts: B (toggle modal / cancel), Escape (close / cancel), R (rotate in placement)
+    window.addEventListener('keydown', (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+
+      if (e.key === 'b' || e.key === 'B') {
+        if (this.isPlacing) {
+          this.cancelPlacement();
+        } else if (this.modal.classList.contains('active')) {
+          this.closeModal();
+        } else {
+          this.openModal();
+        }
+      } else if (e.key === 'Escape') {
+        if (this.isPlacing) {
+          this.cancelPlacement();
+        } else if (this.modal.classList.contains('active')) {
+          this.closeModal();
+        }
+      } else if ((e.key === 'r' || e.key === 'R') && this.isPlacing) {
+        this.rotateGhost();
+      }
+    });
   }
 
   openModal() {
@@ -245,7 +269,9 @@ export class BuildMenu {
         if (itemData.category === 'shelves') {
           return this.game.world.spawnShelf(itemData.id, targetPos, rotY);
         } else if (itemData.category === 'machines') {
-          return this.game.world.spawnShelf('shelf_paste', targetPos, rotY);
+          return this.game.world.spawnMachine(itemData.id, targetPos, rotY);
+        } else if (itemData.category === 'logistics') {
+          return this.game.world.initCheckoutCounter(targetPos);
         }
         return null;
       },

@@ -33,3 +33,12 @@ test('production recipes have positive durations and valid input counts', () => 
     assert.ok(ITEMS[m.output], `Missing output item for ${m.id}`);
   });
 });
+
+test('staff roles exist and have valid properties', () => {
+  const staff = BUILD_ITEMS.filter((b) => b.category === 'staff');
+  assert.ok(staff.length >= 2);
+  const roles = new Set(staff.map((s) => s.role));
+  assert.ok(roles.has('cashier'));
+  assert.ok(roles.has('stocker'));
+});
+

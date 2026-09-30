@@ -1,6 +1,6 @@
 # Neo-Brutalist Arcade Market Tycoon — Ontoloji
 
-Revizyon: 7. Canlı görünüm için `ontology` komutunu çalıştır.
+Revizyon: 25. Canlı görünüm için `ontology` komutunu çalıştır.
 
 ## Türler ve özellikler
 
@@ -56,5 +56,7 @@ Oklar kayıtlı ilişki yönüdür; değişiklik etkisinin yönü üstte ayrıca
 
 - **T-GDD-DESIGN — Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla**: girdiler [pillar-visual, pillar-megamap, pillar-menu-build, econ-balance], çıktılar [arch-gdd], durum done.
 - **T-CORE-IMPLEMENTATION — Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula**: girdiler [pillar-visual, pillar-menu-build, econ-balance], çıktılar [code-core], durum done.
+- **T-FIX-PHASE-1 — Faz 1 optimizasyon, çarpışma fiziği ve ses efektleri düzeltmelerini tamamla**: girdiler [code-core], çıktılar [], durum done.
+- **T-FIX-PHASE-2 — Faz 2 oynanış döngüsü, otomasyon, müşteri yol bulma ve arayüz kısayolu düzeltmelerini tamamla**: girdiler [code-core], çıktılar [], durum done.
 
 Etki yeniden inceleme ihtiyacıdır; nesnenin yanlış olduğu hükmü değildir.

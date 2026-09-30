@@ -6,8 +6,9 @@ export class WorldScene {
   constructor(scene) {
     this.scene = scene;
     this.interactiveObjects = []; // Shelves, machines, farms, checkout
-    this.cashPiles = []; // Loose money on counter
+    this.obstacles = []; // Physical obstacle collision boxes for player & agents
     this.shelves = [];
+    this.machines = [];
     this.customers = [];
 
     // State
@@ -15,6 +16,21 @@ export class WorldScene {
 
     this.initEnvironment();
     this.initShopParcelA0();
+  }
+
+  addObstacleBox(minX, maxX, minZ, maxZ, id = null) {
+    const obs = {
+      type: 'box',
+      id: id,
+      min: { x: minX, z: minZ },
+      max: { x: maxX, z: maxZ }
+    };
+    this.obstacles.push(obs);
+    return obs;
+  }
+
+  removeObstacleById(id) {
+    this.obstacles = this.obstacles.filter((o) => o.id !== id);
   }
 
   initEnvironment() {
@@ -86,6 +102,9 @@ export class WorldScene {
 
     carGroup.rotation.y = Math.PI / 2;
     this.scene.add(carGroup);
+
+    // Car obstacle
+    this.addObstacleBox(pos.x - 0.9, pos.x + 0.9, pos.z - 1.4, pos.z + 1.4);
   }
 
   spawnLamp(pos) {
@@ -117,16 +136,16 @@ export class WorldScene {
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Walls around Parcel A0
-    this.createWall(new THREE.Vector3(0, 1.5, -14), 16, 3, 0.4); // Back North wall
-    this.createWall(new THREE.Vector3(-8, 1.5, -6), 0.4, 3, 16); // West wall
+    // Perimeter Walls around Parcel A0 with physical collision
+    this.createWall(new THREE.Vector3(0, 1.5, -14), 16, 3, 0.4, false, 'wall_north');
+    this.createWall(new THREE.Vector3(-8, 1.5, -6), 0.4, 3, 16, false, 'wall_west');
 
     // East Partition Wall (Separates Parcel A0 from locked Parcel A1)
-    this.partitionWallA1 = this.createWall(new THREE.Vector3(8, 1.5, -6), 0.4, 3, 16, true);
+    this.partitionWallA1 = this.createWall(new THREE.Vector3(8, 1.5, -6), 0.4, 3, 16, true, 'wall_east_partition');
 
     // Front Wall with entrance gap
-    this.createWall(new THREE.Vector3(-5, 1.5, 2), 6, 3, 0.4);
-    this.createWall(new THREE.Vector3(5, 1.5, 2), 6, 3, 0.4);
+    this.createWall(new THREE.Vector3(-5, 1.5, 2), 6, 3, 0.4, false, 'wall_south_left');
+    this.createWall(new THREE.Vector3(5, 1.5, 2), 6, 3, 0.4, false, 'wall_south_right');
 
     // Neon Market Header Sign
     const signGroup = new THREE.Group();
@@ -139,17 +158,17 @@ export class WorldScene {
     signGroup.add(signBox);
     this.scene.add(signGroup);
 
-    // Initial Farm Plot: Tomato Garden (Left side of entrance)
-    this.initTomatoFarm(new THREE.Vector3(-4, 0, -4));
+    // Initial Farm Plot: Tomato Garden (Left side of shop)
+    this.initTomatoFarm(new THREE.Vector3(-4.5, 0, -5));
 
     // Initial Shelf: Tomato Display Shelf (Right side)
     this.spawnShelf('shelf_tomato', new THREE.Vector3(3.5, 0, -6), 0);
 
-    // Initial Checkout Counter (Near entrance)
-    this.initCheckoutCounter(new THREE.Vector3(1, 0, 0));
+    // Initial Checkout Counter (Near entrance, right side aisle)
+    this.initCheckoutCounter(new THREE.Vector3(3.0, 0, 0));
   }
 
-  createWall(pos, w, h, d, isDestructible = false) {
+  createWall(pos, w, h, d, isDestructible = false, id = null) {
     const wallGeo = new THREE.BoxGeometry(w, h, d);
     const wallMat = createBrutalistMaterial(isDestructible ? 0x3d424a : 0x22252a);
     const wallMesh = new THREE.Mesh(wallGeo, wallMat);
@@ -159,7 +178,6 @@ export class WorldScene {
     attachToonOutline(wallMesh, 0.04);
 
     if (isDestructible) {
-      // Add warning stripe decal
       const hazardDecal = new THREE.Mesh(
         new THREE.PlaneGeometry(d > w ? d * 0.8 : w * 0.8, 0.6),
         new THREE.MeshBasicMaterial({ map: createHazardTexture() })
@@ -170,6 +188,10 @@ export class WorldScene {
     }
 
     this.scene.add(wallMesh);
+
+    // Add physical AABB obstacle
+    this.addObstacleBox(pos.x - w / 2, pos.x + w / 2, pos.z - d / 2, pos.z + d / 2, id);
+
     return wallMesh;
   }
 
@@ -183,6 +205,7 @@ export class WorldScene {
       if (this.partitionWallA1) {
         this.scene.remove(this.partitionWallA1);
         this.partitionWallA1.geometry.dispose();
+        this.removeObstacleById('wall_east_partition');
       }
 
       // Add East Wing Concrete Floor (16x16m)
@@ -195,10 +218,10 @@ export class WorldScene {
       floorA1.receiveShadow = true;
       this.scene.add(floorA1);
 
-      // New East Outer Wall
-      this.createWall(new THREE.Vector3(24, 1.5, -6), 0.4, 3, 16);
-      this.createWall(new THREE.Vector3(16, 1.5, -14), 16, 3, 0.4);
-      this.createWall(new THREE.Vector3(16, 1.5, 2), 16, 3, 0.4);
+      // New East Outer Walls
+      this.createWall(new THREE.Vector3(24, 1.5, -6), 0.4, 3, 16, false, 'wall_east_outer');
+      this.createWall(new THREE.Vector3(16, 1.5, -14), 16, 3, 0.4, false, 'wall_north_outer_a1');
+      this.createWall(new THREE.Vector3(16, 1.5, 2), 16, 3, 0.4, false, 'wall_south_outer_a1');
       return true;
     }
 
@@ -211,7 +234,7 @@ export class WorldScene {
 
     // Soil Patch
     const soilGeo = new THREE.BoxGeometry(4.0, 0.15, 4.0);
-    const soilMat = createBrutalistMaterial(0x3e2723); // Dark fertile soil
+    const soilMat = createBrutalistMaterial(0x3e2723); // Fertile dark soil
     const soilMesh = new THREE.Mesh(soilGeo, soilMat);
     soilMesh.position.y = 0.08;
     attachToonOutline(soilMesh, 0.04);
@@ -260,7 +283,7 @@ export class WorldScene {
       type: 'farm',
       produceType: 'tomato',
       position: pos,
-      radius: 2.4,
+      radius: 2.6,
       plants: this.tomatoPlants
     };
 
@@ -283,8 +306,9 @@ export class WorldScene {
     shelfGroup.add(frameMesh);
 
     // Top Sign Banner
+    const bannerColor = shelfType === 'shelf_paste' ? 0xff5500 : 0x00ff66;
     const bannerGeo = new THREE.BoxGeometry(2.4, 0.35, 0.1);
-    const bannerMat = createBrutalistMaterial(0x00ff66);
+    const bannerMat = createBrutalistMaterial(bannerColor);
     const bannerMesh = new THREE.Mesh(bannerGeo, bannerMat);
     bannerMesh.position.set(0, 1.5, 0.55);
     shelfGroup.add(bannerMesh);
@@ -309,13 +333,15 @@ export class WorldScene {
     this.shelves.push(shelfData);
     this.interactiveObjects.push(shelfData);
     this.scene.add(shelfGroup);
-    this.updateShelfVisuals(shelfData);
 
+    // Physical obstacle for shelf
+    this.addObstacleBox(pos.x - 1.2, pos.x + 1.2, pos.z - 0.6, pos.z + 0.6);
+
+    this.updateShelfVisuals(shelfData);
     return shelfGroup;
   }
 
   updateShelfVisuals(shelf) {
-    // Clear old visual items
     while (shelf.itemsGroup.children.length > 0) {
       const child = shelf.itemsGroup.children[0];
       shelf.itemsGroup.remove(child);
@@ -334,6 +360,68 @@ export class WorldScene {
       box.position.set(ox, oy, 0.2);
       shelf.itemsGroup.add(box);
     }
+  }
+
+  spawnMachine(machineType, pos, rotY = 0) {
+    const machineGroup = new THREE.Group();
+    machineGroup.position.copy(pos);
+    machineGroup.rotation.y = rotY;
+
+    // Heavy Boiler Base
+    const baseGeo = new THREE.CylinderGeometry(1.0, 1.1, 1.6, 10);
+    const baseMat = createBrutalistMaterial(0x3a3d44);
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    baseMesh.position.y = 0.8;
+    baseMesh.castShadow = true;
+    attachToonOutline(baseMesh, 0.04);
+    machineGroup.add(baseMesh);
+
+    // Steam Chimney Pipe
+    const pipeGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.2, 6);
+    const pipeMat = createBrutalistMaterial(0x1a1c20);
+    const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+    pipeMesh.position.set(0.4, 2.0, -0.3);
+    machineGroup.add(pipeMesh);
+
+    // 3D Progress Bar Billboard
+    const barBackGeo = new THREE.PlaneGeometry(1.4, 0.22);
+    const barBackMat = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide });
+    const barBack = new THREE.Mesh(barBackGeo, barBackMat);
+    barBack.position.set(0, 2.5, 0);
+    machineGroup.add(barBack);
+
+    const barFillGeo = new THREE.PlaneGeometry(1.36, 0.18);
+    const barFillMat = new THREE.MeshBasicMaterial({ color: 0xff5500, side: THREE.DoubleSide });
+    const barFill = new THREE.Mesh(barFillGeo, barFillMat);
+    barFill.position.set(0, 2.5, 0.01);
+    barFill.scale.set(0.001, 1, 1);
+    machineGroup.add(barFill);
+
+    const machineData = {
+      type: 'machine',
+      machineType: machineType,
+      inputItem: 'tomato',
+      outputItem: 'paste',
+      inputCount: 0,
+      inputNeeded: 2,
+      outputCount: 0,
+      maxOutput: 6,
+      cookDuration: 3.5,
+      cookTimer: 0,
+      isCooking: false,
+      position: pos,
+      radius: 2.2,
+      group: machineGroup,
+      barFill: barFill
+    };
+
+    this.machines.push(machineData);
+    this.interactiveObjects.push(machineData);
+    this.scene.add(machineGroup);
+
+    // Physical obstacle for machine
+    this.addObstacleBox(pos.x - 1.1, pos.x + 1.1, pos.z - 1.1, pos.z + 1.1);
+    return machineGroup;
   }
 
   initCheckoutCounter(pos) {
@@ -357,7 +445,7 @@ export class WorldScene {
     attachToonOutline(posMesh, 0.03);
     counterGroup.add(posMesh);
 
-    // Money Plate Table (Where cash bills stack)
+    // Money Plate Table
     const plateGeo = new THREE.BoxGeometry(0.8, 0.08, 0.8);
     const plateMat = createBrutalistMaterial(0x00ff66);
     const plateMesh = new THREE.Mesh(plateGeo, plateMat);
@@ -379,6 +467,9 @@ export class WorldScene {
 
     this.interactiveObjects.push(this.checkoutData);
     this.scene.add(counterGroup);
+
+    // Physical obstacle for counter
+    this.addObstacleBox(pos.x - 1.3, pos.x + 1.3, pos.z - 0.6, pos.z + 0.6);
   }
 
   addCashToDesk(amount) {
@@ -401,7 +492,7 @@ export class WorldScene {
       if (c.geometry) c.geometry.dispose();
     }
 
-    const billsCount = Math.min(12, Math.floor(this.checkoutData.cashBalanceOnDesk / 10));
+    const billsCount = Math.min(12, Math.floor(this.checkoutData.cashBalanceOnDesk / 6));
     for (let i = 0; i < billsCount; i++) {
       const billGeo = new THREE.BoxGeometry(0.4, 0.06, 0.25);
       const billMat = createBrutalistMaterial(0x00ff66);
@@ -444,7 +535,24 @@ export class WorldScene {
       });
     }
 
-    // Update shelves visuals
-    this.shelves.forEach((s) => this.updateShelfVisuals(s));
+    // Machine Cooking Loops
+    this.machines.forEach((m) => {
+      if (m.isCooking) {
+        m.cookTimer += dt;
+        const progress = Math.min(1.0, m.cookTimer / m.cookDuration);
+        m.barFill.scale.x = Math.max(0.001, progress);
+
+        if (m.cookTimer >= m.cookDuration) {
+          m.isCooking = false;
+          m.cookTimer = 0;
+          m.barFill.scale.x = 0.001;
+          m.outputCount++;
+        }
+      } else if (m.inputCount >= m.inputNeeded && m.outputCount < m.maxOutput) {
+        m.inputCount -= m.inputNeeded;
+        m.isCooking = true;
+        m.cookTimer = 0;
+      }
+    });
   }
 }

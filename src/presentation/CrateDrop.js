@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { createHazardTexture, createBrutalistMaterial, attachToonOutline } from './Materials.js';
+import { sound } from '../core/SoundManager.js';
 
 export class CrateDropAnimation {
   constructor(scene) {
@@ -62,6 +63,7 @@ export class CrateDropAnimation {
       duration: 0.08,
       ease: 'power1.out',
       onComplete: () => {
+        sound.playImpact();
         this.spawnDustParticles(targetPos);
       }
     });

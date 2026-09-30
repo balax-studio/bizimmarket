@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { attachToonOutline, createBrutalistMaterial } from '../presentation/Materials.js';
+import { ITEMS } from './catalog.js';
 
 export const CUSTOMER_PALETTES = [
   { body: 0xff5500, cap: 0x121316, skin: 0xffdbac },
@@ -23,9 +24,10 @@ export class Customer {
     this.requestedCount = 1 + Math.floor(Math.random() * 2);
     this.basket = [];
 
-    // HFSM State: 'ENTER' | 'TO_SHELF' | 'WAITING_ITEM' | 'TO_CHECKOUT' | 'WAITING_PAYMENT' | 'EXIT'
-    this.state = 'ENTER';
+    // HFSM State: 'ENTER_APPROACH' | 'ENTER_DOOR' | 'TO_SHELF' | 'WAITING_ITEM' | 'TO_CHECKOUT' | 'WAITING_PAYMENT' | 'EXIT_TO_DOOR' | 'EXIT_OUTSIDE' | 'EXIT_PARKING'
+    this.state = 'ENTER_APPROACH';
     this.waitTimer = 0;
+    this.pickupCooldown = 0;
     this.moveSpeed = 3.6;
     this.targetPos = new THREE.Vector3();
     this.isFinished = false;
@@ -60,14 +62,35 @@ export class Customer {
     capMesh.position.set(0, 1.55, 0);
     this.group.add(capMesh);
 
-    // Speech bubble billboard above head
+    // Billboard Speech Bubble with Canvas Texture
     this.speechGroup = new THREE.Group();
-    this.speechGroup.position.set(0, 2.0, 0);
+    this.speechGroup.position.set(0, 2.1, 0);
 
-    const bubbleGeo = new THREE.PlaneGeometry(0.8, 0.6);
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+
+    // Brutalist speech bubble box
+    ctx.fillStyle = '#1c1e22';
+    ctx.strokeStyle = '#00ff66';
+    ctx.lineWidth = 6;
+    ctx.fillRect(4, 4, 120, 88);
+    ctx.strokeRect(4, 4, 120, 88);
+
+    // Item text & icon
+    const itemData = ITEMS[this.requestedItem] || { icon: '🍅' };
+    ctx.font = '36px "Segoe UI Emoji", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${itemData.icon} x${this.requestedCount}`, 64, 48);
+
+    const bubbleTex = new THREE.CanvasTexture(canvas);
+    const bubbleGeo = new THREE.PlaneGeometry(0.9, 0.65);
     const bubbleMat = new THREE.MeshBasicMaterial({
-      color: 0x111111,
-      side: THREE.DoubleSide
+      map: bubbleTex,
+      transparent: true,
+      depthTest: false
     });
     this.bubbleMesh = new THREE.Mesh(bubbleGeo, bubbleMat);
     this.speechGroup.add(this.bubbleMesh);
@@ -75,13 +98,29 @@ export class Customer {
     this.group.add(this.speechGroup);
   }
 
-  update(dt, world) {
+  update(dt, world, camera) {
     if (this.isFinished) return;
 
+    // Billboard speech bubble to face camera
+    if (camera) {
+      this.speechGroup.quaternion.copy(camera.quaternion);
+    }
+
+    if (this.pickupCooldown > 0) {
+      this.pickupCooldown -= dt;
+    }
+
     switch (this.state) {
-      case 'ENTER': {
-        // Walk into mart center
-        this.targetPos.set(0, 0, -4);
+      case 'ENTER_APPROACH': {
+        this.targetPos.set(0, 0, 3.5); // Approach outside entrance
+        if (this.walkTowards(this.targetPos, dt)) {
+          this.state = 'ENTER_DOOR';
+        }
+        break;
+      }
+
+      case 'ENTER_DOOR': {
+        this.targetPos.set(0, 0, -1.0); // Step through doorway into market aisle
         if (this.walkTowards(this.targetPos, dt)) {
           this.state = 'TO_SHELF';
         }
@@ -89,17 +128,22 @@ export class Customer {
       }
 
       case 'TO_SHELF': {
-        // Find matching shelf
         const shelf = world.findShelfWithItem(this.requestedItem);
         if (shelf) {
           this.targetPos.copy(shelf.position).add(new THREE.Vector3(0, 0, 1.2));
           if (this.walkTowards(this.targetPos, dt)) {
-            // Reached shelf, attempt to pick item
+            // Reached shelf, pick with cooldown
             if (shelf.itemCount > 0) {
-              shelf.itemCount--;
-              this.basket.push(this.requestedItem);
-              if (this.basket.length >= this.requestedCount) {
-                this.state = 'TO_CHECKOUT';
+              if (this.pickupCooldown <= 0) {
+                shelf.itemCount--;
+                world.updateShelfVisuals(shelf);
+                this.basket.push(this.requestedItem);
+                this.pickupCooldown = 0.35;
+
+                if (this.basket.length >= this.requestedCount) {
+                  this.state = 'TO_CHECKOUT';
+                  this.speechGroup.visible = false;
+                }
               }
             } else {
               this.state = 'WAITING_ITEM';
@@ -107,8 +151,7 @@ export class Customer {
             }
           }
         } else {
-          // No shelf available, directly leave
-          this.state = 'EXIT';
+          this.state = 'EXIT_TO_DOOR';
         }
         break;
       }
@@ -117,21 +160,26 @@ export class Customer {
         this.waitTimer -= dt;
         const shelf = world.findShelfWithItem(this.requestedItem);
         if (shelf && shelf.itemCount > 0) {
-          shelf.itemCount--;
-          this.basket.push(this.requestedItem);
-          if (this.basket.length >= this.requestedCount) {
-            this.state = 'TO_CHECKOUT';
+          if (this.pickupCooldown <= 0) {
+            shelf.itemCount--;
+            world.updateShelfVisuals(shelf);
+            this.basket.push(this.requestedItem);
+            this.pickupCooldown = 0.35;
+
+            if (this.basket.length >= this.requestedCount) {
+              this.state = 'TO_CHECKOUT';
+              this.speechGroup.visible = false;
+            }
           }
         } else if (this.waitTimer <= 0) {
-          // Angry timeout, leave
-          this.state = 'EXIT';
+          this.state = 'EXIT_TO_DOOR';
+          this.speechGroup.visible = false;
         }
         break;
       }
 
       case 'TO_CHECKOUT': {
         const checkout = world.getCheckoutPos();
-        // Stand in queue in front of checkout
         this.targetPos.copy(checkout).add(new THREE.Vector3(0, 0, 1.5 + world.getQueueIndex(this) * 0.9));
         if (this.walkTowards(this.targetPos, dt)) {
           this.state = 'WAITING_PAYMENT';
@@ -140,12 +188,31 @@ export class Customer {
       }
 
       case 'WAITING_PAYMENT': {
-        // Handled by Checkout logic when player or cashier is present
+        // Handled by checkout cashier logic
         break;
       }
 
-      case 'EXIT': {
-        this.targetPos.set(-8, 0, 14); // Exit to parking lot
+      case 'EXIT_TO_DOOR': {
+        this.speechGroup.visible = false;
+        this.targetPos.set(0, 0, -0.5); // Approach entrance from inside
+        if (this.walkTowards(this.targetPos, dt)) {
+          this.state = 'EXIT_OUTSIDE';
+        }
+        break;
+      }
+
+      case 'EXIT_OUTSIDE': {
+        this.speechGroup.visible = false;
+        this.targetPos.set(0, 0, 3.5); // Step through doorway to outside
+        if (this.walkTowards(this.targetPos, dt)) {
+          this.state = 'EXIT_PARKING';
+        }
+        break;
+      }
+
+      case 'EXIT_PARKING': {
+        this.speechGroup.visible = false;
+        this.targetPos.set(-14, 0, 12); // Exit towards parking lot edge
         if (this.walkTowards(this.targetPos, dt)) {
           this.destroy();
         }

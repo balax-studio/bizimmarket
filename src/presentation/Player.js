@@ -7,7 +7,7 @@ export class Player {
     this.scene = scene;
     this.group = new THREE.Group();
     this.position = this.group.position;
-    this.position.set(0, 0, 0);
+    this.position.set(0, 0, -2);
 
     // Movement parameters
     this.maxSpeed = 7.2;
@@ -164,6 +164,11 @@ export class Player {
     // Apply movement
     this.position.addScaledVector(this.velocity, dt);
 
+    // Obstacle Collision Resolution (Sliding physics)
+    if (typeof this.resolveObstacles === 'function') {
+      this.resolveObstacles();
+    }
+
     // Bounds checking (megamap limits)
     this.position.x = Math.max(-28, Math.min(28, this.position.x));
     this.position.z = Math.max(-28, Math.min(28, this.position.z));
@@ -191,4 +196,51 @@ export class Player {
       mesh.rotation.x = offset.z * 0.8;
     }
   }
+
+  setWorld(world) {
+    this.world = world;
+  }
+
+  resolveObstacles() {
+    if (!this.world || !this.world.obstacles) return;
+
+    // ponytail: simple circular-AABB bounding penetration check with axis projection
+    const playerRadius = 0.45;
+    for (const obs of this.world.obstacles) {
+      if (obs.type === 'box') {
+        const minX = obs.min.x - playerRadius;
+        const maxX = obs.max.x + playerRadius;
+        const minZ = obs.min.z - playerRadius;
+        const maxZ = obs.max.z + playerRadius;
+
+        if (
+          this.position.x > minX &&
+          this.position.x < maxX &&
+          this.position.z > minZ &&
+          this.position.z < maxZ
+        ) {
+          const distLeft = Math.abs(this.position.x - minX);
+          const distRight = Math.abs(maxX - this.position.x);
+          const distTop = Math.abs(this.position.z - minZ);
+          const distBottom = Math.abs(maxZ - this.position.z);
+
+          const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+          if (minDist === distLeft) {
+            this.position.x = minX;
+            if (this.velocity.x > 0) this.velocity.x = 0;
+          } else if (minDist === distRight) {
+            this.position.x = maxX;
+            if (this.velocity.x < 0) this.velocity.x = 0;
+          } else if (minDist === distTop) {
+            this.position.z = minZ;
+            if (this.velocity.z > 0) this.velocity.z = 0;
+          } else if (minDist === distBottom) {
+            this.position.z = maxZ;
+            if (this.velocity.z < 0) this.velocity.z = 0;
+          }
+        }
+      }
+    }
+  }
 }
+

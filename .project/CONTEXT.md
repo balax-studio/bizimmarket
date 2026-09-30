@@ -1,6 +1,6 @@
 # Neo-Brutalist Arcade Market Tycoon — proje bağlamı
 
-Revision: 7 · Yetkili kaynak: .project/state.json
+Revision: 25 · Yetkili kaynak: .project/state.json
 
 Bu görünüm türetilmiştir. Güncel kanıt kontrolü için context komutunu çalıştır.
 
@@ -79,6 +79,28 @@ Türler ve bağlantı kuralları: `ontology` komutu / `ONTOLOJİ.md`.
   - Girdiler: pillar-visual, pillar-menu-build, econ-balance
   - Ürettiği nesneler: code-core
   - Etkin önkoşullar: yok
+  - Kabul güncelliği: güncel · tamamlanma sayısı: 3
+- T-FIX-PHASE-1 [done] Faz 1 optimizasyon, çarpışma fiziği ve ses efektleri düzeltmelerini tamamla (kayıt: done)
+  - Ölçüt: Her karede tekrarlanan raf geometri temizleme sızıntısı kaldırıldı.
+  - Ölçüt: Oyuncu için katı duvar ve reyon AABB kayma çarpışma fiziği uygulandı.
+  - Ölçüt: Harici dosya gerektirmeyen Web Audio API ses efektleri eklendi.
+  - Ölçüt: Müşteri konuşma balonları kameraya bakan billboard piktogramlara dönüştürüldü.
+  - İlgili nesneler: code-core, pillar-visual, pillar-menu-build
+  - Girdiler: code-core
+  - Ürettiği nesneler: yok
+  - Etkin önkoşullar: T-CORE-IMPLEMENTATION
+  - Üretici bağı: code-core ← T-CORE-IMPLEMENTATION
+  - Kabul güncelliği: güncel · tamamlanma sayısı: 2
+- T-FIX-PHASE-2 [done] Faz 2 oynanış döngüsü, otomasyon, müşteri yol bulma ve arayüz kısayolu düzeltmelerini tamamla (kayıt: done)
+  - Ölçüt: Oyuncu başlangıç konumu koridor ortasına alındı ve kasa reyonu çarpışma kutusu ayrıştırıldı.
+  - Ölçüt: İnşaat menüsü için B (aç/kapat), Escape ve R (döndür) klavye kısayolları eklendi.
+  - Ölçüt: Müşteri yapay zekası yalnızca dükkanda mevcut reyon ürünlerini talep eder ve kapı geçiş noktaları üzerinden duvardan geçmeden hareket eder.
+  - Ölçüt: İşe alınan stocker (reyoncu) otonom olarak tarladan domates toplayıp reyonlara ve salça kazanına taşır.
+  - İlgili nesneler: code-core, pillar-visual, pillar-menu-build
+  - Girdiler: code-core
+  - Ürettiği nesneler: yok
+  - Etkin önkoşullar: T-CORE-IMPLEMENTATION
+  - Üretici bağı: code-core ← T-CORE-IMPLEMENTATION
   - Kabul güncelliği: güncel · tamamlanma sayısı: 1
 
 ## Çalışılabilir görevler
