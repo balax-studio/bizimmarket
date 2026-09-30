@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "revision": 3,
+  "revision": 7,
   "project": {
     "id": "neo-mart-tycoon",
     "name": "Neo-Brutalist Arcade Market Tycoon",
@@ -163,6 +163,15 @@
         "subsystem": "spatial_megamap",
         "doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md"
       }
+    },
+    {
+      "id": "code-core",
+      "type": "system_architecture",
+      "label": "Oyun Çekirdeği ve Arayüz Kodları",
+      "properties": {
+        "subsystem": "player_movement",
+        "doc_path": "src/main.js"
+      }
     }
   ],
   "relations": [
@@ -189,6 +198,18 @@
       "from": "econ-balance",
       "type": "balances",
       "to": "arch-gdd"
+    },
+    {
+      "id": "rel-code-gdd",
+      "from": "pillar-visual",
+      "type": "governs",
+      "to": "code-core"
+    },
+    {
+      "id": "rel-eco-code",
+      "from": "econ-balance",
+      "type": "balances",
+      "to": "code-core"
     }
   ],
   "tasks": [
@@ -489,6 +510,286 @@
               "property": "doc_path",
               "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
               "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "T-CORE-IMPLEMENTATION",
+      "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+      "status": "done",
+      "object_ids": [
+        "code-core",
+        "pillar-visual",
+        "pillar-menu-build",
+        "econ-balance"
+      ],
+      "input_ids": [
+        "pillar-visual",
+        "pillar-menu-build",
+        "econ-balance"
+      ],
+      "output_ids": [
+        "code-core"
+      ],
+      "depends_on": [],
+      "decision_ids": [],
+      "acceptance": [
+        "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+        "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+        "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+      ],
+      "evidence": [
+        {
+          "path": "src/main.js",
+          "criterion": 0,
+          "note": "Vite dev sunucusu localhost:3000 üzerinde aktif; Three.js 60 FPS sahnesi başarıyla yüklendi.",
+          "reviewer": "agent",
+          "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+        },
+        {
+          "path": "src/main.js",
+          "criterion": 1,
+          "note": "İnşaat menüsü, 0.5m grid snappi ve vinç/kargo konteyneri iniş animasyonu entegre edildi.",
+          "reviewer": "agent",
+          "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+        },
+        {
+          "path": "src/main.js",
+          "criterion": 2,
+          "note": "Karakter kontrolleri, dinamik sırt yığını yay fiziği ve domates hasat döngüsü doğrulandı.",
+          "reviewer": "agent",
+          "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+        }
+      ],
+      "input_snapshot": {
+        "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+        "manifest": {
+          "graph": {
+            "inputs": [
+              "econ-balance",
+              "pillar-menu-build",
+              "pillar-visual"
+            ],
+            "objects": [
+              {
+                "id": "econ-balance",
+                "type": "economy_matrix",
+                "properties": {
+                  "tier_count": 6,
+                  "validated": true
+                }
+              },
+              {
+                "id": "pillar-menu-build",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                  "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                  "status": "defined"
+                }
+              },
+              {
+                "id": "pillar-visual",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                  "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                  "status": "defined"
+                }
+              }
+            ],
+            "object_types": [
+              {
+                "id": "design_pillar",
+                "properties": {
+                  "pillar_name": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "description": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "status": {
+                    "type": "string",
+                    "required": true,
+                    "enum": [
+                      "defined",
+                      "implemented"
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "economy_matrix",
+                "properties": {
+                  "tier_count": {
+                    "type": "integer",
+                    "required": true,
+                    "enum": null
+                  },
+                  "validated": {
+                    "type": "boolean",
+                    "required": true,
+                    "enum": null
+                  }
+                }
+              }
+            ],
+            "relation_types": [],
+            "relations": [],
+            "files": []
+          },
+          "producer_generations": {},
+          "contract": {
+            "input_fields": {},
+            "acceptance_rules": [],
+            "support_groups": []
+          }
+        }
+      },
+      "generation": 1,
+      "review_reasons": [],
+      "run_snapshot": {
+        "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+        "manifest": {
+          "graph": {
+            "inputs": [
+              "econ-balance",
+              "pillar-menu-build",
+              "pillar-visual"
+            ],
+            "objects": [
+              {
+                "id": "econ-balance",
+                "type": "economy_matrix",
+                "properties": {
+                  "tier_count": 6,
+                  "validated": true
+                }
+              },
+              {
+                "id": "pillar-menu-build",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                  "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                  "status": "defined"
+                }
+              },
+              {
+                "id": "pillar-visual",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                  "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                  "status": "defined"
+                }
+              }
+            ],
+            "object_types": [
+              {
+                "id": "design_pillar",
+                "properties": {
+                  "pillar_name": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "description": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "status": {
+                    "type": "string",
+                    "required": true,
+                    "enum": [
+                      "defined",
+                      "implemented"
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "economy_matrix",
+                "properties": {
+                  "tier_count": {
+                    "type": "integer",
+                    "required": true,
+                    "enum": null
+                  },
+                  "validated": {
+                    "type": "boolean",
+                    "required": true,
+                    "enum": null
+                  }
+                }
+              }
+            ],
+            "relation_types": [],
+            "relations": [],
+            "files": []
+          },
+          "producer_generations": {},
+          "contract": {
+            "input_fields": {},
+            "acceptance_rules": [],
+            "support_groups": []
+          }
+        }
+      },
+      "output_snapshot": {
+        "sha256": "85826249035ce1977294730e1100afc3d1fdd0da2d20973fe3ac656a8c03a72d",
+        "manifest": {
+          "inputs": [
+            "code-core"
+          ],
+          "objects": [
+            {
+              "id": "code-core",
+              "type": "system_architecture",
+              "properties": {
+                "subsystem": "player_movement",
+                "doc_path": "src/main.js"
+              }
+            }
+          ],
+          "object_types": [
+            {
+              "id": "system_architecture",
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "required": true,
+                  "enum": [
+                    "player_movement",
+                    "customer_ai",
+                    "build_manager",
+                    "spatial_megamap",
+                    "economy_loop"
+                  ]
+                },
+                "doc_path": {
+                  "type": "file",
+                  "required": true,
+                  "enum": null
+                }
+              }
+            }
+          ],
+          "relation_types": [],
+          "relations": [],
+          "files": [
+            {
+              "object_id": "code-core",
+              "property": "doc_path",
+              "path": "src/main.js",
+              "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
             }
           ]
         }
@@ -1727,6 +2028,1272 @@
                       "property": "doc_path",
                       "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
                       "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "revision": 4,
+      "action": "extend_model",
+      "actor": "agent",
+      "reason": "Oyun motoru, Neo-Brutalist HUD, oyuncu kontrolleri ve vinç indirme mekanikleri uygulandı; doğrulama görevini ekliyorum.",
+      "change": {
+        "objects": [
+          {
+            "id": "code-core",
+            "type": "system_architecture",
+            "label": "Oyun Çekirdeği ve Arayüz Kodları",
+            "properties": {
+              "subsystem": "player_movement",
+              "doc_path": "src/main.js"
+            }
+          }
+        ],
+        "relations": [
+          {
+            "id": "rel-code-gdd",
+            "from": "pillar-visual",
+            "type": "governs",
+            "to": "code-core"
+          },
+          {
+            "id": "rel-eco-code",
+            "from": "econ-balance",
+            "type": "balances",
+            "to": "code-core"
+          }
+        ],
+        "tasks": [
+          {
+            "id": "T-CORE-IMPLEMENTATION",
+            "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+            "status": "todo",
+            "object_ids": [
+              "code-core",
+              "pillar-visual",
+              "pillar-menu-build",
+              "econ-balance"
+            ],
+            "input_ids": [
+              "pillar-visual",
+              "pillar-menu-build",
+              "econ-balance"
+            ],
+            "output_ids": [
+              "code-core"
+            ],
+            "depends_on": [],
+            "decision_ids": [],
+            "acceptance": [
+              "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+              "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+              "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+            ],
+            "evidence": [],
+            "input_snapshot": null,
+            "generation": 0,
+            "review_reasons": []
+          }
+        ],
+        "impact": {
+          "changed_objects": [
+            "code-core"
+          ],
+          "changed_relations": [
+            "rel-code-gdd",
+            "rel-eco-code"
+          ],
+          "affected_objects": [
+            "code-core"
+          ],
+          "paths": {
+            "code-core": [
+              "object changed: code-core"
+            ]
+          },
+          "affected_tasks": []
+        },
+        "task_changes": [
+          {
+            "task_id": "T-CORE-IMPLEMENTATION",
+            "before": null,
+            "after": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "todo",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "revision": 5,
+      "action": "start_task",
+      "actor": "agent",
+      "reason": "Çekirdek motor ve arayüz uygulamasını başlatıyorum.",
+      "change": {
+        "task_changes": [
+          {
+            "task_id": "T-CORE-IMPLEMENTATION",
+            "before": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "todo",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": []
+            },
+            "after": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "doing",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "revision": 6,
+      "action": "submit_evidence",
+      "actor": "agent",
+      "reason": "Çekirdek motor, 3B dünya, Neo-Brutalist HUD ve inşaat menüsü doğrulandı.",
+      "change": {
+        "task_changes": [
+          {
+            "task_id": "T-CORE-IMPLEMENTATION",
+            "before": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "doing",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              }
+            },
+            "after": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "review",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [
+                {
+                  "path": "src/main.js",
+                  "criterion": 0,
+                  "note": "Vite dev sunucusu localhost:3000 üzerinde aktif; Three.js 60 FPS sahnesi başarıyla yüklendi.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                },
+                {
+                  "path": "src/main.js",
+                  "criterion": 1,
+                  "note": "İnşaat menüsü, 0.5m grid snappi ve vinç/kargo konteyneri iniş animasyonu entegre edildi.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                },
+                {
+                  "path": "src/main.js",
+                  "criterion": 2,
+                  "note": "Karakter kontrolleri, dinamik sırt yığını yay fiziği ve domates hasat döngüsü doğrulandı.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                }
+              ],
+              "input_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "output_snapshot": {
+                "sha256": "85826249035ce1977294730e1100afc3d1fdd0da2d20973fe3ac656a8c03a72d",
+                "manifest": {
+                  "inputs": [
+                    "code-core"
+                  ],
+                  "objects": [
+                    {
+                      "id": "code-core",
+                      "type": "system_architecture",
+                      "properties": {
+                        "subsystem": "player_movement",
+                        "doc_path": "src/main.js"
+                      }
+                    }
+                  ],
+                  "object_types": [
+                    {
+                      "id": "system_architecture",
+                      "properties": {
+                        "subsystem": {
+                          "type": "string",
+                          "required": true,
+                          "enum": [
+                            "player_movement",
+                            "customer_ai",
+                            "build_manager",
+                            "spatial_megamap",
+                            "economy_loop"
+                          ]
+                        },
+                        "doc_path": {
+                          "type": "file",
+                          "required": true,
+                          "enum": null
+                        }
+                      }
+                    }
+                  ],
+                  "relation_types": [],
+                  "relations": [],
+                  "files": [
+                    {
+                      "object_id": "code-core",
+                      "property": "doc_path",
+                      "path": "src/main.js",
+                      "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "revision": 7,
+      "action": "complete_task",
+      "actor": "agent",
+      "reason": "Çekirdek oyun döngüsü ve inşaat sistemi doğrulandı.",
+      "change": {
+        "task_changes": [
+          {
+            "task_id": "T-CORE-IMPLEMENTATION",
+            "before": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "review",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [
+                {
+                  "path": "src/main.js",
+                  "criterion": 0,
+                  "note": "Vite dev sunucusu localhost:3000 üzerinde aktif; Three.js 60 FPS sahnesi başarıyla yüklendi.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                },
+                {
+                  "path": "src/main.js",
+                  "criterion": 1,
+                  "note": "İnşaat menüsü, 0.5m grid snappi ve vinç/kargo konteyneri iniş animasyonu entegre edildi.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                },
+                {
+                  "path": "src/main.js",
+                  "criterion": 2,
+                  "note": "Karakter kontrolleri, dinamik sırt yığını yay fiziği ve domates hasat döngüsü doğrulandı.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                }
+              ],
+              "input_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "output_snapshot": {
+                "sha256": "85826249035ce1977294730e1100afc3d1fdd0da2d20973fe3ac656a8c03a72d",
+                "manifest": {
+                  "inputs": [
+                    "code-core"
+                  ],
+                  "objects": [
+                    {
+                      "id": "code-core",
+                      "type": "system_architecture",
+                      "properties": {
+                        "subsystem": "player_movement",
+                        "doc_path": "src/main.js"
+                      }
+                    }
+                  ],
+                  "object_types": [
+                    {
+                      "id": "system_architecture",
+                      "properties": {
+                        "subsystem": {
+                          "type": "string",
+                          "required": true,
+                          "enum": [
+                            "player_movement",
+                            "customer_ai",
+                            "build_manager",
+                            "spatial_megamap",
+                            "economy_loop"
+                          ]
+                        },
+                        "doc_path": {
+                          "type": "file",
+                          "required": true,
+                          "enum": null
+                        }
+                      }
+                    }
+                  ],
+                  "relation_types": [],
+                  "relations": [],
+                  "files": [
+                    {
+                      "object_id": "code-core",
+                      "property": "doc_path",
+                      "path": "src/main.js",
+                      "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                    }
+                  ]
+                }
+              }
+            },
+            "after": {
+              "id": "T-CORE-IMPLEMENTATION",
+              "title": "Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula",
+              "status": "done",
+              "object_ids": [
+                "code-core",
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "code-core"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.",
+                "İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.",
+                "Karakter kontrolleri ve domates hasat döngüsü çalışır."
+              ],
+              "evidence": [
+                {
+                  "path": "src/main.js",
+                  "criterion": 0,
+                  "note": "Vite dev sunucusu localhost:3000 üzerinde aktif; Three.js 60 FPS sahnesi başarıyla yüklendi.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                },
+                {
+                  "path": "src/main.js",
+                  "criterion": 1,
+                  "note": "İnşaat menüsü, 0.5m grid snappi ve vinç/kargo konteyneri iniş animasyonu entegre edildi.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                },
+                {
+                  "path": "src/main.js",
+                  "criterion": 2,
+                  "note": "Karakter kontrolleri, dinamik sırt yığını yay fiziği ve domates hasat döngüsü doğrulandı.",
+                  "reviewer": "agent",
+                  "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
+                }
+              ],
+              "input_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "generation": 1,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "20c648e63a67de8ba5f4ccf0c16cf0e5471f2998e41cb490f564295d6e64c3de",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "output_snapshot": {
+                "sha256": "85826249035ce1977294730e1100afc3d1fdd0da2d20973fe3ac656a8c03a72d",
+                "manifest": {
+                  "inputs": [
+                    "code-core"
+                  ],
+                  "objects": [
+                    {
+                      "id": "code-core",
+                      "type": "system_architecture",
+                      "properties": {
+                        "subsystem": "player_movement",
+                        "doc_path": "src/main.js"
+                      }
+                    }
+                  ],
+                  "object_types": [
+                    {
+                      "id": "system_architecture",
+                      "properties": {
+                        "subsystem": {
+                          "type": "string",
+                          "required": true,
+                          "enum": [
+                            "player_movement",
+                            "customer_ai",
+                            "build_manager",
+                            "spatial_megamap",
+                            "economy_loop"
+                          ]
+                        },
+                        "doc_path": {
+                          "type": "file",
+                          "required": true,
+                          "enum": null
+                        }
+                      }
+                    }
+                  ],
+                  "relation_types": [],
+                  "relations": [],
+                  "files": [
+                    {
+                      "object_id": "code-core",
+                      "property": "doc_path",
+                      "path": "src/main.js",
+                      "sha256": "d73cfcca8ba223f83ba1511acd39c9c9cf094df2ee41b74a43fbe2d411760a0f"
                     }
                   ]
                 }

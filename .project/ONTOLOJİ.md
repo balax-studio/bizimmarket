@@ -1,6 +1,6 @@
 # Neo-Brutalist Arcade Market Tycoon — Ontoloji
 
-Revizyon: 3. Canlı görünüm için `ontology` komutunu çalıştır.
+Revizyon: 7. Canlı görünüm için `ontology` komutunu çalıştır.
 
 ## Türler ve özellikler
 
@@ -30,6 +30,7 @@ Revizyon: 3. Canlı görünüm için `ontology` komutunu çalıştır.
 - **Menü Tabanlı İnşaat Sütunu** (`pillar-menu-build`, design_pillar): {"description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi", "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme", "status": "defined"}; durum: input; üretici: dış girdi
 - **6 Aşamalı Ekonomi ve Genişleme Matrisi** (`econ-balance`, economy_matrix): {"tier_count": 6, "validated": true}; durum: input; üretici: dış girdi
 - **Neo-Brutalist Tycoon GDD Belgesi** (`arch-gdd`, system_architecture): {"doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md", "subsystem": "spatial_megamap"}; durum: current; üretici: T-GDD-DESIGN
+- **Oyun Çekirdeği ve Arayüz Kodları** (`code-core`, system_architecture): {"doc_path": "src/main.js", "subsystem": "player_movement"}; durum: current; üretici: T-CORE-IMPLEMENTATION
 
 ## Nesne haritası
 
@@ -40,10 +41,13 @@ flowchart LR
   n2["Menü Tabanlı İnşaat Sütunu"]
   n3["6 Aşamalı Ekonomi ve Genişleme Matrisi"]
   n4["Neo-Brutalist Tycoon GDD Belgesi"]
+  n5["Oyun Çekirdeği ve Arayüz Kodları"]
   n0 -->|"Yönetir"| n4
   n1 -->|"Yönetir"| n4
   n2 -->|"Yönetir"| n4
   n3 -->|"Dengeler"| n4
+  n0 -->|"Yönetir"| n5
+  n3 -->|"Dengeler"| n5
 ```
 
 Oklar kayıtlı ilişki yönüdür; değişiklik etkisinin yönü üstte ayrıca tanımlıdır.
@@ -51,5 +55,6 @@ Oklar kayıtlı ilişki yönüdür; değişiklik etkisinin yönü üstte ayrıca
 ## Görevlerin veri bağları
 
 - **T-GDD-DESIGN — Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla**: girdiler [pillar-visual, pillar-megamap, pillar-menu-build, econ-balance], çıktılar [arch-gdd], durum done.
+- **T-CORE-IMPLEMENTATION — Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula**: girdiler [pillar-visual, pillar-menu-build, econ-balance], çıktılar [code-core], durum done.
 
 Etki yeniden inceleme ihtiyacıdır; nesnenin yanlış olduğu hükmü değildir.

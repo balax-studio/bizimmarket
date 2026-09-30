@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Neo-Mart Tycoon — 3D Arcade Idle</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Top HUD Bar -->
+    <header id="hud-top">
+      <div class="hud-pill cash" id="cash-pill">
+        <span class="hud-icon">💵</span>
+        <span id="cash-val">$100</span>
+      </div>
+
+      <div class="hud-pill objective" id="obj-pill">
+        <span>⚡ HEDEF:</span>
+        <span id="obj-text">DOMATES TARLASINA GİT VE HASAT ET</span>
+      </div>
+
+      <div class="hud-pill backpack" id="bp-pill">
+        <span class="hud-icon">📦</span>
+        <span id="bp-val">0 / 4</span>
+      </div>
+    </header>
+
+    <!-- Bottom HUD & Build Button -->
+    <div id="hud-bottom">
+      <button id="btn-open-build" class="btn-hazard" aria-label="İnşaat Menüsünü Aç">
+        <div class="btn-hazard-inner">
+          <span>🛠️</span>
+          <span>İNŞAAT VE DÜZENLE</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- Virtual Joystick for Touch / Mouse Drag -->
+    <div id="joystick-container">
+      <div class="joystick-base">
+        <div class="joystick-thumb" id="joystick-thumb"></div>
+      </div>
+    </div>
+
+    <!-- Construction & Layout Modal (Tactical Blueprint) -->
+    <aside id="build-modal" aria-hidden="true">
+      <div class="modal-header">
+        <span class="modal-title">📐 İNŞAAT VE DÜZENLEME MERKEZİ</span>
+        <button id="btn-close-build" class="btn-close" aria-label="Kapat">✕</button>
+      </div>
+
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="shelves">REYONLAR</button>
+        <button class="tab-btn" data-tab="machines">MAKİNELER</button>
+        <button class="tab-btn" data-tab="logistics">KASA & LOJİSTİK</button>
+        <button class="tab-btn" data-tab="staff">PERSONEL</button>
+        <button class="tab-btn" data-tab="parcels">ARSA GENİŞLETME</button>
+      </nav>
+
+      <div class="card-grid" id="card-grid">
+        <!-- Dynamically populated via BuildMenu.js -->
+      </div>
+    </aside>
+
+    <!-- Placement Confirmation Floating Bar -->
+    <div id="placement-bar">
+      <button id="btn-rotate" class="btn-action btn-rotate">⟳ DÖNDÜR (90°)</button>
+      <button id="btn-confirm-place" class="btn-action btn-confirm">✓ ONAYLA (VİNÇ ÇAĞIR)</button>
+      <button id="btn-cancel-place" class="btn-action btn-cancel">✕ İPTAL</button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

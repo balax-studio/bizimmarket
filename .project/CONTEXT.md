@@ -1,6 +1,6 @@
 # Neo-Brutalist Arcade Market Tycoon — proje bağlamı
 
-Revision: 3 · Yetkili kaynak: .project/state.json
+Revision: 7 · Yetkili kaynak: .project/state.json
 
 Bu görünüm türetilmiştir. Güncel kanıt kontrolü için context komutunu çalıştır.
 
@@ -38,10 +38,13 @@ Hedef kitle: Web ve mobil tarayıcılarda arcade-idle ve yönetim simülasyonu s
 - pillar-menu-build (design_pillar): Menü Tabanlı İnşaat Sütunu
 - econ-balance (economy_matrix): 6 Aşamalı Ekonomi ve Genişleme Matrisi
 - arch-gdd (system_architecture): Neo-Brutalist Tycoon GDD Belgesi
+- code-core (system_architecture): Oyun Çekirdeği ve Arayüz Kodları
 - pillar-visual → Yönetir → arch-gdd
 - pillar-megamap → Yönetir → arch-gdd
 - pillar-menu-build → Yönetir → arch-gdd
 - econ-balance → Dengeler → arch-gdd
+- pillar-visual → Yönetir → code-core
+- econ-balance → Dengeler → code-core
 
 ### Somut nesne değerleri
 
@@ -50,6 +53,7 @@ Hedef kitle: Web ve mobil tarayıcılarda arcade-idle ve yönetim simülasyonu s
 - pillar-menu-build: {"description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi", "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme", "status": "defined"}
 - econ-balance: {"tier_count": 6, "validated": true}
 - arch-gdd: {"doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md", "subsystem": "spatial_megamap"}
+- code-core: {"doc_path": "src/main.js", "subsystem": "player_movement"}
 
 Türler ve bağlantı kuralları: `ontology` komutu / `ONTOLOJİ.md`.
 
@@ -65,6 +69,15 @@ Türler ve bağlantı kuralları: `ontology` komutu / `ONTOLOJİ.md`.
   - İlgili nesneler: pillar-visual, pillar-megamap, pillar-menu-build, arch-gdd, econ-balance
   - Girdiler: pillar-visual, pillar-megamap, pillar-menu-build, econ-balance
   - Ürettiği nesneler: arch-gdd
+  - Etkin önkoşullar: yok
+  - Kabul güncelliği: güncel · tamamlanma sayısı: 1
+- T-CORE-IMPLEMENTATION [done] Three.js, Neo-Brutalist HUD ve İnşaat Menüsü çekirdeğini doğrula (kayıt: done)
+  - Ölçüt: Vite geliştirme sunucusu hatasız çalışır ve 60 FPS Three.js sahnesi yüklenir.
+  - Ölçüt: İnşaat menüsü, 0.5m grid snappi ve kargo vinç indirme animasyonu test edilir.
+  - Ölçüt: Karakter kontrolleri ve domates hasat döngüsü çalışır.
+  - İlgili nesneler: code-core, pillar-visual, pillar-menu-build, econ-balance
+  - Girdiler: pillar-visual, pillar-menu-build, econ-balance
+  - Ürettiği nesneler: code-core
   - Etkin önkoşullar: yok
   - Kabul güncelliği: güncel · tamamlanma sayısı: 1
 
