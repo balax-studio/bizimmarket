@@ -1,0 +1,1740 @@
+{
+  "schema_version": 3,
+  "revision": 3,
+  "project": {
+    "id": "neo-mart-tycoon",
+    "name": "Neo-Brutalist Arcade Market Tycoon",
+    "goal": "My Mini Mart türünde, tek megamap üzerinde Neo-Brutalist & Low-Poly estetiğinde menü tabanlı inşaat ve otomasyon mekaniklerine sahip web tabanlı 3B market tycoon oyunu tasarlamak ve geliştirmek",
+    "audience": "Web ve mobil tarayıcılarda arcade-idle ve yönetim simülasyonu seven oyuncular",
+    "scope": [
+      "Neo-Brutalist & Low-Poly 3B görsel tasarım (kontur çizgileri, ham beton, neon aksanlar)",
+      "Kesintisiz tek harita (megamap) dinamik genişleme mimarisi",
+      "Menü tabanlı ızgara yerleşim ve kargo/vinç indirme UX sistemi (yerdeki para çemberleri olmadan)",
+      "Karakter taşıma mekaniği, müşteri HFSM ve NavMesh yapay zekası",
+      "Kademe kademe genişleyen ekonomi ve otomasyon denge tablosu"
+    ],
+    "out_of_scope": [
+      "Bölüm/sahne geçişleri (level hopping)",
+      "Yerde duran para çemberleri/pedleri (floor pads)",
+      "Çok oyunculu (multiplayer) ağ desteği"
+    ],
+    "constraints": [
+      "Three.js + Vite + WebGL 60 FPS hedefi",
+      "Tek kalıcı harita üzerinde parsel bazlı duvar yıkımı ve dinamik NavMesh güncellemesi",
+      "Endüstriyel Neo-Brutalist tasarım dili (ham gri beton, asit yeşili, turuncu, siyah konturlar)"
+    ],
+    "open_questions": []
+  },
+  "ontology": {
+    "object_types": [
+      {
+        "id": "design_pillar",
+        "label": "Tasarım Sütunu",
+        "properties": {
+          "pillar_name": {
+            "type": "string",
+            "required": true,
+            "enum": null
+          },
+          "description": {
+            "type": "string",
+            "required": true,
+            "enum": null
+          },
+          "status": {
+            "type": "string",
+            "required": true,
+            "enum": [
+              "defined",
+              "implemented"
+            ]
+          }
+        }
+      },
+      {
+        "id": "system_architecture",
+        "label": "Sistem Mimarisi",
+        "properties": {
+          "subsystem": {
+            "type": "string",
+            "required": true,
+            "enum": [
+              "player_movement",
+              "customer_ai",
+              "build_manager",
+              "spatial_megamap",
+              "economy_loop"
+            ]
+          },
+          "doc_path": {
+            "type": "file",
+            "required": true,
+            "enum": null
+          }
+        }
+      },
+      {
+        "id": "economy_matrix",
+        "label": "Ekonomi Denge Matrisi",
+        "properties": {
+          "tier_count": {
+            "type": "integer",
+            "required": true,
+            "enum": null
+          },
+          "validated": {
+            "type": "boolean",
+            "required": true,
+            "enum": null
+          }
+        }
+      }
+    ],
+    "relation_types": [
+      {
+        "id": "governs",
+        "label": "Yönetir",
+        "from_type": "design_pillar",
+        "to_type": "system_architecture",
+        "from_min": 0,
+        "from_max": null,
+        "to_min": 1,
+        "to_max": null,
+        "impact": "none"
+      },
+      {
+        "id": "balances",
+        "label": "Dengeler",
+        "from_type": "economy_matrix",
+        "to_type": "system_architecture",
+        "from_min": 1,
+        "from_max": null,
+        "to_min": 1,
+        "to_max": null,
+        "impact": "none"
+      }
+    ]
+  },
+  "objects": [
+    {
+      "id": "pillar-visual",
+      "type": "design_pillar",
+      "label": "Neo-Brutalist & Low-Poly Sanat Sütunu",
+      "properties": {
+        "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+        "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+        "status": "defined"
+      }
+    },
+    {
+      "id": "pillar-megamap",
+      "type": "design_pillar",
+      "label": "Tek Megamap ve Duvar Yıkım Sütunu",
+      "properties": {
+        "pillar_name": "Tek ve Büyüyen Megamap",
+        "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+        "status": "defined"
+      }
+    },
+    {
+      "id": "pillar-menu-build",
+      "type": "design_pillar",
+      "label": "Menü Tabanlı İnşaat Sütunu",
+      "properties": {
+        "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+        "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+        "status": "defined"
+      }
+    },
+    {
+      "id": "econ-balance",
+      "type": "economy_matrix",
+      "label": "6 Aşamalı Ekonomi ve Genişleme Matrisi",
+      "properties": {
+        "tier_count": 6,
+        "validated": true
+      }
+    },
+    {
+      "id": "arch-gdd",
+      "type": "system_architecture",
+      "label": "Neo-Brutalist Tycoon GDD Belgesi",
+      "properties": {
+        "subsystem": "spatial_megamap",
+        "doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-vis-arch",
+      "from": "pillar-visual",
+      "type": "governs",
+      "to": "arch-gdd"
+    },
+    {
+      "id": "rel-map-arch",
+      "from": "pillar-megamap",
+      "type": "governs",
+      "to": "arch-gdd"
+    },
+    {
+      "id": "rel-bld-arch",
+      "from": "pillar-menu-build",
+      "type": "governs",
+      "to": "arch-gdd"
+    },
+    {
+      "id": "rel-eco-arch",
+      "from": "econ-balance",
+      "type": "balances",
+      "to": "arch-gdd"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-GDD-DESIGN",
+      "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+      "status": "done",
+      "object_ids": [
+        "pillar-visual",
+        "pillar-megamap",
+        "pillar-menu-build",
+        "arch-gdd",
+        "econ-balance"
+      ],
+      "input_ids": [
+        "pillar-visual",
+        "pillar-megamap",
+        "pillar-menu-build",
+        "econ-balance"
+      ],
+      "output_ids": [
+        "arch-gdd"
+      ],
+      "depends_on": [],
+      "decision_ids": [],
+      "acceptance": [
+        "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+        "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+        "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+      ],
+      "evidence": [
+        {
+          "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+          "criterion": 0,
+          "note": "Oyuncu kontrolleri, fiziksel dikey sırt yığını Verlet yay fiziği ve müşteri HFSM/NavMesh mimarisi detaylandırıldı.",
+          "reviewer": "agent",
+          "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+        },
+        {
+          "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+          "criterion": 1,
+          "note": "İnşaat menüsü, 0.5m grid raycast snappi ve endüstriyel vinç kargo kutusu iniş sekansı modellendi.",
+          "reviewer": "agent",
+          "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+        },
+        {
+          "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+          "criterion": 2,
+          "note": "6 kademeli tek harita genişleme ve ekonomi matrisi tablolandı.",
+          "reviewer": "agent",
+          "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+        }
+      ],
+      "input_snapshot": {
+        "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+        "manifest": {
+          "graph": {
+            "inputs": [
+              "econ-balance",
+              "pillar-megamap",
+              "pillar-menu-build",
+              "pillar-visual"
+            ],
+            "objects": [
+              {
+                "id": "econ-balance",
+                "type": "economy_matrix",
+                "properties": {
+                  "tier_count": 6,
+                  "validated": true
+                }
+              },
+              {
+                "id": "pillar-megamap",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Tek ve Büyüyen Megamap",
+                  "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                  "status": "defined"
+                }
+              },
+              {
+                "id": "pillar-menu-build",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                  "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                  "status": "defined"
+                }
+              },
+              {
+                "id": "pillar-visual",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                  "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                  "status": "defined"
+                }
+              }
+            ],
+            "object_types": [
+              {
+                "id": "design_pillar",
+                "properties": {
+                  "pillar_name": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "description": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "status": {
+                    "type": "string",
+                    "required": true,
+                    "enum": [
+                      "defined",
+                      "implemented"
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "economy_matrix",
+                "properties": {
+                  "tier_count": {
+                    "type": "integer",
+                    "required": true,
+                    "enum": null
+                  },
+                  "validated": {
+                    "type": "boolean",
+                    "required": true,
+                    "enum": null
+                  }
+                }
+              }
+            ],
+            "relation_types": [],
+            "relations": [],
+            "files": []
+          },
+          "producer_generations": {},
+          "contract": {
+            "input_fields": {},
+            "acceptance_rules": [],
+            "support_groups": []
+          }
+        }
+      },
+      "generation": 1,
+      "review_reasons": [],
+      "run_snapshot": {
+        "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+        "manifest": {
+          "graph": {
+            "inputs": [
+              "econ-balance",
+              "pillar-megamap",
+              "pillar-menu-build",
+              "pillar-visual"
+            ],
+            "objects": [
+              {
+                "id": "econ-balance",
+                "type": "economy_matrix",
+                "properties": {
+                  "tier_count": 6,
+                  "validated": true
+                }
+              },
+              {
+                "id": "pillar-megamap",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Tek ve Büyüyen Megamap",
+                  "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                  "status": "defined"
+                }
+              },
+              {
+                "id": "pillar-menu-build",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                  "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                  "status": "defined"
+                }
+              },
+              {
+                "id": "pillar-visual",
+                "type": "design_pillar",
+                "properties": {
+                  "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                  "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                  "status": "defined"
+                }
+              }
+            ],
+            "object_types": [
+              {
+                "id": "design_pillar",
+                "properties": {
+                  "pillar_name": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "description": {
+                    "type": "string",
+                    "required": true,
+                    "enum": null
+                  },
+                  "status": {
+                    "type": "string",
+                    "required": true,
+                    "enum": [
+                      "defined",
+                      "implemented"
+                    ]
+                  }
+                }
+              },
+              {
+                "id": "economy_matrix",
+                "properties": {
+                  "tier_count": {
+                    "type": "integer",
+                    "required": true,
+                    "enum": null
+                  },
+                  "validated": {
+                    "type": "boolean",
+                    "required": true,
+                    "enum": null
+                  }
+                }
+              }
+            ],
+            "relation_types": [],
+            "relations": [],
+            "files": []
+          },
+          "producer_generations": {},
+          "contract": {
+            "input_fields": {},
+            "acceptance_rules": [],
+            "support_groups": []
+          }
+        }
+      },
+      "output_snapshot": {
+        "sha256": "e9d7358b9cabe3d69a9b674d7516e22eed24e780a5d1933c68f199b8785af3b1",
+        "manifest": {
+          "inputs": [
+            "arch-gdd"
+          ],
+          "objects": [
+            {
+              "id": "arch-gdd",
+              "type": "system_architecture",
+              "properties": {
+                "subsystem": "spatial_megamap",
+                "doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md"
+              }
+            }
+          ],
+          "object_types": [
+            {
+              "id": "system_architecture",
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "required": true,
+                  "enum": [
+                    "player_movement",
+                    "customer_ai",
+                    "build_manager",
+                    "spatial_megamap",
+                    "economy_loop"
+                  ]
+                },
+                "doc_path": {
+                  "type": "file",
+                  "required": true,
+                  "enum": null
+                }
+              }
+            }
+          ],
+          "relation_types": [],
+          "relations": [],
+          "files": [
+            {
+              "object_id": "arch-gdd",
+              "property": "doc_path",
+              "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+              "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "decisions": [],
+  "history": [
+    {
+      "revision": 1,
+      "action": "start_task",
+      "actor": "agent",
+      "reason": "GDD ve sistem mimarisi belgelendi, başlangıcı kaydediyorum.",
+      "change": {
+        "task_changes": [
+          {
+            "task_id": "T-GDD-DESIGN",
+            "before": {
+              "id": "T-GDD-DESIGN",
+              "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+              "status": "todo",
+              "object_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "arch-gdd",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "arch-gdd"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+                "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+                "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": []
+            },
+            "after": {
+              "id": "T-GDD-DESIGN",
+              "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+              "status": "doing",
+              "object_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "arch-gdd",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "arch-gdd"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+                "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+                "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "revision": 2,
+      "action": "submit_evidence",
+      "actor": "agent",
+      "reason": "GDD ve Sistem Mimarisi belgesi tamamlandı.",
+      "change": {
+        "task_changes": [
+          {
+            "task_id": "T-GDD-DESIGN",
+            "before": {
+              "id": "T-GDD-DESIGN",
+              "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+              "status": "doing",
+              "object_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "arch-gdd",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "arch-gdd"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+                "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+                "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+              ],
+              "evidence": [],
+              "input_snapshot": null,
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              }
+            },
+            "after": {
+              "id": "T-GDD-DESIGN",
+              "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+              "status": "review",
+              "object_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "arch-gdd",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "arch-gdd"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+                "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+                "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+              ],
+              "evidence": [
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 0,
+                  "note": "Oyuncu kontrolleri, fiziksel dikey sırt yığını Verlet yay fiziği ve müşteri HFSM/NavMesh mimarisi detaylandırıldı.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                },
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 1,
+                  "note": "İnşaat menüsü, 0.5m grid raycast snappi ve endüstriyel vinç kargo kutusu iniş sekansı modellendi.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                },
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 2,
+                  "note": "6 kademeli tek harita genişleme ve ekonomi matrisi tablolandı.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                }
+              ],
+              "input_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "output_snapshot": {
+                "sha256": "e9d7358b9cabe3d69a9b674d7516e22eed24e780a5d1933c68f199b8785af3b1",
+                "manifest": {
+                  "inputs": [
+                    "arch-gdd"
+                  ],
+                  "objects": [
+                    {
+                      "id": "arch-gdd",
+                      "type": "system_architecture",
+                      "properties": {
+                        "subsystem": "spatial_megamap",
+                        "doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md"
+                      }
+                    }
+                  ],
+                  "object_types": [
+                    {
+                      "id": "system_architecture",
+                      "properties": {
+                        "subsystem": {
+                          "type": "string",
+                          "required": true,
+                          "enum": [
+                            "player_movement",
+                            "customer_ai",
+                            "build_manager",
+                            "spatial_megamap",
+                            "economy_loop"
+                          ]
+                        },
+                        "doc_path": {
+                          "type": "file",
+                          "required": true,
+                          "enum": null
+                        }
+                      }
+                    }
+                  ],
+                  "relation_types": [],
+                  "relations": [],
+                  "files": [
+                    {
+                      "object_id": "arch-gdd",
+                      "property": "doc_path",
+                      "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                      "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "revision": 3,
+      "action": "complete_task",
+      "actor": "agent",
+      "reason": "Tüm ölçütler docs/GDD_NEO_BRUTALIST_TYCOON.md belgesiyle karşılandı.",
+      "change": {
+        "task_changes": [
+          {
+            "task_id": "T-GDD-DESIGN",
+            "before": {
+              "id": "T-GDD-DESIGN",
+              "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+              "status": "review",
+              "object_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "arch-gdd",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "arch-gdd"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+                "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+                "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+              ],
+              "evidence": [
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 0,
+                  "note": "Oyuncu kontrolleri, fiziksel dikey sırt yığını Verlet yay fiziği ve müşteri HFSM/NavMesh mimarisi detaylandırıldı.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                },
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 1,
+                  "note": "İnşaat menüsü, 0.5m grid raycast snappi ve endüstriyel vinç kargo kutusu iniş sekansı modellendi.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                },
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 2,
+                  "note": "6 kademeli tek harita genişleme ve ekonomi matrisi tablolandı.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                }
+              ],
+              "input_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "generation": 0,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "output_snapshot": {
+                "sha256": "e9d7358b9cabe3d69a9b674d7516e22eed24e780a5d1933c68f199b8785af3b1",
+                "manifest": {
+                  "inputs": [
+                    "arch-gdd"
+                  ],
+                  "objects": [
+                    {
+                      "id": "arch-gdd",
+                      "type": "system_architecture",
+                      "properties": {
+                        "subsystem": "spatial_megamap",
+                        "doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md"
+                      }
+                    }
+                  ],
+                  "object_types": [
+                    {
+                      "id": "system_architecture",
+                      "properties": {
+                        "subsystem": {
+                          "type": "string",
+                          "required": true,
+                          "enum": [
+                            "player_movement",
+                            "customer_ai",
+                            "build_manager",
+                            "spatial_megamap",
+                            "economy_loop"
+                          ]
+                        },
+                        "doc_path": {
+                          "type": "file",
+                          "required": true,
+                          "enum": null
+                        }
+                      }
+                    }
+                  ],
+                  "relation_types": [],
+                  "relations": [],
+                  "files": [
+                    {
+                      "object_id": "arch-gdd",
+                      "property": "doc_path",
+                      "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                      "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                    }
+                  ]
+                }
+              }
+            },
+            "after": {
+              "id": "T-GDD-DESIGN",
+              "title": "Neo-Brutalist Megamap Market Tycoon GDD ve Sistem Mimarisini hazırla",
+              "status": "done",
+              "object_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "arch-gdd",
+                "econ-balance"
+              ],
+              "input_ids": [
+                "pillar-visual",
+                "pillar-megamap",
+                "pillar-menu-build",
+                "econ-balance"
+              ],
+              "output_ids": [
+                "arch-gdd"
+              ],
+              "depends_on": [],
+              "decision_ids": [],
+              "acceptance": [
+                "Temel sistem mimarisi (oyuncu kontrolleri, yığılan sırt taşıma kinematiği, müşteri HFSM ve dinamik NavMesh) eksiksiz belgelenmiş.",
+                "İnşaat menüsü, ızgara yerleşim raycast akışı ve endüstriyel kargo vinç iniş animasyonu UX detaylarıyla kurgulanmış.",
+                "6 kademeli tek harita genişleme ve ekonomi tablosu (parsel maliyetleri, üretim süreleri, kar marjları, personel kilidi) matematiksel tutarlılıkla hesaplanmış."
+              ],
+              "evidence": [
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 0,
+                  "note": "Oyuncu kontrolleri, fiziksel dikey sırt yığını Verlet yay fiziği ve müşteri HFSM/NavMesh mimarisi detaylandırıldı.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                },
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 1,
+                  "note": "İnşaat menüsü, 0.5m grid raycast snappi ve endüstriyel vinç kargo kutusu iniş sekansı modellendi.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                },
+                {
+                  "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                  "criterion": 2,
+                  "note": "6 kademeli tek harita genişleme ve ekonomi matrisi tablolandı.",
+                  "reviewer": "agent",
+                  "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                }
+              ],
+              "input_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "generation": 1,
+              "review_reasons": [],
+              "run_snapshot": {
+                "sha256": "d4b7349f03456226fbcba12ccb3761602f2f1054a3a35ce3b9678b66ea6539ab",
+                "manifest": {
+                  "graph": {
+                    "inputs": [
+                      "econ-balance",
+                      "pillar-megamap",
+                      "pillar-menu-build",
+                      "pillar-visual"
+                    ],
+                    "objects": [
+                      {
+                        "id": "econ-balance",
+                        "type": "economy_matrix",
+                        "properties": {
+                          "tier_count": 6,
+                          "validated": true
+                        }
+                      },
+                      {
+                        "id": "pillar-megamap",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Tek ve Büyüyen Megamap",
+                          "description": "Bölüm geçişi olmaksızın başlangıç beton dükkanından dışa doğru duvarları yıkarak açılan dinamik parseller",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-menu-build",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Menü Tabanlı İnşaat ve Vinç İndirme",
+                          "description": "Yerdeki halkalar yerine HUD menüsü üzerinden grid yerleşimi ve endüstriyel vinç kargo kutusu inişi",
+                          "status": "defined"
+                        }
+                      },
+                      {
+                        "id": "pillar-visual",
+                        "type": "design_pillar",
+                        "properties": {
+                          "pillar_name": "Neo-Brutalist & Low-Poly Sanat Tarzı",
+                          "description": "Ham beton zeminler, asit yeşili ve neon turuncu vurgular, siyah outline çizgileri, sert blok gölgeler",
+                          "status": "defined"
+                        }
+                      }
+                    ],
+                    "object_types": [
+                      {
+                        "id": "design_pillar",
+                        "properties": {
+                          "pillar_name": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "description": {
+                            "type": "string",
+                            "required": true,
+                            "enum": null
+                          },
+                          "status": {
+                            "type": "string",
+                            "required": true,
+                            "enum": [
+                              "defined",
+                              "implemented"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "id": "economy_matrix",
+                        "properties": {
+                          "tier_count": {
+                            "type": "integer",
+                            "required": true,
+                            "enum": null
+                          },
+                          "validated": {
+                            "type": "boolean",
+                            "required": true,
+                            "enum": null
+                          }
+                        }
+                      }
+                    ],
+                    "relation_types": [],
+                    "relations": [],
+                    "files": []
+                  },
+                  "producer_generations": {},
+                  "contract": {
+                    "input_fields": {},
+                    "acceptance_rules": [],
+                    "support_groups": []
+                  }
+                }
+              },
+              "output_snapshot": {
+                "sha256": "e9d7358b9cabe3d69a9b674d7516e22eed24e780a5d1933c68f199b8785af3b1",
+                "manifest": {
+                  "inputs": [
+                    "arch-gdd"
+                  ],
+                  "objects": [
+                    {
+                      "id": "arch-gdd",
+                      "type": "system_architecture",
+                      "properties": {
+                        "subsystem": "spatial_megamap",
+                        "doc_path": "docs/GDD_NEO_BRUTALIST_TYCOON.md"
+                      }
+                    }
+                  ],
+                  "object_types": [
+                    {
+                      "id": "system_architecture",
+                      "properties": {
+                        "subsystem": {
+                          "type": "string",
+                          "required": true,
+                          "enum": [
+                            "player_movement",
+                            "customer_ai",
+                            "build_manager",
+                            "spatial_megamap",
+                            "economy_loop"
+                          ]
+                        },
+                        "doc_path": {
+                          "type": "file",
+                          "required": true,
+                          "enum": null
+                        }
+                      }
+                    }
+                  ],
+                  "relation_types": [],
+                  "relations": [],
+                  "files": [
+                    {
+                      "object_id": "arch-gdd",
+                      "property": "doc_path",
+                      "path": "docs/GDD_NEO_BRUTALIST_TYCOON.md",
+                      "sha256": "fe17d705f86ff11c49560a911c8a531050db5fff20710f75fed92bd2322fb3d6"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
